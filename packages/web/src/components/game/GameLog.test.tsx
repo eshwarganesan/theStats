@@ -1,0 +1,146 @@
+import { describe, it, expect, beforeEach } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { useGameStore } from "@/lib/store";
+import { GameLog } from "./GameLog";
+import { seedReadyGame, addBench } from "@/test/seed";
+
+beforeEach(() => {
+  useGameStore.getState().resetAll();
+});
+
+describe("GameLog", () => {
+  it("renders the empty state when no events", () => {
+    seedReadyGame();
+    render(<GameLog />);
+    expect(screen.getByText("No actions yet.")).toBeInTheDocument();
+    expect(screen.getByText("0 events")).toBeInTheDocument();
+  });
+
+  it("lists events in reverse chronological order", () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordScore("home", players.homePlayer(0).id, "2pt", true);
+    useGameStore.getState().recordScore("away", players.awayPlayer(0).id, "3pt", true);
+    render(<GameLog />);
+    const items = screen.getAllByRole("listitem");
+    // Newest first: away 3pt, home 2pt, then period start
+    expect(items[0]?.textContent).toMatch(/Away 1/);
+    expect(items[1]?.textContent).toMatch(/Home 1/);
+  });
+
+  it("describes a made 3pt with the 3PT tag", () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordScore("home", players.homePlayer(0).id, "3pt", true);
+    render(<GameLog />);
+    expect(screen.getByText("3PT")).toBeInTheDocument();
+    expect(screen.getByText(/scored 3/)).toBeInTheDocument();
+  });
+
+  it("describes a missed shot with the MISS tag", () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordScore("home", players.homePlayer(0).id, "2pt", false);
+    render(<GameLog />);
+    expect(screen.getByText("MISS")).toBeInTheDocument();
+    expect(screen.getByText(/missed 2/)).toBeInTheDocument();
+  });
+
+  it("describes a free throw made with FT tag", () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordScore("home", players.homePlayer(0).id, "ft", true);
+    render(<GameLog />);
+    expect(screen.getByText("FT")).toBeInTheDocument();
+  });
+
+  it("describes a 2PT made with the 2PT tag", () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordScore("home", players.homePlayer(0).id, "2pt", true);
+    render(<GameLog />);
+    expect(screen.getByText("2PT")).toBeInTheDocument();
+  });
+
+  it("describes a foul with FOUL tag", () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordFoul("home", players.homePlayer(0).id, "personal");
+    render(<GameLog />);
+    expect(screen.getByText("FOUL")).toBeInTheDocument();
+    expect(screen.getByText(/Personal foul/)).toBeInTheDocument();
+  });
+
+  it("describes a stat (e.g. assist) with no tag chip but with text", () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordStat("home", players.homePlayer(0).id, "assist");
+    render(<GameLog />);
+    expect(screen.getByText(/Assist/)).toBeInTheDocument();
+  });
+
+  it("describes a substitution with SUB tag", () => {
+    const players = seedReadyGame();
+    addBench("home", 1);
+    useGameStore.getState().startGame();
+    const out = players.homePlayer(0);
+    const bench = useGameStore
+      .getState()
+      .homeTeam.roster.find((p) => p.name === "Bench 1")!;
+    useGameStore.getState().substitute("home", out.id, bench.id);
+    render(<GameLog />);
+    expect(screen.getByText("SUB")).toBeInTheDocument();
+    expect(screen.getByText(/Sub:/)).toBeInTheDocument();
+  });
+
+  it("describes a timeout with TO tag", () => {
+    seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordTimeout("home");
+    render(<GameLog />);
+    expect(screen.getByText("TO")).toBeInTheDocument();
+  });
+
+  it("describes period start (TIP) and end (END)", () => {
+    seedReadyGame();
+    useGameStore.getState().startGame(); // period start
+    useGameStore.getState().endPeriod();
+    render(<GameLog />);
+    expect(screen.getByText("TIP")).toBeInTheDocument();
+    expect(screen.getByText("END")).toBeInTheDocument();
+  });
+
+  it("renders 'Clock start' / 'Clock stop' for clock events", () => {
+    seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().startClock();
+    useGameStore.getState().stopClock();
+    render(<GameLog />);
+    expect(screen.getByText(/Clock start/)).toBeInTheDocument();
+    expect(screen.getByText(/Clock stop/)).toBeInTheDocument();
+  });
+
+  it("falls back to 'Unknown' if the playerId no longer exists", () => {
+    seedReadyGame();
+    useGameStore.getState().startGame();
+    // Insert a synthetic event for a non-existent player
+    useGameStore.setState((s) => ({
+      events: [
+        ...s.events,
+        {
+          type: "score",
+          id: "fake",
+          timestamp: Date.now(),
+          period: 1,
+          clockAt: 100,
+          side: "home",
+          playerId: "ghost",
+          kind: "2pt",
+          made: true,
+        },
+      ],
+    }));
+    render(<GameLog />);
+    expect(screen.getByText(/Unknown/)).toBeInTheDocument();
+  });
+});

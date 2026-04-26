@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------ */
+/* Root theme                                                         */
+/* ------------------------------------------------------------------ */
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body {
+    @apply bg-surface text-ink antialiased;
+    min-height: 100dvh;
+  }
+
+  body {
+    font-feature-settings: "ss01", "cv11";
+    /* Subtle radial grid for atmosphere — visible on large surfaces */
+    background-image:
+      radial-gradient(circle at 50% -10%, rgba(255, 107, 26, 0.06), transparent 50%),
+      linear-gradient(180deg, #0B0B0D 0%, #07070A 100%);
+    background-attachment: fixed;
+  }
+
+  /* Scoreboard numbers use tabular figures so digits don't jitter */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Focus ring — high contrast for arena use */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-surface;
+  }
+
+  ::selection {
+    background: rgba(255, 107, 26, 0.35);
+    color: #fff;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Component primitives                                               */
+/* ------------------------------------------------------------------ */
+@layer components {
+  .panel {
+    @apply bg-surface-elevated border border-surface-border;
+  }
+
+  .panel-raised {
+    @apply bg-surface-raised border border-surface-border;
+  }
+
+  /* Label styling used across the dashboard */
+  .label-eyebrow {
+    @apply text-[0.65rem] font-mono uppercase tracking-[0.18em] text-ink-dim;
+  }
+
+  /* Large uppercase heading used on setup & scoresheet pages */
+  .heading-display {
+    @apply font-display uppercase tracking-[0.02em];
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Utilities                                                          */
+/* ------------------------------------------------------------------ */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #2A2A32 transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #2A2A32;
+    border-radius: 3px;
+  }
+}

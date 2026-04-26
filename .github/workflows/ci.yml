@@ -32,6 +32,10 @@ jobs:
         working-directory: packages/web
         run: npm run test:coverage
       
+      - name: Install Playwright browsers
+        working-directory: packages/web
+        run: npx playwright install --with-deps
+
       - name: E2E tests
         working-directory: packages/web
         run: npm run test:e2e

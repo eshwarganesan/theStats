@@ -1,0 +1,18 @@
+[
+  {
+    "name": "Client JS — all chunks (gzipped)",
+    "path": ".next/static/chunks/**/*.js",
+    "limit": "300 KB",
+    "gzip": true
+  },
+  {
+    "name": "Framework + main runtime (gzipped)",
+    "path": [
+      ".next/static/chunks/framework-*.js",
+      ".next/static/chunks/main-*.js",
+      ".next/static/chunks/webpack-*.js"
+    ],
+    "limit": "120 KB",
+    "gzip": true
+  }
+]

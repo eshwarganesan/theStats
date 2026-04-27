@@ -93,12 +93,9 @@ function TeamScore({
         "px-5 md:px-7 py-4 flex items-center gap-5 md:gap-7 min-w-0",
         reversed && "flex-row-reverse",
       )}
-      style={
-        {
-          // Subtle team colour bleed — feels branded without shouting
-          background: `linear-gradient(${reversed ? "270deg" : "90deg"}, ${color}11, transparent)`,
-        } as React.CSSProperties
-      }
+      style={{
+        background: `linear-gradient(${reversed ? "270deg" : "90deg"}, ${color}11, transparent)`,
+      }}
     >
       {/* Team identity */}
       <div className={cn("min-w-0 flex flex-col", reversed && "items-end text-right")}>

@@ -11,27 +11,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: '18'
-      
+
       - name: Install dependencies
         working-directory: packages/web
         run: npm install
-      
+
       - name: Typecheck
         working-directory: packages/web
         run: npm run typecheck
-      
+
       - name: Lint
         working-directory: packages/web
         run: npm run lint
-      
+
       - name: Unit tests
         working-directory: packages/web
         run: npm run test:coverage
-      
+
       - name: Install Playwright browsers
         working-directory: packages/web
         run: npx playwright install --with-deps
@@ -39,3 +39,29 @@ jobs:
       - name: E2E tests
         working-directory: packages/web
         run: npm run test:e2e
+
+  perf-budget:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        working-directory: packages/web
+        run: npm install
+
+      - name: Build
+        working-directory: packages/web
+        run: npm run build
+
+      - name: Bundle size budget
+        working-directory: packages/web
+        run: npm run size
+
+      - name: Lighthouse CI (perf + a11y budgets)
+        working-directory: packages/web
+        run: npm run lhci

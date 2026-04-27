@@ -36,21 +36,22 @@ function settings(overrides: Partial<GameSettings> = {}): GameSettings {
   return { ...DEFAULT_SETTINGS["5v5"], ...overrides };
 }
 
-/**
- * Append-friendly event factory. Returns an unknown shape that the call
- * site asserts to `GameEvent` — `computeStats` only reads structural
- * fields, so this keeps tests terse without losing runtime correctness.
- */
-function ev<T extends GameEvent["type"]>(
-  type: T,
-  payload: Omit<Extract<GameEvent, { type: T }>, "type" | "id" | "timestamp">,
-): GameEvent {
+type EventOf<T extends GameEvent["type"]> = Extract<GameEvent, { type: T }>;
+type EventInput<T extends GameEvent["type"]> = Omit<EventOf<T>, "type" | "id" | "timestamp">;
+
+// Typed factory for `GameEvent` test fixtures. The single `as EventOf<T>`
+// cast is a well-known TypeScript limitation: spreading into a generic
+// discriminated union cannot be proved structurally (TS#27808). The cast
+// is narrow (preserves the variant via `Extract`) — strictly better than
+// the previous `as unknown as GameEvent` pattern, and the public signature
+// gives every call site the precise variant type.
+function ev<T extends GameEvent["type"]>(type: T, input: EventInput<T>): EventOf<T> {
   return {
     type,
     id: Math.random().toString(36).slice(2),
     timestamp: Date.now(),
-    ...payload,
-  } as unknown as GameEvent;
+    ...input,
+  } as EventOf<T>;
 }
 
 const homePlayer = makePlayer({ id: "h1", number: "10" });

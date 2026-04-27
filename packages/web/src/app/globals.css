@@ -23,6 +23,20 @@
       radial-gradient(circle at 50% -10%, rgba(255, 107, 26, 0.06), transparent 50%),
       linear-gradient(180deg, #0B0B0D 0%, #07070A 100%);
     background-attachment: fixed;
+    /* Suppress double-tap zoom and 300ms tap delay on touch devices while
+       leaving pinch-zoom intact for accessibility (WCAG 2.1 SC 1.4.4). */
+    touch-action: manipulation;
+  }
+
+  /* Prevent iOS Safari auto-zooming form fields on focus (triggers when
+     the input's font-size is < 16px). Scoped to mobile widths so the
+     designed type scale on desktop is unaffected. */
+  @media (max-width: 768px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
   }
 
   /* Scoreboard numbers use tabular figures so digits don't jitter */

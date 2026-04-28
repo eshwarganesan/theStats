@@ -139,6 +139,18 @@ export type GameEvent =
       action: "start" | "stop" | "reset";
     }
   | {
+      type: "clock";
+      id: ID;
+      timestamp: number;
+      period: number;
+      clockAt: number;
+      action: "adjust";
+      /** Clock value (in seconds) immediately before the adjustment was confirmed. */
+      from: number;
+      /** Clock value (in seconds) immediately after the adjustment was confirmed. Equals `clockAt`. */
+      to: number;
+    }
+  | {
       type: "period";
       id: ID;
       timestamp: number;

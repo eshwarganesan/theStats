@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { cn, uid, formatClock, formatPeriod } from "./utils";
+import { cn, uid, formatClock, formatPeriod, parseClock } from "./utils";
 
 describe("cn", () => {
   it("joins truthy class names", () => {
@@ -88,5 +88,57 @@ describe("formatPeriod", () => {
 
   it("falls back to Nth for periods past the named ordinals", () => {
     expect(formatPeriod(7, 10)).toBe("7th");
+  });
+});
+
+describe("parseClock", () => {
+  it("parses standard mm:ss", () => {
+    expect(parseClock("7:42")).toBe(462);
+  });
+
+  it("accepts leading zero on minutes", () => {
+    expect(parseClock("07:42")).toBe(462);
+  });
+
+  it("parses 0:00 as zero", () => {
+    expect(parseClock("0:00")).toBe(0);
+  });
+
+  it("parses pure-seconds shorthand (1-3 digits)", () => {
+    expect(parseClock("42")).toBe(42);
+    expect(parseClock("700")).toBe(700);
+    expect(parseClock("9")).toBe(9);
+  });
+
+  it("rejects seconds component out of range (>= 60)", () => {
+    expect(parseClock("7:60")).toBeNull();
+    expect(parseClock("7:99")).toBeNull();
+  });
+
+  it("rejects negative inputs", () => {
+    expect(parseClock("-1:00")).toBeNull();
+    expect(parseClock("-30")).toBeNull();
+  });
+
+  it("rejects empty input", () => {
+    expect(parseClock("")).toBeNull();
+  });
+
+  it("rejects non-numeric input", () => {
+    expect(parseClock("abc")).toBeNull();
+    expect(parseClock("ab:cd")).toBeNull();
+    expect(parseClock("1:0a")).toBeNull();
+  });
+
+  it("rejects missing minutes component", () => {
+    expect(parseClock(":30")).toBeNull();
+  });
+
+  it("rejects missing seconds component", () => {
+    expect(parseClock("5:")).toBeNull();
+  });
+
+  it("trims surrounding whitespace before parsing", () => {
+    expect(parseClock("  7:42  ")).toBe(462);
   });
 });

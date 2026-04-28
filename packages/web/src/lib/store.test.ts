@@ -314,13 +314,209 @@ describe("clock", () => {
     expect(get().clockSeconds).toBe(before);
   });
 
-  it("adjustClock clamps to [0, periodSeconds]", () => {
-    get().adjustClock(-50);
-    expect(get().clockSeconds).toBe(0);
-    get().adjustClock(99999);
-    expect(get().clockSeconds).toBe(get().settings.periodSeconds);
-    get().adjustClock(120);
-    expect(get().clockSeconds).toBe(120);
+  describe("adjustClock", () => {
+    it("clamps below 0 to 0 and emits one adjust event with to===0", () => {
+      const beforeEvents = get().events.length;
+      get().adjustClock(-30);
+      expect(get().clockSeconds).toBe(0);
+      expect(get().events.length).toBe(beforeEvents + 1);
+      const last = get().events.at(-1);
+      expect(last?.type).toBe("clock");
+      if (last?.type === "clock" && last.action === "adjust") {
+        expect(last.to).toBe(0);
+      } else {
+        throw new Error("expected a clock/adjust event");
+      }
+    });
+
+    it("clamps above period max to period max in regulation, with one event", () => {
+      // Move the clock off the period max so the clamp produces a real change
+      get().adjustClock(get().settings.periodSeconds - 60);
+      // Push the seed event into the past so the follow-up call doesn't
+      // coalesce with it.
+      const seed = get().events.at(-1);
+      if (seed?.type === "clock" && seed.action === "adjust") {
+        useGameStore.setState((s) => ({
+          events: s.events.map((e) =>
+            e.id === seed.id ? { ...e, timestamp: e.timestamp - 5000 } : e,
+          ),
+        }));
+      }
+      const max = get().settings.periodSeconds;
+      const beforeEvents = get().events.length;
+      get().adjustClock(max + 30);
+      expect(get().clockSeconds).toBe(max);
+      expect(get().events.length).toBe(beforeEvents + 1);
+      const last = get().events.at(-1);
+      if (last?.type === "clock" && last.action === "adjust") {
+        expect(last.to).toBe(max);
+      } else {
+        throw new Error("expected a clock/adjust event");
+      }
+    });
+
+    it("clamps above OT max to overtimeSeconds when in an overtime period", () => {
+      // Force overtime: currentPeriod > settings.periods
+      useGameStore.setState({ currentPeriod: get().settings.periods + 1 });
+      get().resetClock(); // resets to overtimeSeconds
+      const overtimeMax = get().settings.overtimeSeconds;
+      get().adjustClock(overtimeMax + 30);
+      expect(get().clockSeconds).toBe(overtimeMax);
+    });
+
+    it("uses periodSeconds (not overtimeSeconds) as max during regulation", () => {
+      // 5v5 defaults: periodSeconds=600, overtimeSeconds=300 — distinct
+      const period = get().settings.periodSeconds;
+      const ot = get().settings.overtimeSeconds;
+      expect(period).toBeGreaterThan(ot);
+      // Try to set above OT cap but within regulation cap
+      get().adjustClock(ot + 60);
+      expect(get().clockSeconds).toBe(ot + 60);
+    });
+
+    it("uses overtimeSeconds (not periodSeconds) as max during overtime — regression for the latent OT-cap defect", () => {
+      const period = get().settings.periodSeconds;
+      const ot = get().settings.overtimeSeconds;
+      expect(period).toBeGreaterThan(ot);
+      useGameStore.setState({ currentPeriod: get().settings.periods + 1 });
+      get().resetClock();
+      // Try to set above OT cap (but well within regulation cap) — must clamp to OT
+      get().adjustClock(period - 30);
+      expect(get().clockSeconds).toBe(ot);
+    });
+
+    it("no-ops (no event, no state change) when to === from", () => {
+      const beforeValue = get().clockSeconds;
+      const beforeEvents = get().events.length;
+      get().adjustClock(beforeValue);
+      expect(get().clockSeconds).toBe(beforeValue);
+      expect(get().events.length).toBe(beforeEvents);
+    });
+
+    it("no-ops when status is not live (setup)", () => {
+      get().resetAll(); // back to setup
+      const beforeValue = get().clockSeconds;
+      const beforeEvents = get().events.length;
+      get().adjustClock(120);
+      expect(get().clockSeconds).toBe(beforeValue);
+      expect(get().events.length).toBe(beforeEvents);
+    });
+
+    it("no-ops when status is finished", () => {
+      get().finishGame();
+      const beforeValue = get().clockSeconds;
+      const beforeEvents = get().events.length;
+      get().adjustClock(120);
+      expect(get().clockSeconds).toBe(beforeValue);
+      expect(get().events.length).toBe(beforeEvents);
+    });
+
+    it("no-ops when clockRunning is true", () => {
+      get().startClock();
+      const beforeValue = get().clockSeconds;
+      const beforeEvents = get().events.length;
+      get().adjustClock(120);
+      expect(get().clockSeconds).toBe(beforeValue);
+      expect(get().events.length).toBe(beforeEvents);
+    });
+
+    it("preserves clockRunning === false after a successful adjust", () => {
+      get().startClock();
+      get().stopClock();
+      get().adjustClock(120);
+      expect(get().clockRunning).toBe(false);
+    });
+
+    it("emitted event captures from, to, clockAt, period, and a wall-clock timestamp", () => {
+      const before = get().clockSeconds;
+      const t0 = Date.now();
+      get().adjustClock(before - 10);
+      const last = get().events.at(-1);
+      expect(last?.type).toBe("clock");
+      if (last?.type === "clock" && last.action === "adjust") {
+        expect(last.from).toBe(before);
+        expect(last.to).toBe(before - 10);
+        expect(last.clockAt).toBe(before);
+        expect(last.period).toBe(get().currentPeriod);
+        expect(last.timestamp).toBeGreaterThanOrEqual(t0);
+        expect(last.timestamp).toBeLessThanOrEqual(Date.now());
+      } else {
+        throw new Error("expected a clock/adjust event");
+      }
+    });
+
+    it("coalesces consecutive calls within the 1500 ms window into a single event", () => {
+      const start = get().clockSeconds;
+      const beforeEvents = get().events.length;
+      get().adjustClock(start - 1);
+      get().adjustClock(start - 2);
+      get().adjustClock(start - 3);
+      get().adjustClock(start - 4);
+      get().adjustClock(start - 5);
+      // Five rapid taps must produce exactly one new event with from→to
+      // bracketing the whole session.
+      expect(get().events.length).toBe(beforeEvents + 1);
+      const last = get().events.at(-1);
+      if (last?.type === "clock" && last.action === "adjust") {
+        expect(last.from).toBe(start);
+        expect(last.to).toBe(start - 5);
+      } else {
+        throw new Error("expected a single coalesced clock/adjust event");
+      }
+    });
+
+    it("emits a separate event when calls are spaced beyond the coalesce window", async () => {
+      const start = get().clockSeconds;
+      const beforeEvents = get().events.length;
+      get().adjustClock(start - 1);
+      // Push the recorded event's timestamp into the past so the next call
+      // falls outside the coalesce window without sleeping in real time.
+      const last = get().events.at(-1);
+      if (last?.type === "clock" && last.action === "adjust") {
+        useGameStore.setState((s) => ({
+          events: s.events.map((e) =>
+            e.id === last.id ? { ...e, timestamp: e.timestamp - 5000 } : e,
+          ),
+        }));
+      } else {
+        throw new Error("expected a clock/adjust event");
+      }
+      get().adjustClock(start - 2);
+      expect(get().events.length).toBe(beforeEvents + 2);
+      const a = get().events.at(-2);
+      const b = get().events.at(-1);
+      if (
+        a?.type === "clock" &&
+        a.action === "adjust" &&
+        b?.type === "clock" &&
+        b.action === "adjust"
+      ) {
+        expect(a.id).not.toBe(b.id);
+      }
+    });
+
+    it("drops a coalesced event when the session nets back to the original value", () => {
+      const start = get().clockSeconds;
+      const beforeEvents = get().events.length;
+      get().adjustClock(start - 1);
+      get().adjustClock(start); // nets back to start
+      // No persisted event should remain; clockSeconds is unchanged.
+      expect(get().events.length).toBe(beforeEvents);
+      expect(get().clockSeconds).toBe(start);
+    });
+
+    it("adjusting up from 0 does not advance the period or change status", () => {
+      // Tick the clock to 0 — store will pause itself per existing behavior
+      get().startClock();
+      get().tickClock(60 * 60 * 1000);
+      expect(get().clockSeconds).toBe(0);
+      expect(get().clockRunning).toBe(false);
+      const periodBefore = get().currentPeriod;
+      get().adjustClock(8);
+      expect(get().clockSeconds).toBe(8);
+      expect(get().status).toBe("live");
+      expect(get().currentPeriod).toBe(periodBefore);
+    });
   });
 
   it("resetClock returns to periodSeconds during regulation", () => {

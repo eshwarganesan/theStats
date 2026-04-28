@@ -353,9 +353,75 @@ export const useGameStore = create<GameState>()(
       }),
 
     adjustClock: (seconds) =>
-      set((s) => ({
-        clockSeconds: Math.max(0, Math.min(s.settings.periodSeconds, seconds)),
-      })),
+      set((s) => {
+        if (s.status !== "live") return s;
+        if (s.clockRunning) return s;
+
+        const max =
+          s.currentPeriod > s.settings.periods
+            ? s.settings.overtimeSeconds
+            : s.settings.periodSeconds;
+        const from = s.clockSeconds;
+        const to = Math.max(0, Math.min(max, seconds));
+
+        if (to === from) return s;
+
+        // Coalesce with the immediately-prior adjust event when this call
+        // continues a session — same period, prior `to` matches current
+        // `from`, and we are within the SC-006 1500 ms window. This collapses
+        // rapid nudge sequences into a single play-by-play entry.
+        const COALESCE_WINDOW_MS = 1500;
+        const last = s.events.at(-1);
+        const now = Date.now();
+        if (
+          last &&
+          last.type === "clock" &&
+          last.action === "adjust" &&
+          last.period === s.currentPeriod &&
+          last.to === from &&
+          now - last.timestamp <= COALESCE_WINDOW_MS
+        ) {
+          // Net no-op session (came back to where we started) — drop the
+          // event so the log doesn't keep a phantom from===to entry.
+          if (last.from === to) {
+            return {
+              clockSeconds: to,
+              events: s.events.slice(0, -1),
+            };
+          }
+          const merged: GameEvent = {
+            type: "clock",
+            id: last.id,
+            timestamp: now,
+            period: last.period,
+            clockAt: last.from,
+            action: "adjust",
+            from: last.from,
+            to,
+          };
+          return {
+            clockSeconds: to,
+            events: [...s.events.slice(0, -1), merged],
+          };
+        }
+
+        return {
+          clockSeconds: to,
+          events: [
+            ...s.events,
+            {
+              type: "clock",
+              id: uid(),
+              timestamp: now,
+              period: s.currentPeriod,
+              clockAt: from,
+              action: "adjust",
+              from,
+              to,
+            },
+          ],
+        };
+      }),
 
     // ── Gameplay ─────────────────────────────────────────────────────────
     recordScore: (side, playerId, kind, made) =>

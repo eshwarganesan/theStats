@@ -170,6 +170,15 @@ function describe(
         tagColor: "muted",
       };
     case "clock":
+      if (ev.action === "adjust") {
+        return {
+          text: `Clock adjusted ${formatClock(ev.from)} → ${formatClock(ev.to)}`,
+          sideColor: null,
+          emphasis: true,
+          tag: "ADJ",
+          tagColor: "accent",
+        };
+      }
       return {
         text: `Clock ${ev.action}`,
         sideColor: null,

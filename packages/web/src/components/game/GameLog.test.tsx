@@ -120,6 +120,33 @@ describe("GameLog", () => {
     expect(screen.getByText(/Clock stop/)).toBeInTheDocument();
   });
 
+  it("renders a clock adjustment with from→to values and an ADJ tag distinct from start/stop", () => {
+    seedReadyGame();
+    useGameStore.getState().startGame();
+    // Inject a synthetic adjust event so we don't rely on the (paused-only)
+    // adjustClock action mid-test.
+    useGameStore.setState((s) => ({
+      events: [
+        ...s.events,
+        {
+          type: "clock",
+          id: "adj-1",
+          timestamp: Date.now(),
+          period: 2,
+          clockAt: 462,
+          action: "adjust",
+          from: 462,
+          to: 465,
+        },
+      ],
+    }));
+    render(<GameLog />);
+    // ADJ tag exists and is unique among clock entries (no chip on start/stop)
+    expect(screen.getByText("ADJ")).toBeInTheDocument();
+    // Both formatted times are rendered (mm:ss for >= 60 seconds)
+    expect(screen.getByText(/07:42.*07:45/)).toBeInTheDocument();
+  });
+
   it("falls back to 'Unknown' if the playerId no longer exists", () => {
     seedReadyGame();
     useGameStore.getState().startGame();

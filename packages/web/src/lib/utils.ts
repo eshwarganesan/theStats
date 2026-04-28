@@ -39,6 +39,33 @@ export function formatClock(seconds: number): string {
 }
 
 /**
+ * Parse a user-typed clock string into total seconds.
+ *
+ * Accepts `mm:ss` / `m:ss` (minutes + seconds where seconds < 60) and
+ * pure-second shorthand (e.g. `42`, `700`). Returns `null` for any input
+ * that cannot be unambiguously interpreted — empty, non-numeric, negative,
+ * missing components, or seconds >= 60. Callers (the store action) clamp
+ * to the per-period maximum.
+ */
+export function parseClock(input: string): number | null {
+  const trimmed = input.trim();
+  if (trimmed === "") return null;
+  if (trimmed.startsWith("-")) return null;
+
+  if (trimmed.includes(":")) {
+    const match = /^(\d+):(\d+)$/.exec(trimmed);
+    if (!match) return null;
+    const minutes = Number(match[1]);
+    const seconds = Number(match[2]);
+    if (seconds >= 60) return null;
+    return minutes * 60 + seconds;
+  }
+
+  if (!/^\d+$/.test(trimmed)) return null;
+  return Number(trimmed);
+}
+
+/**
  * Ordinal form of a period number — 1st, 2nd, 3rd, 4th, OT1, OT2…
  * `regularPeriods` allows OT to begin numbering from 1 once past it.
  */

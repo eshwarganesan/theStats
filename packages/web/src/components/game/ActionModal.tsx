@@ -53,20 +53,10 @@ export function ActionModal({ open, onClose, side, playerId }: ActionModalProps)
             onClick={() => handle(() => recordScore(side, playerId, "2pt", true))}
           />
           <ActionTile
-            label="2 Missed"
-            sub="Field goal"
-            onClick={() => handle(() => recordScore(side, playerId, "2pt", false))}
-          />
-          <ActionTile
             primary
             label="+3 Made"
             sub="Three pointer"
             onClick={() => handle(() => recordScore(side, playerId, "3pt", true))}
-          />
-          <ActionTile
-            label="3 Missed"
-            sub="Three pointer"
-            onClick={() => handle(() => recordScore(side, playerId, "3pt", false))}
           />
           <ActionTile
             primary
@@ -75,32 +65,19 @@ export function ActionModal({ open, onClose, side, playerId }: ActionModalProps)
             onClick={() => handle(() => recordScore(side, playerId, "ft", true))}
           />
           <ActionTile
+            label="2 Missed"
+            sub="Field goal"
+            onClick={() => handle(() => recordScore(side, playerId, "2pt", false))}
+          />
+          <ActionTile
+            label="3 Missed"
+            sub="Three pointer"
+            onClick={() => handle(() => recordScore(side, playerId, "3pt", false))}
+          />
+          <ActionTile
             label="1 Missed"
             sub="Free throw"
             onClick={() => handle(() => recordScore(side, playerId, "ft", false))}
-          />
-        </Group>
-
-        <Group label="Fouls">
-          <ActionTile
-            variant="danger"
-            label="Personal"
-            onClick={() => handle(() => recordFoul(side, playerId, "personal"))}
-          />
-          <ActionTile
-            variant="danger"
-            label="Technical"
-            onClick={() => handle(() => recordFoul(side, playerId, "technical"))}
-          />
-          <ActionTile
-            variant="danger"
-            label="Unsportsmanlike"
-            onClick={() => handle(() => recordFoul(side, playerId, "unsportsmanlike"))}
-          />
-          <ActionTile
-            variant="danger"
-            label="Disqualifying"
-            onClick={() => handle(() => recordFoul(side, playerId, "disqualifying"))}
           />
         </Group>
 
@@ -128,6 +105,29 @@ export function ActionModal({ open, onClose, side, playerId }: ActionModalProps)
           <ActionTile
             label="Turnover"
             onClick={() => handle(() => recordStat(side, playerId, "turnover"))}
+          />
+        </Group>
+
+        <Group label="Fouls">
+          <ActionTile
+            variant="danger"
+            label="Personal"
+            onClick={() => handle(() => recordFoul(side, playerId, "personal"))}
+          />
+          <ActionTile
+            variant="danger"
+            label="Technical"
+            onClick={() => handle(() => recordFoul(side, playerId, "technical"))}
+          />
+          <ActionTile
+            variant="danger"
+            label="Unsportsmanlike"
+            onClick={() => handle(() => recordFoul(side, playerId, "unsportsmanlike"))}
+          />
+          <ActionTile
+            variant="danger"
+            label="Disqualifying"
+            onClick={() => handle(() => recordFoul(side, playerId, "disqualifying"))}
           />
         </Group>
       </div>

@@ -118,28 +118,30 @@ export function ClockAdjuster() {
       >
         {display}
       </button>
-      <button
-        type="button"
-        onClick={() => adjustClock(useGameStore.getState().clockSeconds - 1)}
-        disabled={clockSeconds <= 0}
-        className={cn(
-          "px-2 py-1 rounded border border-ink-muted text-sm font-medium",
-          "hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed",
-        )}
-      >
-        −1s
-      </button>
-      <button
-        type="button"
-        onClick={() => adjustClock(useGameStore.getState().clockSeconds + 1)}
-        disabled={clockSeconds >= periodMax}
-        className={cn(
-          "px-2 py-1 rounded border border-ink-muted text-sm font-medium",
-          "hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed",
-        )}
-      >
-        +1s
-      </button>
+      <span className="inline-flex flex-col gap-1">
+        <button
+          type="button"
+          onClick={() => adjustClock(useGameStore.getState().clockSeconds + 1)}
+          disabled={clockSeconds >= periodMax}
+          className={cn(
+            "px-2 py-1 rounded border border-ink-muted text-sm font-medium",
+            "hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed",
+          )}
+        >
+          ▲
+        </button>
+        <button
+          type="button"
+          onClick={() => adjustClock(useGameStore.getState().clockSeconds - 1)}
+          disabled={clockSeconds <= 0}
+          className={cn(
+            "px-2 py-1 rounded border border-ink-muted text-sm font-medium",
+            "hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed",
+          )}
+        >
+          ▼
+        </button>
+      </span>
     </span>
   );
 }

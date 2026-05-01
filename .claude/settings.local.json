@@ -4,7 +4,16 @@
       "Bash(npm install *)",
       "Bash(npx vitest *)",
       "Bash(npx playwright *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(.specify/extensions/git/scripts/bash/create-new-feature.sh --json --short-name \"adjust-clock-time\" \"Add the ability to adjust the time on the clock component when it is paused.\")",
+      "Bash(.specify/scripts/bash/update-agent-context.sh claude *)",
+      "Bash(.specify/scripts/bash/check-prerequisites.sh --json)",
+      "Bash(.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks)",
+      "Bash(npm test *)",
+      "Bash(git stash *)",
+      "Bash(xargs -I{} kill -9 {})",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

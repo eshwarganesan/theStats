@@ -121,6 +121,7 @@ export function ClockAdjuster() {
       <span className="inline-flex flex-col gap-1">
         <button
           type="button"
+          aria-label="+1s"
           onClick={() => adjustClock(useGameStore.getState().clockSeconds + 1)}
           disabled={clockSeconds >= periodMax}
           className={cn(
@@ -132,6 +133,7 @@ export function ClockAdjuster() {
         </button>
         <button
           type="button"
+          aria-label="-1s"
           onClick={() => adjustClock(useGameStore.getState().clockSeconds - 1)}
           disabled={clockSeconds <= 0}
           className={cn(

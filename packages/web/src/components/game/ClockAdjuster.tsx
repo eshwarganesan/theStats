@@ -118,7 +118,19 @@ export function ClockAdjuster() {
       >
         {display}
       </button>
-      <span className="inline-flex flex-col gap-1">
+      <span className="inline-flex flex-col-reverse gap-1">
+        <button
+          type="button"
+          aria-label="−1s"
+          onClick={() => adjustClock(useGameStore.getState().clockSeconds - 1)}
+          disabled={clockSeconds <= 0}
+          className={cn(
+            "px-2 py-1 rounded border border-ink-muted text-sm font-medium",
+            "hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed",
+          )}
+        >
+          ▼
+        </button>
         <button
           type="button"
           aria-label="+1s"
@@ -130,18 +142,6 @@ export function ClockAdjuster() {
           )}
         >
           ▲
-        </button>
-        <button
-          type="button"
-          aria-label="-1s"
-          onClick={() => adjustClock(useGameStore.getState().clockSeconds - 1)}
-          disabled={clockSeconds <= 0}
-          className={cn(
-            "px-2 py-1 rounded border border-ink-muted text-sm font-medium",
-            "hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed",
-          )}
-        >
-          ▼
         </button>
       </span>
     </span>

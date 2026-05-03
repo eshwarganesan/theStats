@@ -1,14 +1,30 @@
 "use client";
 
-import { ClockAdjuster } from "./ClockAdjuster";
+import { useGameStore } from "@/lib/store";
+import { cn, formatClock } from "@/lib/utils";
 
 /**
- * Compact clock display. Delegates to `ClockAdjuster` which owns the
- * styled formatted time and, when the game is live and the clock is
- * paused, layers in tap-to-edit and nudge controls. The play/stop button
- * is not included here — it lives in the main `ActionPad` so the
- * scoreboard can stay informational.
+ * Pure clock display. Subscribes to clock state and renders the styled
+ * formatted time — no editing, no nudges, no mutation. Composition with
+ * editing/nudge surfaces happens in `ClockPanel`.
  */
 export function GameClock() {
-  return <ClockAdjuster />;
+  const clockSeconds = useGameStore((s) => s.clockSeconds);
+  const clockRunning = useGameStore((s) => s.clockRunning);
+  const status = useGameStore((s) => s.status);
+
+  const critical = clockSeconds < 60 && clockSeconds > 0 && status === "live";
+
+  return (
+    <span
+      className={cn(
+        "font-mono text-clock tabular leading-none",
+        clockRunning ? "text-ink" : "text-ink-muted",
+        critical && "text-accent",
+      )}
+      aria-live="off"
+    >
+      {formatClock(clockSeconds)}
+    </span>
+  );
 }

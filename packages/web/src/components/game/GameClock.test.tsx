@@ -70,13 +70,14 @@ describe("GameClock", () => {
     expect(screen.getByText(formatClock(30)).className).not.toMatch(/text-accent/);
   });
 
-  it("composes ClockAdjuster so the edit trigger appears when live and paused", () => {
+  it("renders no interactive controls (display-only)", () => {
     useGameStore.setState({
       status: "live",
       clockSeconds: 305,
       clockRunning: false,
     });
     render(<GameClock />);
-    expect(screen.getByRole("button", { name: /adjust clock/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 });

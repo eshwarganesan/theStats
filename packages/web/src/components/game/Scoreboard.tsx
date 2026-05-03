@@ -5,7 +5,7 @@ import { useGameStore } from "@/lib/store";
 import { computeStats } from "@/lib/stats";
 import { formatPeriod } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { GameClock } from "./GameClock";
+import { ClockPanel } from "./ClockPanel";
 
 export function Scoreboard() {
   const homeTeam = useGameStore((s) => s.homeTeam);
@@ -45,7 +45,7 @@ export function Scoreboard() {
               ? "Break"
               : formatPeriod(currentPeriod, settings.periods)}
         </span>
-        <GameClock />
+        <ClockPanel />
       </div>
 
       <TeamScore

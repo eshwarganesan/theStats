@@ -29,8 +29,13 @@ export function uid(): string {
 export function formatClock(seconds: number): string {
   const clamped = Math.max(0, seconds);
   if (clamped < 60) {
-    const whole = Math.floor(clamped);
-    const tenths = Math.floor((clamped - whole) * 10);
+    // Snap to deciseconds in integer space so floating-point noise from
+    // typed input (e.g. 9.1 stored as 9.0999...) doesn't drop a tenth.
+    // Cap at 59.9 to avoid rolling 59.95+ into a malformed "60.0" — the
+    // mm:ss branch will pick up exactly-60 and above.
+    const totalTenths = Math.min(599, Math.round(clamped * 10));
+    const whole = Math.floor(totalTenths / 10);
+    const tenths = totalTenths % 10;
     return `${whole.toString().padStart(2, "0")}.${tenths}`;
   }
   const mins = Math.floor(clamped / 60);
@@ -41,11 +46,12 @@ export function formatClock(seconds: number): string {
 /**
  * Parse a user-typed clock string into total seconds.
  *
- * Accepts `mm:ss` / `m:ss` (minutes + seconds where seconds < 60) and
- * pure-second shorthand (e.g. `42`, `700`). Returns `null` for any input
- * that cannot be unambiguously interpreted — empty, non-numeric, negative,
- * missing components, or seconds >= 60. Callers (the store action) clamp
- * to the per-period maximum.
+ * Accepts `mm:ss[.t]` / `m:ss[.t]` (minutes + seconds where seconds < 60,
+ * with an optional single-digit tenths suffix) and pure-second shorthand
+ * with optional tenths (e.g. `42`, `700`, `42.5`). Returns `null` for any
+ * input that cannot be unambiguously interpreted — empty, non-numeric,
+ * negative, missing components, more than one tenths digit, or seconds
+ * >= 60. Callers (the store action) clamp to the per-period maximum.
  */
 export function parseClock(input: string): number | null {
   const trimmed = input.trim();
@@ -53,15 +59,16 @@ export function parseClock(input: string): number | null {
   if (trimmed.startsWith("-")) return null;
 
   if (trimmed.includes(":")) {
-    const match = /^(\d+):(\d+)$/.exec(trimmed);
+    const match = /^(\d+):(\d+)(?:\.(\d))?$/.exec(trimmed);
     if (!match) return null;
     const minutes = Number(match[1]);
     const seconds = Number(match[2]);
+    const tenths = match[3] !== undefined ? Number(match[3]) / 10 : 0;
     if (seconds >= 60) return null;
-    return minutes * 60 + seconds;
+    return minutes * 60 + seconds + tenths;
   }
 
-  if (!/^\d+$/.test(trimmed)) return null;
+  if (!/^\d+(?:\.\d)?$/.test(trimmed)) return null;
   return Number(trimmed);
 }
 

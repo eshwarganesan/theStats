@@ -67,6 +67,22 @@ describe("formatClock", () => {
     expect(formatClock(61)).toBe("01:01");
     expect(formatClock(3600)).toBe("60:00");
   });
+
+  it("absorbs floating-point noise from typed deciseconds", () => {
+    // These IEEE 754 representations are slightly less than the literal —
+    // a naive floor would render them as the previous tenth (regression
+    // test for the typed-input rounding bug).
+    expect(formatClock(9.1)).toBe("09.1");
+    expect(formatClock(4.3)).toBe("04.3");
+    expect(formatClock(0.1)).toBe("00.1");
+    expect(formatClock(7.7)).toBe("07.7");
+    expect(formatClock(58.9)).toBe("58.9");
+  });
+
+  it("caps sub-minute display at 59.9 so values in [59.95, 60) don't render '60.0'", () => {
+    expect(formatClock(59.95)).toBe("59.9");
+    expect(formatClock(59.99)).toBe("59.9");
+  });
 });
 
 describe("formatPeriod", () => {
@@ -140,5 +156,35 @@ describe("parseClock", () => {
 
   it("trims surrounding whitespace before parsing", () => {
     expect(parseClock("  7:42  ")).toBe(462);
+  });
+
+  it("parses pure-second shorthand with a tenths suffix", () => {
+    expect(parseClock("42.5")).toBe(42.5);
+    expect(parseClock("0.5")).toBe(0.5);
+    expect(parseClock("9.9")).toBe(9.9);
+  });
+
+  it("parses mm:ss with a tenths suffix", () => {
+    expect(parseClock("5:30.5")).toBeCloseTo(330.5);
+    expect(parseClock("0:30.5")).toBeCloseTo(30.5);
+    expect(parseClock("01:23.4")).toBeCloseTo(83.4);
+  });
+
+  it("still rejects seconds >= 60 even with a tenths suffix", () => {
+    expect(parseClock("5:60.5")).toBeNull();
+  });
+
+  it("rejects more than one digit of tenths", () => {
+    expect(parseClock("42.55")).toBeNull();
+    expect(parseClock("5:30.55")).toBeNull();
+  });
+
+  it("rejects a trailing decimal point with no tenths digit", () => {
+    expect(parseClock("42.")).toBeNull();
+    expect(parseClock("5:30.")).toBeNull();
+  });
+
+  it("rejects a leading decimal point with no whole part", () => {
+    expect(parseClock(".5")).toBeNull();
   });
 });

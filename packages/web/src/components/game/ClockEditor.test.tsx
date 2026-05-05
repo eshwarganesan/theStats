@@ -110,3 +110,58 @@ describe("ClockEditor — accessibility", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("ClockEditor — decisecond editing", () => {
+  it("pre-fills SS.T format when the clock is under 60 seconds", async () => {
+    setLivePaused(42.5);
+    const user = userEvent.setup();
+    render(<ClockEditor />);
+    await user.click(screen.getByRole("button", { name: /adjust clock/i }));
+    expect(screen.getByRole("textbox")).toHaveValue("42.5");
+  });
+
+  it("pre-fills SS.T with leading zero for sub-10s values", async () => {
+    setLivePaused(3.2);
+    const user = userEvent.setup();
+    render(<ClockEditor />);
+    await user.click(screen.getByRole("button", { name: /adjust clock/i }));
+    expect(screen.getByRole("textbox")).toHaveValue("03.2");
+  });
+
+  it("commits a typed SS.T value with tenths precision", async () => {
+    setLivePaused(42.5);
+    const user = userEvent.setup();
+    render(<ClockEditor />);
+    await user.click(screen.getByRole("button", { name: /adjust clock/i }));
+    const input = screen.getByRole("textbox");
+    await user.clear(input);
+    await user.type(input, "5.3{enter}");
+    expect(useGameStore.getState().clockSeconds).toBeCloseTo(5.3);
+  });
+
+  it("commits a typed mm:ss.T value with tenths precision", async () => {
+    setLivePaused(462);
+    const user = userEvent.setup();
+    render(<ClockEditor />);
+    await user.click(screen.getByRole("button", { name: /adjust clock/i }));
+    const input = screen.getByRole("textbox");
+    await user.clear(input);
+    await user.type(input, "1:23.4{enter}");
+    expect(useGameStore.getState().clockSeconds).toBeCloseTo(83.4);
+  });
+
+  it("round-trips a typed decisecond value through commit and re-open without dropping a tenth", async () => {
+    setLivePaused(0);
+    const user = userEvent.setup();
+    render(<ClockEditor />);
+    await user.click(screen.getByRole("button", { name: /adjust clock/i }));
+    let input = screen.getByRole("textbox");
+    await user.clear(input);
+    await user.type(input, "9.1{enter}");
+    expect(useGameStore.getState().clockSeconds).toBeCloseTo(9.1);
+
+    await user.click(screen.getByRole("button", { name: /adjust clock/i }));
+    input = screen.getByRole("textbox");
+    expect(input).toHaveValue("09.1");
+  });
+});

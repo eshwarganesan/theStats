@@ -118,7 +118,7 @@ function TeamBoxScore({ team, stats, totals }: TeamBoxScoreProps) {
                     line.fouledOut && "text-ink-dim line-through",
                   )}
                 >
-                  <Td className="pl-4 text-ink-muted">{player.number}</Td>
+                  <Td className="pl-4 text-ink-muted text-left">{player.number}</Td>
                   <Td className="text-left truncate max-w-[140px]">
                     {player.name}
                     {player.isCaptain ? (
@@ -183,7 +183,7 @@ function Th({ children, className }: { children: React.ReactNode; className?: st
     <th
       scope="col"
       className={cn(
-        "h-9 text-[0.65rem] font-mono uppercase tracking-wider text-ink-dim text-right px-1",
+        "h-9 text-[0.65rem] font-mono uppercase tracking-wider text-ink-dim text-center px-1",
         className,
       )}
     >
@@ -204,7 +204,7 @@ function Td({
   return (
     <td
       className={cn(
-        "h-9 text-right px-1",
+        "h-9 text-center px-1",
         strong && "text-ink font-medium",
         !strong && "text-ink-muted",
         className,

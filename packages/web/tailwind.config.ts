@@ -48,7 +48,7 @@ const config: Config = {
         // Scoreboard sizes
         "score-xl": ["clamp(4rem, 12vw, 10rem)", { lineHeight: "0.9", letterSpacing: "-0.04em" }],
         "score-lg": ["clamp(2.5rem, 7vw, 5rem)", { lineHeight: "0.9", letterSpacing: "-0.03em" }],
-        clock: ["clamp(2.5rem, 7vw, 4.5rem)", { lineHeight: "1", letterSpacing: "0.02em" }],
+        clock: ["clamp(2rem, 7vw, 5rem)", { lineHeight: "0.9", letterSpacing: "0.02em" }],
       },
       boxShadow: {
         "panel": "0 0 0 1px #2A2A32, 0 1px 2px rgba(0,0,0,0.4)",

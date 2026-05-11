@@ -57,7 +57,7 @@ export function ClockEditor() {
         }}
         onBlur={commit}
         className={cn(
-          "font-mono text-clock tabular leading-none bg-transparent",
+          "font-display text-clock tabular leading-none bg-transparent",
           "outline-none border-b border-ink-muted focus:border-ink",
           "w-[7ch] text-center text-ink",
         )}

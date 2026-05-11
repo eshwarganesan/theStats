@@ -42,6 +42,8 @@ function TeamBoxScore({ team, stats, totals }: TeamBoxScoreProps) {
   const totalsRow = stats.reduce(
     (acc, p) => ({
       points: acc.points + p.points,
+      reboundsOff: acc.reboundsOff + p.reboundsOff,
+      reboundsDef: acc.reboundsDef + p.reboundsDef,
       rebounds: acc.rebounds + p.rebounds,
       assists: acc.assists + p.assists,
       steals: acc.steals + p.steals,
@@ -49,7 +51,17 @@ function TeamBoxScore({ team, stats, totals }: TeamBoxScoreProps) {
       turnovers: acc.turnovers + p.turnovers,
       fouls: acc.fouls + p.fouls,
     }),
-    { points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0, fouls: 0 },
+    {
+      points: 0,
+      reboundsOff: 0,
+      reboundsDef: 0,
+      rebounds: 0,
+      assists: 0,
+      steals: 0,
+      blocks: 0,
+      turnovers: 0,
+      fouls: 0,
+    },
   );
 
   return (
@@ -84,6 +96,8 @@ function TeamBoxScore({ team, stats, totals }: TeamBoxScoreProps) {
               <Th>FG</Th>
               <Th>3P</Th>
               <Th>FT</Th>
+              <Th>OREB</Th>
+              <Th>DREB</Th>
               <Th>REB</Th>
               <Th>AST</Th>
               <Th>STL</Th>
@@ -124,6 +138,8 @@ function TeamBoxScore({ team, stats, totals }: TeamBoxScoreProps) {
                   <Td>
                     {line.ftMade}-{line.ftAttempted}
                   </Td>
+                  <Td>{line.reboundsOff}</Td>
+                  <Td>{line.reboundsDef}</Td>
                   <Td>{line.rebounds}</Td>
                   <Td>{line.assists}</Td>
                   <Td>{line.steals}</Td>
@@ -146,6 +162,8 @@ function TeamBoxScore({ team, stats, totals }: TeamBoxScoreProps) {
               <Td />
               <Td />
               <Td />
+              <Td>{totalsRow.reboundsOff}</Td>
+              <Td>{totalsRow.reboundsDef}</Td>
               <Td>{totalsRow.rebounds}</Td>
               <Td>{totalsRow.assists}</Td>
               <Td>{totalsRow.steals}</Td>

@@ -18,7 +18,7 @@ export function GameClock() {
   return (
     <span
       className={cn(
-        "font-mono text-clock tabular leading-none",
+        "font-display text-clock tabular leading-none",
         clockRunning ? "text-ink" : "text-ink-muted",
         critical && "text-accent",
       )}

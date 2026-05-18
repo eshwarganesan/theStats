@@ -120,6 +120,44 @@ export default function SetupPage() {
               }
             />
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <Input
+              label="Timeout (sec)"
+              type="number"
+              min={0}
+              max={600}
+              value={settings.timeoutSeconds}
+              onChange={(e) =>
+                setSettings({
+                  timeoutSeconds: Math.max(0, parseInt(e.target.value) || 0),
+                })
+              }
+            />
+            <Input
+              label="Quarter break (sec)"
+              type="number"
+              min={0}
+              max={1800}
+              value={settings.quarterBreakSeconds}
+              onChange={(e) =>
+                setSettings({
+                  quarterBreakSeconds: Math.max(0, parseInt(e.target.value) || 0),
+                })
+              }
+            />
+            <Input
+              label="Halftime (sec)"
+              type="number"
+              min={0}
+              max={1800}
+              value={settings.halftimeBreakSeconds}
+              onChange={(e) =>
+                setSettings({
+                  halftimeBreakSeconds: Math.max(0, parseInt(e.target.value) || 0),
+                })
+              }
+            />
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <Input
               label="Competition"

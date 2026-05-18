@@ -11,14 +11,21 @@ import { useGameStore } from "@/lib/store";
  * repaint). The hook does nothing when the clock is not running, so it is
  * safe to mount at the layout level.
  *
- * The hook reads `clockRunning` from the store as a selector so that the
- * effect only re-runs when the state *transitions*, not on every tick.
+ * The hook reads `clockRunning` and `status` from the store as selectors so
+ * the effect only re-runs when the state *transitions*, not on every tick.
+ * The loop runs whenever the live clock is running OR the game is in a
+ * timeout or between-period break (those break countdowns are driven by
+ * `tickClock` decrementing `breakSeconds`).
  */
 export function useGameClock(): void {
-  const running = useGameStore((s) => s.clockRunning);
+  const clockRunning = useGameStore((s) => s.clockRunning);
+  const status = useGameStore((s) => s.status);
   const tick = useGameStore((s) => s.tickClock);
   const lastRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
+
+  const running =
+    clockRunning || status === "timeout" || status === "period-break";
 
   useEffect(() => {
     if (!running) {

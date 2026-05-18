@@ -40,6 +40,10 @@ interface GameState {
   clockSeconds: number;
   /** Whether the clock is running. */
   clockRunning: boolean;
+  /** Remaining seconds on the active timeout or period-break countdown.
+   *  `0` when no break is active. Mutated only by tickClock, adjustClock,
+   *  recordTimeout, endPeriod, startNextPeriod, and endTimeout. */
+  breakSeconds: number;
   /** Events in chronological order. */
   events: GameEvent[];
   /** Which team has possession; `null` means not yet determined. */
@@ -63,6 +67,8 @@ interface GameState {
   endPeriod: () => void;
   startNextPeriod: () => void;
   finishGame: () => void;
+  /** End the active timeout and return to `live`. No-op when status !== "timeout". */
+  endTimeout: () => void;
 
   // ─── Clock actions ─────────────────────────────────────────────────────
   startClock: () => void;
@@ -108,6 +114,7 @@ export const useGameStore = create<GameState>()(
     currentPeriod: 1,
     clockSeconds: INITIAL_SETTINGS.periodSeconds,
     clockRunning: false,
+    breakSeconds: 0,
     events: [],
     possession: null,
     onCourt: { home: [], away: [] },
@@ -184,6 +191,7 @@ export const useGameStore = create<GameState>()(
         currentPeriod: 1,
         clockSeconds: DEFAULT_SETTINGS["5v5"].periodSeconds,
         clockRunning: false,
+        breakSeconds: 0,
         events: [],
         possession: null,
         onCourt: { home: [], away: [] },
@@ -250,9 +258,22 @@ export const useGameStore = create<GameState>()(
     endPeriod: () => {
       const { currentPeriod, settings } = get();
       const isLastRegular = currentPeriod >= settings.periods;
+      // Halftime applies between adjacent regulation periods that straddle
+      // the half boundary. For a 4-period game this is between p2 and p3;
+      // generalises to settings.periods/2 for any even period count.
+      const isHalfBoundary =
+        !isLastRegular &&
+        settings.periods % 2 === 0 &&
+        currentPeriod === settings.periods / 2;
+      const seededBreakSeconds = isLastRegular
+        ? 0
+        : isHalfBoundary
+          ? settings.halftimeBreakSeconds
+          : settings.quarterBreakSeconds;
       set((s) => ({
         status: isLastRegular ? "finished" : "period-break",
         clockRunning: false,
+        breakSeconds: seededBreakSeconds,
         events: [
           ...s.events,
           {
@@ -276,6 +297,7 @@ export const useGameStore = create<GameState>()(
         currentPeriod: nextPeriod,
         clockSeconds: nextLength,
         status: "live",
+        breakSeconds: 0,
         events: [
           ...s.events,
           {
@@ -291,6 +313,13 @@ export const useGameStore = create<GameState>()(
     },
 
     finishGame: () => set({ status: "finished", clockRunning: false }),
+
+    endTimeout: () =>
+      set((s) =>
+        s.status === "timeout"
+          ? { status: "live", breakSeconds: 0 }
+          : s,
+      ),
 
     // ── Clock ────────────────────────────────────────────────────────────
     startClock: () =>
@@ -342,6 +371,13 @@ export const useGameStore = create<GameState>()(
 
     tickClock: (deltaMs) =>
       set((s) => {
+        // Break states own a separate countdown (breakSeconds). When the
+        // game is in a timeout or between-period break, drive that one
+        // instead of the live game clock.
+        if (s.status === "timeout" || s.status === "period-break") {
+          const next = Math.max(0, s.breakSeconds - deltaMs / 1000);
+          return { breakSeconds: next };
+        }
         if (!s.clockRunning) return s;
         const next = Math.max(0, s.clockSeconds - deltaMs / 1000);
         if (next <= 0) {
@@ -354,6 +390,14 @@ export const useGameStore = create<GameState>()(
 
     adjustClock: (seconds) =>
       set((s) => {
+        // Break-state adjust mutates breakSeconds with a generous cap and
+        // does not emit any event (per spec clarification — breaks are
+        // transient UI/state and not recorded in the event log).
+        if (s.status === "timeout" || s.status === "period-break") {
+          const BREAK_MAX = 30 * 60;
+          const to = Math.max(0, Math.min(BREAK_MAX, seconds));
+          return { breakSeconds: to };
+        }
         if (s.status !== "live") return s;
         if (s.clockRunning) return s;
 
@@ -478,7 +522,9 @@ export const useGameStore = create<GameState>()(
 
     recordTimeout: (side) =>
       set((s) => ({
+        status: "timeout",
         clockRunning: false,
+        breakSeconds: s.settings.timeoutSeconds,
         events: [
           ...s.events,
           {

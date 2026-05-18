@@ -26,13 +26,13 @@ describe("ActionPad", () => {
     expect(useGameStore.getState().status).toBe("live");
   });
 
-  it("period-break: shows Start Next Period CTA", async () => {
+  it("period-break after period 1: shows Start Next Quarter CTA", async () => {
     seedReadyGame();
-    useGameStore.setState({ status: "period-break" });
+    useGameStore.setState({ status: "period-break", currentPeriod: 1 });
     const onStart = vi.fn();
     const user = userEvent.setup();
     render(<ActionPad onEndPeriod={noop} onStartNextPeriod={onStart} />);
-    const cta = screen.getByRole("button", { name: /Start Next Period/ });
+    const cta = screen.getByRole("button", { name: /Start Next Quarter/ });
     await user.click(cta);
     expect(onStart).toHaveBeenCalledOnce();
   });
@@ -122,5 +122,82 @@ describe("ActionPad", () => {
     useGameStore.setState({ status: "finished" });
     rerender(<ActionPad onEndPeriod={noop} onStartNextPeriod={noop} />);
     expect(screen.getByText(/Game complete/)).toBeInTheDocument();
+  });
+});
+
+// ─── Timeout & Break Gating (feature 002) ────────────────────────────────
+
+describe("ActionPad — timeout state (feature 002)", () => {
+  it("shows the End Timeout CTA and calls endTimeout when tapped", async () => {
+    seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordTimeout("home");
+    expect(useGameStore.getState().status).toBe("timeout");
+
+    const user = userEvent.setup();
+    render(<ActionPad onEndPeriod={noop} onStartNextPeriod={noop} />);
+
+    const cta = screen.getByRole("button", { name: /End Timeout/i });
+    await user.click(cta);
+    expect(useGameStore.getState().status).toBe("live");
+  });
+
+  it("hides the Undo and End Period secondary controls during a timeout", () => {
+    seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordTimeout("home");
+    render(<ActionPad onEndPeriod={noop} onStartNextPeriod={noop} />);
+
+    expect(screen.queryByRole("button", { name: /^Undo/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^End Period$/ })).toBeNull();
+  });
+
+  it("renders a timeout-specific hint", () => {
+    seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordTimeout("home");
+    render(<ActionPad onEndPeriod={noop} onStartNextPeriod={noop} />);
+    expect(screen.getByText(/tap End Timeout to resume/i)).toBeInTheDocument();
+  });
+});
+
+describe("ActionPad — period-break button labels (feature 002)", () => {
+  it("after period 2 of a 4-period game: shows Start Second Half", () => {
+    seedReadyGame();
+    useGameStore.setState({
+      status: "period-break",
+      currentPeriod: 2,
+    });
+    render(<ActionPad onEndPeriod={noop} onStartNextPeriod={noop} />);
+    expect(screen.getByRole("button", { name: /Start Second Half/i })).toBeInTheDocument();
+  });
+
+  it("after the last regulation period (going to OT): shows Start Overtime", () => {
+    seedReadyGame();
+    const { periods } = useGameStore.getState().settings;
+    useGameStore.setState({
+      status: "period-break",
+      currentPeriod: periods,
+    });
+    render(<ActionPad onEndPeriod={noop} onStartNextPeriod={noop} />);
+    expect(screen.getByRole("button", { name: /Start Overtime/i })).toBeInTheDocument();
+  });
+
+  it("after a non-half quarter (e.g., period 3 of 4): shows Start Next Quarter", () => {
+    seedReadyGame();
+    useGameStore.setState({
+      status: "period-break",
+      currentPeriod: 3,
+    });
+    render(<ActionPad onEndPeriod={noop} onStartNextPeriod={noop} />);
+    expect(screen.getByRole("button", { name: /Start Next Quarter/i })).toBeInTheDocument();
+  });
+
+  it("hides the Undo and End Period secondary controls during a period-break", () => {
+    seedReadyGame();
+    useGameStore.setState({ status: "period-break", currentPeriod: 1 });
+    render(<ActionPad onEndPeriod={noop} onStartNextPeriod={noop} />);
+    expect(screen.queryByRole("button", { name: /^Undo/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^End Period$/ })).toBeNull();
   });
 });

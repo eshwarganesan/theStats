@@ -116,4 +116,50 @@ describe("useGameClock", () => {
     unmount();
     expect(harness.caf).toHaveBeenCalled();
   });
+
+  it("drives the rAF loop while status is 'timeout' (feature 002)", () => {
+    const harness = installRafHarness();
+    renderHook(() => useGameClock());
+    act(() => {
+      useGameStore.setState({ status: "timeout", breakSeconds: 60 });
+    });
+    expect(harness.raf).toHaveBeenCalled();
+  });
+
+  it("drives the rAF loop while status is 'period-break' (feature 002)", () => {
+    const harness = installRafHarness();
+    renderHook(() => useGameClock());
+    act(() => {
+      useGameStore.setState({ status: "period-break", breakSeconds: 120 });
+    });
+    expect(harness.raf).toHaveBeenCalled();
+  });
+
+  it("ticks breakSeconds via tickClock while in 'timeout' state", () => {
+    const harness = installRafHarness();
+    renderHook(() => useGameClock());
+    act(() => {
+      useGameStore.setState({ status: "timeout", breakSeconds: 60 });
+    });
+    act(() => harness.step(0));
+    const before = useGameStore.getState().breakSeconds;
+    act(() => harness.step(1000));
+    expect(useGameStore.getState().breakSeconds).toBeCloseTo(before - 1.0, 5);
+    // Live clock unaffected
+    expect(useGameStore.getState().clockSeconds).toBe(600);
+  });
+
+  it("cancels the loop when status leaves a break state (e.g., endTimeout)", () => {
+    const harness = installRafHarness();
+    renderHook(() => useGameClock());
+    act(() => {
+      useGameStore.setState({ status: "timeout", breakSeconds: 60 });
+    });
+    expect(harness.raf).toHaveBeenCalled();
+
+    act(() => {
+      useGameStore.setState({ status: "live", breakSeconds: 0 });
+    });
+    expect(harness.caf).toHaveBeenCalled();
+  });
 });

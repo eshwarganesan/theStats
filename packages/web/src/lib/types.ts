@@ -55,6 +55,14 @@ export interface GameSettings {
   bonusFoulThreshold: number;
   /** Timeouts available per team for the whole game. */
   timeoutsPerGame: number;
+  /** Length of a single timeout, in seconds. */
+  timeoutSeconds: number;
+  /** Length of the break between adjacent periods that do NOT straddle the
+   *  halftime boundary (and between OT periods), in seconds. */
+  quarterBreakSeconds: number;
+  /** Length of the halftime break (between the last period of the first half
+   *  and the first period of the second half of regulation), in seconds. */
+  halftimeBreakSeconds: number;
   /** Venue / arena name, displayed on the scoresheet. */
   venue: string;
   /** Free-form competition / league name. */
@@ -164,6 +172,7 @@ export type GameStatus =
   | "setup" // still in pre-game setup screen
   | "ready" // teams/settings locked, about to tip off
   | "live" // game in progress
+  | "timeout" // a timeout is in progress, break countdown is active
   | "period-break" // between quarters / halves
   | "finished"; // final
 

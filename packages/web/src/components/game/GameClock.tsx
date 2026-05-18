@@ -12,8 +12,18 @@ export function GameClock() {
   const clockSeconds = useGameStore((s) => s.clockSeconds);
   const clockRunning = useGameStore((s) => s.clockRunning);
   const status = useGameStore((s) => s.status);
+  const breakSeconds = useGameStore((s) => s.breakSeconds);
 
-  const critical = clockSeconds < 60 && clockSeconds > 0 && status === "live";
+  // During a timeout or between-period break, the clock area shows the
+  // break countdown instead of the live game clock — unless the break
+  // duration is zero (either configured at zero, or the countdown has
+  // already finished ticking down), in which case fall back to the live
+  // game clock so the scorekeeper isn't staring at a frozen "00.0".
+  const inBreak = status === "timeout" || status === "period-break";
+  const displaySeconds = inBreak && breakSeconds > 0 ? breakSeconds : clockSeconds;
+
+  const critical =
+    displaySeconds < 60 && displaySeconds > 0 && status === "live";
 
   return (
     <span
@@ -24,7 +34,7 @@ export function GameClock() {
       )}
       aria-live="off"
     >
-      {formatClock(clockSeconds)}
+      {formatClock(displaySeconds)}
     </span>
   );
 }

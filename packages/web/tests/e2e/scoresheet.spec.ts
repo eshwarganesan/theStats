@@ -11,9 +11,9 @@ test("/game/scoresheet shows per-period and final score totals", async ({ page }
   await tapPlayerByNumber(page, "away", "11");
   await page.getByRole("button", { name: /^\+2 Made/ }).click();
 
-  // End P1, start P2
+  // End P1, start P2 — between Q1 and Q2 the button label is "Start Next Quarter".
   await page.getByRole("button", { name: /End Period/ }).last().click();
-  await page.getByRole("button", { name: /Start Next Period/ }).click();
+  await page.getByRole("button", { name: /Start Next Quarter/ }).click();
 
   // Period 2: away +3
   await tapPlayerByNumber(page, "away", "11");

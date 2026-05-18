@@ -12,9 +12,10 @@ test("ends a period via the secondary End Period button and starts the next", as
     .last();
   await endPeriodSecondary.click();
 
-  // Status: period-break — the centre CTA flips to "Start Next Period"
-  await expect(page.getByRole("button", { name: /Start Next Period/ })).toBeVisible();
-  await page.getByRole("button", { name: /Start Next Period/ }).click();
+  // Status: period-break — the centre CTA shows the period-appropriate label.
+  // From P1 → P2 in a 4-period game this is "Start Next Quarter".
+  await expect(page.getByRole("button", { name: /Start Next Quarter/ })).toBeVisible();
+  await page.getByRole("button", { name: /Start Next Quarter/ }).click();
 
   // Period label updates to 2nd in the Scoreboard centre column
   await expect(page.getByText("2nd").first()).toBeVisible();
@@ -24,11 +25,17 @@ test("finishes the game after the last regulation period", async ({ page }) => {
   await seedAndEnterGame(page);
   await page.getByRole("button", { name: /Tip Off/ }).click();
 
-  // End all 4 quarters
+  // End all 4 quarters. The "advance to next period" button label varies by
+  // boundary: Next Quarter between non-half quarters, Second Half after Q2.
+  const advanceLabels = [
+    /Start Next Quarter/, // after Q1 → Q2
+    /Start Second Half/, // after Q2 → Q3 (halftime boundary)
+    /Start Next Quarter/, // after Q3 → Q4
+  ];
   for (let p = 1; p <= 4; p++) {
     await page.getByRole("button", { name: /End Period/ }).last().click();
     if (p < 4) {
-      await page.getByRole("button", { name: /Start Next Period/ }).click();
+      await page.getByRole("button", { name: advanceLabels[p - 1]! }).click();
     }
   }
 

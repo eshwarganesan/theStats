@@ -13,6 +13,7 @@
 - Q: When the timeout/break countdown reaches zero, should the system auto-advance the game state or freeze at 0:00 and wait for the action button? → A: Freeze at 0:00 and wait for the explicit button tap.
 - Q: Should timeout/break start and end be recorded as discrete events in the game event log? → A: No — the break is purely a UI/state concern; no new event variants are added.
 - Q: Can the scorekeeper adjust the running timeout/break countdown the same way they adjust the live clock (tap-to-edit + nudges)? → A: No (revised 2026-05-18 after early UX feedback) — the countdown is read-only. The action button is the only interactive control during a timeout or between-period break, alongside the existing per-team controls in the team panels.
+- Q: What should the clock area show when the countdown reaches zero or when the configured break duration is zero? → A: Fall back to displaying the live game clock (`clockSeconds`). Frozen "00.0" is replaced by the underlying game time so the scorekeeper has useful context while still being able to tap the action button to leave the break.
 - Q: Should halftime be modeled as a distinct break with its own configurable duration? → A: Yes — three separate durations (timeout, between-quarter break, halftime break). Halftime applies between the first half and the second half of regulation; the between-quarter break applies between all other adjacent periods.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -29,7 +30,7 @@ A scorekeeper has just called a timeout (or the period buzzer has sounded). The 
 
 1. **Given** the game is in live play, **When** the scorekeeper calls a timeout, **Then** the clock area displays a countdown initialized to the configured timeout duration and counts down once per second.
 2. **Given** the game has just ended a period that is not the final period, **When** the period transition begins, **Then** the clock area displays a countdown initialized to the configured period-break duration.
-3. **Given** the clock area is displaying a timeout countdown, **When** the countdown reaches zero, **Then** the display freezes at zero (no negative time, no auto-skip) so the scorekeeper still has the option to resume play deliberately.
+3. **Given** the clock area is displaying a timeout countdown, **When** the countdown reaches zero, **Then** the clock area falls back to showing the live game time so the scorekeeper has useful context; the primary action button in the action pad remains visible and is still the way to resume play deliberately.
 
 ---
 
@@ -68,9 +69,9 @@ In the game setup menu, the scorekeeper can adjust the default timeout duration 
 ### Edge Cases
 
 - **Final period ends**: After the final regulation period concludes, the system should NOT start a between-period countdown if the game is finished. If overtime begins, the between-period countdown applies in the same way as between regulation periods.
-- **Configured duration of zero**: A scorekeeper might set the timeout or break duration to 0. In that case the countdown immediately shows zero and the action button is available for an immediate tap to resume — effectively skipping the break.
+- **Configured duration of zero**: A scorekeeper might set the timeout or break duration to 0. In that case the clock area never switches to a countdown — it continues displaying the live game clock — and the action button is available for an immediate tap to advance the state, effectively skipping the break visually.
 - **Timeout called while a between-period break is in progress**: Should be prevented at the source (the existing timeout-call action should already require live play). If somehow triggered, the timeout countdown takes precedence.
-- **Action button tapped after the countdown reached zero**: The button still works — it advances state. The zero-display is informational only.
+- **Action button tapped after the countdown reached zero**: The button still works — it advances state. By this point the clock area is already showing the live game time (per FR-004), so the tap simply unfreezes interaction and the state machine moves on.
 - **Setup-menu change during an active game**: Newly configured values apply to subsequent timeouts/breaks; an in-progress countdown is not retroactively adjusted.
 - **Multiple rapid taps on the action button**: Only the first tap should take effect; subsequent taps while the state transition is in flight should be no-ops.
 
@@ -81,7 +82,7 @@ In the game setup menu, the scorekeeper can adjust the default timeout duration 
 - **FR-001**: System MUST display a countdown timer in the game clock area while a timeout is in progress, initialized to the configured timeout duration and decrementing once per second.
 - **FR-002**: System MUST display a countdown timer in the game clock area while a between-period break is in progress, initialized to the configured between-quarter break duration (between adjacent periods that are not the halftime boundary) or the configured halftime break duration (between the last period of the first half and the first period of the second half), and decrementing once per second.
 - **FR-003**: System MUST NOT display the timeout/break countdown when the game is in any other state (setup, live play, finished).
-- **FR-004**: System MUST stop the countdown at zero (no negative time) and leave the display visible until the state transitions.
+- **FR-004**: System MUST stop the countdown at zero (no negative time). When the countdown is at zero — either because the configured duration was zero, or because the timer has finished ticking down — the clock area MUST fall back to displaying the live game clock (`clockSeconds`). The status itself remains `"timeout"` / `"period-break"`; the action button in the action pad is the only path to leave the break.
 - **FR-005**: System MUST display a single primary-action button adjacent to the clock area whenever — and only whenever — a timeout countdown or a between-period countdown is active.
 - **FR-006**: The action button's label MUST reflect the current state: "End Timeout" during a timeout, and a period-appropriate label such as "Start Next Quarter" / "Start Overtime" during a between-period break.
 - **FR-007**: Tapping the action button MUST advance the game state immediately, regardless of remaining countdown time: end the timeout (resume live play) or start the next period.
@@ -114,7 +115,7 @@ In the game setup menu, the scorekeeper can adjust the default timeout duration 
 
 - The timeout duration is a single global value per game (one duration covers all timeouts, regardless of which team called them and regardless of full vs short timeouts). Variable timeout types (e.g., NBA 60-second vs. 100-second media timeouts) are out of scope for v1 and can be added later if needed.
 - Two between-period break durations are modeled separately: a "between-quarter break" applied between any two adjacent periods that do *not* straddle the halftime boundary (and between OT periods), and a "halftime break" applied between the last period of the first half and the first period of the second half. Half-boundary is derived from the configured number of regulation periods (e.g., for 4 quarters, halftime falls between periods 2 and 3).
-- The countdown freezes at zero rather than auto-advancing the state. The scorekeeper retains explicit control over when play resumes, matching how the live game clock currently behaves when it hits zero.
+- The countdown freezes at zero rather than auto-advancing the state. The clock area then falls back to displaying the live game time so the scorekeeper sees useful context instead of "00.0"; the state machine itself stays in the break, and the action pad's button is still the only way to leave it.
 - The timeout/break countdown reuses the existing game-clock display area rather than rendering as a separate element. The existing tap-to-edit and ±1m / ±1s nudge controls are NOT rendered during the countdown — they reappear once the break ends and the live clock returns. If a scorekeeper needs to extend or shorten a break, that's done by ending the break early (via the action button) and re-triggering it, or via direct store mutation during development.
 - Default values: timeout duration = 60 seconds, between-quarter break duration = 120 seconds, halftime break duration = 600 seconds (10 minutes). These reflect common league norms (FIBA full timeout, ~2 minute period break, ~10 minute halftime) and can be overridden in setup.
 - The existing timeout-call action (already in the app) drives the state transition into "timeout"; this feature adds the countdown and action-button behavior on top of that existing state.

@@ -149,11 +149,14 @@ This is a pure function and lives inline in `ActionPad.tsx` (no new exported hel
 ### Clock display source (derived in `GameClock`)
 
 ```ts
-const display =
-  status === "timeout" || status === "period-break"
-    ? breakSeconds
-    : clockSeconds;
+const inBreak = status === "timeout" || status === "period-break";
+const display = inBreak && breakSeconds > 0 ? breakSeconds : clockSeconds;
 ```
+
+The `breakSeconds > 0` gate covers two cases:
+
+1. The configured break duration is `0`, so `breakSeconds` is seeded as `0` and the countdown is never shown — the clock area keeps the live game clock visible.
+2. A non-zero countdown has finished ticking. Once `breakSeconds` reaches `0`, the display falls back to `clockSeconds` instead of freezing at `00.0`. The status itself remains `"timeout"` / `"period-break"`; only the display source changes.
 
 ## 5. Event Log
 

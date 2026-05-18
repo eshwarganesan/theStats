@@ -216,10 +216,11 @@ The new fields (`timeoutSeconds`, `quarterBreakSeconds`, `halftimeBreakSeconds`)
 
 ### Clock display matrix (in `GameClock`)
 
-| `status` | Source field |
-|---|---|
-| `setup` / `ready` / `live` / `finished` | `clockSeconds` |
-| `timeout` / `period-break` | `breakSeconds` |
+| `status` | `breakSeconds` | Source field |
+|---|---|---|
+| `setup` / `ready` / `live` / `finished` | any | `clockSeconds` |
+| `timeout` / `period-break` | `> 0` | `breakSeconds` |
+| `timeout` / `period-break` | `0` (zero-configured or ticked down) | `clockSeconds` (fallback per FR-004) |
 
 ### ClockPanel editable surface
 

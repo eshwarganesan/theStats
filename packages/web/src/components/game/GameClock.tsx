@@ -15,10 +15,12 @@ export function GameClock() {
   const breakSeconds = useGameStore((s) => s.breakSeconds);
 
   // During a timeout or between-period break, the clock area shows the
-  // break countdown instead of the live game clock. Live game time is
-  // preserved in `clockSeconds` and resumes when the break ends.
-  const displaySeconds =
-    status === "timeout" || status === "period-break" ? breakSeconds : clockSeconds;
+  // break countdown instead of the live game clock — unless the break
+  // duration is zero (either configured at zero, or the countdown has
+  // already finished ticking down), in which case fall back to the live
+  // game clock so the scorekeeper isn't staring at a frozen "00.0".
+  const inBreak = status === "timeout" || status === "period-break";
+  const displaySeconds = inBreak && breakSeconds > 0 ? breakSeconds : clockSeconds;
 
   const critical =
     displaySeconds < 60 && displaySeconds > 0 && status === "live";

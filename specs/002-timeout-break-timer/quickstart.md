@@ -75,15 +75,24 @@ Open `http://localhost:3000` in a browser.
 3. Tap **Start Second Half**.
 4. **Expected**: period advances to 3rd, clock resets to 10:00, ActionPad returns to live controls.
 
-## 5. Verify the freeze-at-zero behavior
+## 5. Verify the zero-countdown fallback behavior
 
-1. From a paused live state, call a timeout (any team).
-2. Use the tap-to-edit to set the countdown to `00:03`.
-3. Wait 4 seconds.
-4. **Expected**:
-   - Countdown shows `00:00` and stays there (does not go negative, does not auto-advance).
-   - **End Timeout** button is still present and tappable.
-5. Tap **End Timeout** to resume live play.
+1. Open **Setup** and set `Timeout (sec)` to `0`. Continue to game.
+2. From a paused live state (e.g., clock at `09:52`), call a timeout (any team).
+3. **Expected**:
+   - The clock area continues to display the live game time (`09:52`) — no countdown is shown because the configured timeout was zero.
+   - The **End Timeout** button is visible in the ActionPad.
+4. Tap **End Timeout**. Live play resumes from `09:52` as expected.
+
+Now verify the same fallback when a non-zero countdown ticks down:
+
+5. Open Setup, set `Timeout (sec)` back to `5`. Return to game.
+6. Pause the clock and call a timeout.
+7. **Expected**:
+   - Countdown starts at `00:05` and ticks down.
+   - When it reaches `00:00`, the clock display swaps to the live game clock (whatever paused value it held before the timeout was called).
+   - The **End Timeout** button stays visible and tappable throughout.
+8. Tap **End Timeout** to resume live play.
 
 ## 6. Verify regression: existing flows still work
 

@@ -125,4 +125,48 @@ describe("GameClock", () => {
     rerender(<GameClock />);
     expect(screen.getByText(formatClock(420))).toBeInTheDocument();
   });
+
+  it("falls back to clockSeconds when status is 'timeout' but breakSeconds is 0 (zero-configured timeout)", () => {
+    useGameStore.setState({
+      status: "timeout",
+      clockSeconds: 420,
+      clockRunning: false,
+      breakSeconds: 0,
+    });
+    render(<GameClock />);
+    expect(screen.getByText(formatClock(420))).toBeInTheDocument();
+  });
+
+  it("falls back to clockSeconds when status is 'period-break' but breakSeconds is 0 (zero-configured break)", () => {
+    useGameStore.setState({
+      status: "period-break",
+      clockSeconds: 420,
+      clockRunning: false,
+      breakSeconds: 0,
+    });
+    render(<GameClock />);
+    expect(screen.getByText(formatClock(420))).toBeInTheDocument();
+  });
+
+  it("flips from breakSeconds back to clockSeconds when a running countdown ticks down to 0", () => {
+    const { rerender } = render(<GameClock />);
+    useGameStore.setState({
+      status: "timeout",
+      clockSeconds: 420,
+      clockRunning: false,
+      breakSeconds: 5,
+    });
+    rerender(<GameClock />);
+    expect(screen.getByText(formatClock(5))).toBeInTheDocument();
+
+    // Tick to 0 while still in timeout state — display should fall back.
+    useGameStore.setState({
+      status: "timeout",
+      clockSeconds: 420,
+      clockRunning: false,
+      breakSeconds: 0,
+    });
+    rerender(<GameClock />);
+    expect(screen.getByText(formatClock(420))).toBeInTheDocument();
+  });
 });

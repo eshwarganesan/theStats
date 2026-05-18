@@ -161,3 +161,4 @@ describe("ClockNudge — minutes variant (stepSeconds=60, unitLabel='m')", () =>
     expect(screen.getByRole("button", { name: /^\+1m$/i })).toBeDisabled();
   });
 });
+

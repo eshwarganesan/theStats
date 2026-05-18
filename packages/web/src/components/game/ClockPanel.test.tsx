@@ -32,12 +32,6 @@ describe("ClockPanel — visibility gating", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("renders only the formatted display when status is period-break", () => {
-    useGameStore.setState({ status: "period-break", clockSeconds: 305 });
-    render(<ClockPanel />);
-    expect(screen.queryByRole("button")).toBeNull();
-  });
-
   it("renders only the formatted display when the clock is running", () => {
     useGameStore.setState({
       status: "live",
@@ -95,5 +89,35 @@ describe("ClockPanel — integration", () => {
     expect(minusS).toHaveFocus();
     await user.tab();
     expect(plusS).toHaveFocus();
+  });
+});
+
+describe("ClockPanel — break states are read-only (feature 002)", () => {
+  it("renders only the read-only countdown display during status==='timeout' — no editor, no nudges", () => {
+    useGameStore.setState({
+      status: "timeout",
+      clockSeconds: 305,
+      clockRunning: false,
+      breakSeconds: 60,
+    });
+    render(<ClockPanel />);
+    // Countdown is visible (sourced from breakSeconds, not clockSeconds).
+    expect(screen.getByText(formatClock(60))).toBeInTheDocument();
+    // No interactive controls.
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("renders only the read-only countdown display during status==='period-break' — no editor, no nudges", () => {
+    useGameStore.setState({
+      status: "period-break",
+      clockSeconds: 305,
+      clockRunning: false,
+      breakSeconds: 120,
+    });
+    render(<ClockPanel />);
+    expect(screen.getByText(formatClock(120))).toBeInTheDocument();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 });

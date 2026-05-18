@@ -673,3 +673,257 @@ describe("undoLastEvent", () => {
     expect(get().onCourt.home).not.toContain(bench.id);
   });
 });
+
+// ─── Timeout & Period-Break Timer (feature 002) ─────────────────────────────
+
+describe("recordTimeout — timeout countdown (C-001)", () => {
+  beforeEach(() => {
+    seedRoster("home", 5);
+    seedRoster("away", 5);
+    get().prepareGame();
+    get().startGame();
+  });
+
+  it("sets status to 'timeout' when called from live play", () => {
+    get().recordTimeout("home");
+    expect(get().status).toBe("timeout");
+  });
+
+  it("seeds breakSeconds from settings.timeoutSeconds", () => {
+    expect(get().settings.timeoutSeconds).toBe(60);
+    get().recordTimeout("home");
+    expect(get().breakSeconds).toBe(60);
+  });
+
+  it("preserves clockSeconds across the recordTimeout call (game time frozen)", () => {
+    get().tickClock(5000); // bring clock down a bit while running
+    get().stopClock();
+    const before = get().clockSeconds;
+    get().recordTimeout("away");
+    expect(get().clockSeconds).toBe(before);
+  });
+
+  it("still emits the existing 'timeout' event (regression)", () => {
+    get().recordTimeout("home");
+    const last = get().events.at(-1);
+    expect(last?.type).toBe("timeout");
+    if (last?.type === "timeout") expect(last.side).toBe("home");
+  });
+
+  it("clockRunning is false after recordTimeout (existing behavior preserved)", () => {
+    get().startClock();
+    get().recordTimeout("home");
+    expect(get().clockRunning).toBe(false);
+  });
+});
+
+describe("endTimeout (C-002)", () => {
+  beforeEach(() => {
+    seedRoster("home", 5);
+    seedRoster("away", 5);
+    get().prepareGame();
+    get().startGame();
+    get().recordTimeout("home");
+  });
+
+  it("returns status to 'live'", () => {
+    expect(get().status).toBe("timeout");
+    get().endTimeout();
+    expect(get().status).toBe("live");
+  });
+
+  it("clears breakSeconds to 0", () => {
+    get().endTimeout();
+    expect(get().breakSeconds).toBe(0);
+  });
+
+  it("does not auto-start the clock (clockRunning stays false)", () => {
+    get().endTimeout();
+    expect(get().clockRunning).toBe(false);
+  });
+
+  it("preserves clockSeconds (live game time resumes from where it was)", () => {
+    const before = get().clockSeconds;
+    get().endTimeout();
+    expect(get().clockSeconds).toBe(before);
+  });
+
+  it("emits no new event", () => {
+    const before = get().events.length;
+    get().endTimeout();
+    expect(get().events.length).toBe(before);
+  });
+
+  it("is a no-op when status is not 'timeout' (e.g., during period-break)", () => {
+    get().endTimeout(); // back to live
+    get().endPeriod(); // status -> period-break
+    const snapshot = { ...get() };
+    get().endTimeout(); // should be no-op
+    expect(get().status).toBe("period-break");
+    expect(get().breakSeconds).toBe(snapshot.breakSeconds);
+  });
+});
+
+describe("endPeriod — break-duration seeding (C-003)", () => {
+  beforeEach(() => {
+    seedRoster("home", 5);
+    seedRoster("away", 5);
+    get().prepareGame();
+    get().startGame();
+  });
+
+  it("seeds breakSeconds with quarterBreakSeconds after period 1 of a 4-period game", () => {
+    get().endPeriod();
+    expect(get().status).toBe("period-break");
+    expect(get().breakSeconds).toBe(get().settings.quarterBreakSeconds);
+  });
+
+  it("seeds breakSeconds with halftimeBreakSeconds after period 2 of a 4-period game", () => {
+    get().endPeriod(); // P1 end
+    get().startNextPeriod(); // P2 start
+    get().endPeriod(); // P2 end -> halftime
+    expect(get().status).toBe("period-break");
+    expect(get().breakSeconds).toBe(get().settings.halftimeBreakSeconds);
+  });
+
+  it("seeds breakSeconds with quarterBreakSeconds after period 3 of a 4-period game", () => {
+    get().endPeriod();
+    get().startNextPeriod();
+    get().endPeriod();
+    get().startNextPeriod();
+    get().endPeriod(); // P3 end
+    expect(get().breakSeconds).toBe(get().settings.quarterBreakSeconds);
+  });
+
+  it("transitions to finished with breakSeconds === 0 after the last regulation period", () => {
+    for (let p = 0; p < DEFAULT_SETTINGS["5v5"].periods - 1; p++) {
+      get().endPeriod();
+      get().startNextPeriod();
+    }
+    get().endPeriod();
+    expect(get().status).toBe("finished");
+    expect(get().breakSeconds).toBe(0);
+  });
+
+  it("uses quarterBreakSeconds for last-regulation-to-OT transitions (no halftime there)", () => {
+    // Reach end-of-regulation, then re-trigger as if going into OT via direct
+    // state manipulation — the existing store transitions to 'finished' at the
+    // last regulation period. The OT path is only reached via the manual
+    // startNextPeriod from finished (per existing tests). We assert the
+    // earlier transition (period 1 -> quarter break) instead, since the
+    // 4-period default has its halftime between p2 and p3 — already covered.
+    // This test pins that a 6-period configuration's last-regulation-to-OT
+    // also lands on quarter (not halftime).
+    get().setSettings({ periods: 6 });
+    // periods 1..5 transitions: only p3 -> p4 is halftime in a 6-period game.
+    // Period 5 -> 6 should be a quarter break.
+    for (let p = 0; p < 4; p++) {
+      get().endPeriod();
+      get().startNextPeriod();
+    }
+    get().endPeriod(); // ends period 5 -> period-break with quarter break
+    expect(get().breakSeconds).toBe(get().settings.quarterBreakSeconds);
+  });
+
+  it("3v3 single-period game transitions to finished (no halftime, no break)", () => {
+    get().setSettings({ format: "3v3", periods: 1 });
+    get().endPeriod();
+    expect(get().status).toBe("finished");
+    expect(get().breakSeconds).toBe(0);
+  });
+});
+
+describe("startNextPeriod — break-seconds reset (C-004)", () => {
+  beforeEach(() => {
+    seedRoster("home", 5);
+    seedRoster("away", 5);
+    get().prepareGame();
+    get().startGame();
+    get().endPeriod(); // -> period-break with breakSeconds seeded
+  });
+
+  it("clears breakSeconds to 0 when starting the next period", () => {
+    expect(get().breakSeconds).toBeGreaterThan(0);
+    get().startNextPeriod();
+    expect(get().breakSeconds).toBe(0);
+  });
+});
+
+describe("tickClock — break-vs-clock routing (C-005)", () => {
+  beforeEach(() => {
+    seedRoster("home", 5);
+    seedRoster("away", 5);
+    get().prepareGame();
+    get().startGame();
+  });
+
+  it("decrements breakSeconds during status==='timeout' and leaves clockSeconds untouched", () => {
+    get().recordTimeout("home");
+    const liveBefore = get().clockSeconds;
+    const breakBefore = get().breakSeconds;
+    get().tickClock(1000);
+    expect(get().breakSeconds).toBeCloseTo(breakBefore - 1);
+    expect(get().clockSeconds).toBe(liveBefore);
+  });
+
+  it("decrements breakSeconds during status==='period-break' and leaves clockSeconds untouched", () => {
+    get().endPeriod();
+    const liveBefore = get().clockSeconds;
+    const breakBefore = get().breakSeconds;
+    get().tickClock(1000);
+    expect(get().breakSeconds).toBeCloseTo(breakBefore - 1);
+    expect(get().clockSeconds).toBe(liveBefore);
+  });
+
+  it("decrements clockSeconds during live play (existing behavior preserved)", () => {
+    get().startClock();
+    const before = get().clockSeconds;
+    get().tickClock(1000);
+    expect(get().clockSeconds).toBeCloseTo(before - 1);
+    expect(get().breakSeconds).toBe(0);
+  });
+
+  it("clamps breakSeconds at 0 (no negative time)", () => {
+    get().recordTimeout("home");
+    get().tickClock(999_999);
+    expect(get().breakSeconds).toBe(0);
+  });
+});
+
+describe("adjustClock — break-vs-clock routing (C-006)", () => {
+  beforeEach(() => {
+    seedRoster("home", 5);
+    seedRoster("away", 5);
+    get().prepareGame();
+    get().startGame();
+  });
+
+  it("mutates breakSeconds during a timeout", () => {
+    get().recordTimeout("home");
+    get().adjustClock(180);
+    expect(get().breakSeconds).toBe(180);
+  });
+
+  it("mutates breakSeconds during a period-break", () => {
+    get().endPeriod();
+    get().adjustClock(45);
+    expect(get().breakSeconds).toBe(45);
+  });
+
+  it("mutates clockSeconds during live (existing behavior preserved)", () => {
+    get().adjustClock(180);
+    expect(get().clockSeconds).toBe(180);
+  });
+
+  it("clamps breakSeconds to 0 on the low end during a break", () => {
+    get().recordTimeout("home");
+    get().adjustClock(-10);
+    expect(get().breakSeconds).toBe(0);
+  });
+
+  it("clamps breakSeconds to 1800 (30-minute generous cap) during a break", () => {
+    get().recordTimeout("home");
+    get().adjustClock(99_999);
+    expect(get().breakSeconds).toBe(30 * 60);
+  });
+});

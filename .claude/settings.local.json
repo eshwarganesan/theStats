@@ -13,7 +13,12 @@
       "Bash(git stash *)",
       "Bash(xargs -I{} kill -9 {})",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(.specify/extensions/git/scripts/bash/create-new-feature.sh --json --short-name \"timeout-break-timer\" \"Add a timer for timeouts and end of quarter that can be adjusted in the setup menu. The game clock should display this timer and there should be a button as an option to end the timeout or start the next quarter. The buttons should only show when the timeout or when the break time between quarters are in progress.\")",
+      "Bash(mkdir -p specs/002-timeout-break-timer/checklists)",
+      "Bash(cp .specify/templates/spec-template.md specs/002-timeout-break-timer/spec.md)",
+      "Bash(.specify/scripts/bash/check-prerequisites.sh --json --paths-only)",
+      "Bash(.specify/scripts/bash/setup-plan.sh --json)"
     ]
   }
 }

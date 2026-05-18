@@ -8,7 +8,10 @@ import { GameClock } from "./GameClock";
 /**
  * Container for the clock surface. Renders the read-only `GameClock`
  * unless the game is live and paused, in which case it surfaces the
- * `ClockEditor` (tap-to-edit) and `ClockNudge` (±1s) controls.
+ * `ClockEditor` (tap-to-edit) and `ClockNudge` (±1s) controls. During a
+ * timeout or between-period break the countdown is read-only — the
+ * only path to leave the break early is the ActionPad's primary button
+ * (per spec FR-014, revised 2026-05-18).
  */
 export function ClockPanel() {
   const clockRunning = useGameStore((s) => s.clockRunning);

@@ -12,8 +12,16 @@ export function GameClock() {
   const clockSeconds = useGameStore((s) => s.clockSeconds);
   const clockRunning = useGameStore((s) => s.clockRunning);
   const status = useGameStore((s) => s.status);
+  const breakSeconds = useGameStore((s) => s.breakSeconds);
 
-  const critical = clockSeconds < 60 && clockSeconds > 0 && status === "live";
+  // During a timeout or between-period break, the clock area shows the
+  // break countdown instead of the live game clock. Live game time is
+  // preserved in `clockSeconds` and resumes when the break ends.
+  const displaySeconds =
+    status === "timeout" || status === "period-break" ? breakSeconds : clockSeconds;
+
+  const critical =
+    displaySeconds < 60 && displaySeconds > 0 && status === "live";
 
   return (
     <span
@@ -24,7 +32,7 @@ export function GameClock() {
       )}
       aria-live="off"
     >
-      {formatClock(clockSeconds)}
+      {formatClock(displaySeconds)}
     </span>
   );
 }

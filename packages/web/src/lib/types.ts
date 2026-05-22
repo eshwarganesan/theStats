@@ -51,6 +51,11 @@ export interface GameSettings {
   periodSeconds: number;
   /** Length of each overtime period in seconds. */
   overtimeSeconds: number;
+  /** When `true`, a tied score at the end of the final regulation period
+   *  (or any subsequent overtime period) routes the game into a break with
+   *  `Start Overtime`. When `false`, tied results finalize the game as-is.
+   *  Combined with `overtimeSeconds > 0` for the effective gate. */
+  overtimeEnabled: boolean;
   /** Team-fouls threshold per period that triggers bonus (default 5). */
   bonusFoulThreshold: number;
   /** Timeouts available per team for the whole game. */

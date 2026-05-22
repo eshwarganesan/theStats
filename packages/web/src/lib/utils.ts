@@ -88,7 +88,7 @@ export function parseClock(input: string): number | null {
 }
 
 /**
- * Ordinal form of a period number — 1st, 2nd, 3rd, 4th, OT1, OT2…
+ * Ordinal form of a period number — 1st, 2nd, 3rd, 4th, OT, 2OT, 3OT…
  * `regularPeriods` allows OT to begin numbering from 1 once past it.
  */
 export function formatPeriod(period: number, regularPeriods: number): string {
@@ -97,5 +97,5 @@ export function formatPeriod(period: number, regularPeriods: number): string {
     return ordinals[period] ?? `${period}th`;
   }
   const otNum = period - regularPeriods;
-  return otNum === 1 ? "OT" : `OT${otNum}`;
+  return otNum === 1 ? "OT" : `${otNum}OT`;
 }

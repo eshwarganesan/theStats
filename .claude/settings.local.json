@@ -18,7 +18,9 @@
       "Bash(mkdir -p specs/002-timeout-break-timer/checklists)",
       "Bash(cp .specify/templates/spec-template.md specs/002-timeout-break-timer/spec.md)",
       "Bash(.specify/scripts/bash/check-prerequisites.sh --json --paths-only)",
-      "Bash(.specify/scripts/bash/setup-plan.sh --json)"
+      "Bash(.specify/scripts/bash/setup-plan.sh --json)",
+      "Bash(.specify/extensions/git/scripts/bash/create-new-feature.sh --json --short-name \"overtime-trigger\" \"Add the trigger for overtime periods and a setting for overtime length in the game setup. Overtime should trigger only when the score is tied at the end of the 4th or subsequent overtime periods. If the score is not tied at the end of any of these and a winner is determined, the game should be done and score is final.\")",
+      "Bash(perl -i -pe 's/^- \\\\[ \\\\] \\(T0\\(0[1-9]|1[0-57]\\)\\)\\\\b/- [X] $1/' tasks.md)"
     ]
   }
 }

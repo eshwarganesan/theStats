@@ -158,6 +158,35 @@ export default function SetupPage() {
               }
             />
           </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 items-end mt-4">
+            <Input
+              label="Overtime length (min)"
+              type="number"
+              min={0}
+              max={60}
+              value={Math.round(settings.overtimeSeconds / 60)}
+              onChange={(e) =>
+                setSettings({
+                  overtimeSeconds: Math.max(0, parseInt(e.target.value) || 0) * 60,
+                })
+              }
+            />
+            <div className="flex flex-col gap-1.5 col-span-2 md:col-span-1">
+              <label className="label-eyebrow">Overtime</label>
+              <div className="flex">
+                <OvertimeToggle
+                  value="On"
+                  active={settings.overtimeEnabled}
+                  onClick={() => setSettings({ overtimeEnabled: true })}
+                />
+                <OvertimeToggle
+                  value="Off"
+                  active={!settings.overtimeEnabled}
+                  onClick={() => setSettings({ overtimeEnabled: false })}
+                />
+              </div>
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <Input
               label="Competition"
@@ -205,6 +234,35 @@ function FormatToggle({
   onClick,
 }: {
   value: GameFormat;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex-1 h-11 text-sm font-mono uppercase tracking-widest transition-colors",
+        "border first:border-r-0",
+        active
+          ? "border-accent bg-accent text-surface"
+          : "border-surface-border bg-surface-raised text-ink-muted hover:text-ink",
+      )}
+      aria-pressed={active}
+    >
+      {value}
+    </button>
+  );
+}
+
+/** Two-button On/Off toggle for the Overtime opt-in setting. Mirrors the
+ *  FormatToggle styling for visual consistency in the Game Settings row. */
+function OvertimeToggle({
+  value,
+  active,
+  onClick,
+}: {
+  value: "On" | "Off";
   active: boolean;
   onClick: () => void;
 }) {

@@ -26,6 +26,7 @@ export const DEFAULT_SETTINGS: Record<GameFormat, GameSettings> = {
     periods: 4,
     periodSeconds: 10 * 60, // 10 minutes
     overtimeSeconds: 5 * 60,
+    overtimeEnabled: true,
     bonusFoulThreshold: 5,
     timeoutsPerGame: 5,
     timeoutSeconds: 60,
@@ -38,7 +39,8 @@ export const DEFAULT_SETTINGS: Record<GameFormat, GameSettings> = {
     format: "3v3",
     periods: 1,
     periodSeconds: 10 * 60, // 10 minute running clock or first to 21
-    overtimeSeconds: 0, // OT decided by first-to-2 in 3x3
+    overtimeSeconds: 5 * 60, // length preserved so the toggle is meaningful when flipped to On
+    overtimeEnabled: false, // FIBA 3x3 uses first-to-2 sudden-death; default opts out of the timed-OT trigger
     bonusFoulThreshold: 7,
     timeoutsPerGame: 1,
     timeoutSeconds: 30,

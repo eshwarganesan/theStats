@@ -225,6 +225,10 @@ describe("game lifecycle", () => {
 
   it("endPeriod on the last regular period transitions to finished", () => {
     get().startGame();
+    // Score for home so the game ends untied — per feature 003 a tied
+    // regulation now routes to OT break instead of finishing.
+    const home = get().homeTeam.roster[0]!;
+    get().recordScore("home", home.id, "2pt", true);
     for (let p = 0; p < DEFAULT_SETTINGS["5v5"].periods - 1; p++) {
       get().endPeriod();
       get().startNextPeriod();
@@ -796,6 +800,10 @@ describe("endPeriod — break-duration seeding (C-003)", () => {
   });
 
   it("transitions to finished with breakSeconds === 0 after the last regulation period", () => {
+    // Score for home so the game ends untied (feature 003 routes tied
+    // regulations into OT break instead of finishing).
+    const home = get().homeTeam.roster[0]!;
+    get().recordScore("home", home.id, "2pt", true);
     for (let p = 0; p < DEFAULT_SETTINGS["5v5"].periods - 1; p++) {
       get().endPeriod();
       get().startNextPeriod();
@@ -925,5 +933,109 @@ describe("adjustClock — break-vs-clock routing (C-006)", () => {
     get().recordTimeout("home");
     get().adjustClock(99_999);
     expect(get().breakSeconds).toBe(30 * 60);
+  });
+});
+
+// ─── Overtime Trigger (feature 003) ─────────────────────────────────────────
+
+/** Helper: drive a game to the end of period N (1..periods) with the score
+ *  set to (homePoints, awayPoints). Uses `recordScore` to seed points and
+ *  `endPeriod` / `startNextPeriod` to advance. */
+function seedToFinalRegulationWith(homePoints: number, awayPoints: number) {
+  seedRoster("home", 5);
+  seedRoster("away", 5);
+  get().prepareGame();
+  get().startGame();
+  const home = get().homeTeam.roster[0]!;
+  const away = get().awayTeam.roster[0]!;
+  // Record made 3PTs for the totals (3 points per shot).
+  for (let i = 0; i < Math.floor(homePoints / 3); i++) {
+    get().recordScore("home", home.id, "3pt", true);
+  }
+  for (let i = 0; i < Math.floor(awayPoints / 3); i++) {
+    get().recordScore("away", away.id, "3pt", true);
+  }
+  // Advance through periods 1..periods-1 via endPeriod/startNextPeriod.
+  const { periods } = get().settings;
+  for (let p = 1; p < periods; p++) {
+    get().endPeriod();
+    get().startNextPeriod();
+  }
+  // Now in final regulation period.
+}
+
+describe("endPeriod — final regulation routing (C-001)", () => {
+  it("tied + overtimeEnabled + overtimeSeconds > 0 → period-break with breakSeconds === quarterBreakSeconds", () => {
+    seedToFinalRegulationWith(48, 48);
+    expect(get().settings.overtimeEnabled).toBe(true);
+    expect(get().settings.overtimeSeconds).toBeGreaterThan(0);
+    get().endPeriod();
+    expect(get().status).toBe("period-break");
+    expect(get().breakSeconds).toBe(get().settings.quarterBreakSeconds);
+  });
+
+  it("untied + overtimeEnabled + overtimeSeconds > 0 → finished", () => {
+    seedToFinalRegulationWith(51, 48);
+    get().endPeriod();
+    expect(get().status).toBe("finished");
+    expect(get().breakSeconds).toBe(0);
+  });
+
+  it("tied + overtimeEnabled: false → finished (opt-out beats tie)", () => {
+    seedToFinalRegulationWith(48, 48);
+    get().setSettings({ overtimeEnabled: false });
+    get().endPeriod();
+    expect(get().status).toBe("finished");
+  });
+
+  it("tied + overtimeSeconds: 0 → finished (zero-length beats tie)", () => {
+    seedToFinalRegulationWith(48, 48);
+    get().setSettings({ overtimeSeconds: 0 });
+    get().endPeriod();
+    expect(get().status).toBe("finished");
+  });
+
+  it("mid-regulation end (period 1 of 4) always transitions to period-break regardless of score", () => {
+    seedRoster("home", 5);
+    seedRoster("away", 5);
+    get().prepareGame();
+    get().startGame();
+    // Don't score — leave tied at 0-0.
+    get().endPeriod(); // ends period 1, not the last regulation
+    expect(get().status).toBe("period-break");
+  });
+});
+
+describe("endPeriod — overtime routing & multi-OT loop (C-002)", () => {
+  it("1OT tied → period-break (signals 2OT will follow)", () => {
+    seedToFinalRegulationWith(48, 48);
+    get().endPeriod();          // -> period-break (regulation tied)
+    get().startNextPeriod();    // -> 1OT (currentPeriod = 5)
+    expect(get().currentPeriod).toBe(get().settings.periods + 1);
+    // Score is still 48-48; end 1OT tied.
+    get().endPeriod();
+    expect(get().status).toBe("period-break");
+    expect(get().breakSeconds).toBe(get().settings.quarterBreakSeconds);
+  });
+
+  it("1OT untied → finished", () => {
+    seedToFinalRegulationWith(48, 48);
+    get().endPeriod();
+    get().startNextPeriod();    // 1OT
+    const away = get().awayTeam.roster[0]!;
+    get().recordScore("away", away.id, "3pt", true); // 48-51
+    get().endPeriod();
+    expect(get().status).toBe("finished");
+  });
+
+  it("2OT tied → period-break (multi-OT loop)", () => {
+    seedToFinalRegulationWith(48, 48);
+    get().endPeriod();
+    get().startNextPeriod();    // 1OT
+    get().endPeriod();          // 1OT still tied -> period-break again
+    get().startNextPeriod();    // 2OT (currentPeriod = 6)
+    expect(get().currentPeriod).toBe(get().settings.periods + 2);
+    get().endPeriod();          // 2OT still tied -> period-break (3OT will follow)
+    expect(get().status).toBe("period-break");
   });
 });

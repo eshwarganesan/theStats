@@ -66,3 +66,60 @@ describe("SetupPage — break duration inputs (feature 002)", () => {
     expect(section.contains(screen.getByLabelText(/Halftime \(sec\)/i))).toBe(true);
   });
 });
+
+describe("SetupPage — overtime length input + toggle (feature 003)", () => {
+  it("renders Overtime length (min) pre-filled with 5v5 default (5)", () => {
+    render(<SetupPage />);
+    const ot = screen.getByLabelText(/Overtime length \(min\)/i) as HTMLInputElement;
+    expect(Number(ot.value)).toBe(
+      Math.round(DEFAULT_SETTINGS["5v5"].overtimeSeconds / 60),
+    );
+  });
+
+  it("editing Overtime length dispatches setSettings({ overtimeSeconds: <minutes * 60> })", async () => {
+    const user = userEvent.setup();
+    render(<SetupPage />);
+    const ot = screen.getByLabelText(/Overtime length \(min\)/i);
+    await user.clear(ot);
+    await user.type(ot, "7");
+    expect(useGameStore.getState().settings.overtimeSeconds).toBe(7 * 60);
+  });
+
+  it("places the Overtime length input inside the Game Settings section", () => {
+    render(<SetupPage />);
+    const section = screen.getByText(/Game Settings/i).closest("section");
+    if (!section) throw new Error("Game Settings section not found");
+    expect(section.contains(screen.getByLabelText(/Overtime length \(min\)/i))).toBe(true);
+  });
+
+  it("renders Overtime On/Off toggle with On active for 5v5 default", () => {
+    render(<SetupPage />);
+    const on = screen.getByRole("button", { name: /^On$/ });
+    const off = screen.getByRole("button", { name: /^Off$/ });
+    expect(on).toHaveAttribute("aria-pressed", "true");
+    expect(off).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("clicking Off dispatches setSettings({ overtimeEnabled: false })", async () => {
+    const user = userEvent.setup();
+    render(<SetupPage />);
+    await user.click(screen.getByRole("button", { name: /^Off$/ }));
+    expect(useGameStore.getState().settings.overtimeEnabled).toBe(false);
+  });
+
+  it("clicking On (after Off) dispatches setSettings({ overtimeEnabled: true })", async () => {
+    const user = userEvent.setup();
+    render(<SetupPage />);
+    await user.click(screen.getByRole("button", { name: /^Off$/ }));
+    await user.click(screen.getByRole("button", { name: /^On$/ }));
+    expect(useGameStore.getState().settings.overtimeEnabled).toBe(true);
+  });
+
+  it("places the Overtime toggle inside the Game Settings section", () => {
+    render(<SetupPage />);
+    const section = screen.getByText(/Game Settings/i).closest("section");
+    if (!section) throw new Error("Game Settings section not found");
+    expect(section.contains(screen.getByRole("button", { name: /^On$/ }))).toBe(true);
+    expect(section.contains(screen.getByRole("button", { name: /^Off$/ }))).toBe(true);
+  });
+});

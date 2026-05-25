@@ -97,9 +97,10 @@ describe("formatPeriod", () => {
     expect(formatPeriod(5, 4)).toBe("OT");
   });
 
-  it("numbers further overtimes OT2, OT3, …", () => {
-    expect(formatPeriod(6, 4)).toBe("OT2");
-    expect(formatPeriod(7, 4)).toBe("OT3");
+  it("numbers further overtimes 2OT, 3OT, … (feature 003 format)", () => {
+    expect(formatPeriod(6, 4)).toBe("2OT");
+    expect(formatPeriod(7, 4)).toBe("3OT");
+    expect(formatPeriod(8, 4)).toBe("4OT");
   });
 
   it("falls back to Nth for periods past the named ordinals", () => {

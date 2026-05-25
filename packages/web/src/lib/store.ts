@@ -14,6 +14,7 @@ import type {
   Team,
 } from "./types";
 import { DEFAULT_SETTINGS, PLAYERS_ON_COURT } from "./constants";
+import { computeStats } from "./stats";
 import { uid } from "./utils";
 
 /**
@@ -256,7 +257,7 @@ export const useGameStore = create<GameState>()(
     },
 
     endPeriod: () => {
-      const { currentPeriod, settings } = get();
+      const { currentPeriod, settings, events, homeTeam, awayTeam } = get();
       const isLastRegular = currentPeriod >= settings.periods;
       // Halftime applies between adjacent regulation periods that straddle
       // the half boundary. For a 4-period game this is between p2 and p3;
@@ -265,13 +266,22 @@ export const useGameStore = create<GameState>()(
         !isLastRegular &&
         settings.periods % 2 === 0 &&
         currentPeriod === settings.periods / 2;
-      const seededBreakSeconds = isLastRegular
+      // Overtime trigger (feature 003): when the final regulation OR any
+      // overtime period ends with a tied score AND overtime is enabled, the
+      // game routes into a break instead of finalizing. OT-boundary breaks
+      // are never halftime, so they always seed with quarterBreakSeconds.
+      const otGate = settings.overtimeEnabled && settings.overtimeSeconds > 0;
+      const stats = computeStats(events, homeTeam, awayTeam, settings, currentPeriod);
+      const isTied = stats.home.points === stats.away.points;
+      const goToBreak = !isLastRegular || (otGate && isTied);
+      const nextStatus: GameStatus = goToBreak ? "period-break" : "finished";
+      const seededBreakSeconds = !goToBreak
         ? 0
         : isHalfBoundary
           ? settings.halftimeBreakSeconds
           : settings.quarterBreakSeconds;
       set((s) => ({
-        status: isLastRegular ? "finished" : "period-break",
+        status: nextStatus,
         clockRunning: false,
         breakSeconds: seededBreakSeconds,
         events: [

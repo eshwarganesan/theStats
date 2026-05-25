@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { seedAndEnterGame } from "./_helpers";
+import { seedAndEnterGame, tapPlayerByNumber } from "./_helpers";
 
 test("ends a period via the secondary End Period button and starts the next", async ({ page }) => {
   await seedAndEnterGame(page);
@@ -24,6 +24,12 @@ test("ends a period via the secondary End Period button and starts the next", as
 test("finishes the game after the last regulation period", async ({ page }) => {
   await seedAndEnterGame(page);
   await page.getByRole("button", { name: /Tip Off/ }).click();
+
+  // Break the tie so ending Q4 finalizes the game instead of triggering the
+  // overtime-on-tie path (feature 003).
+  await tapPlayerByNumber(page, "home", "1");
+  await page.getByRole("button", { name: /^\+2 Made/ }).click();
+  await expect(page.getByRole("button", { name: /^\+2 Made/ })).not.toBeVisible();
 
   // End all 4 quarters. The "advance to next period" button label varies by
   // boundary: Next Quarter between non-half quarters, Second Half after Q2.

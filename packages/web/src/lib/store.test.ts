@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useGameStore } from "./store";
 import { DEFAULT_SETTINGS, PLAYERS_ON_COURT } from "./constants";
+import { computeStats } from "./stats";
 import type { Player } from "./types";
 
 const initial = useGameStore.getState();
@@ -1037,5 +1038,418 @@ describe("endPeriod — overtime routing & multi-OT loop (C-002)", () => {
     expect(get().currentPeriod).toBe(get().settings.periods + 2);
     get().endPeriod();          // 2OT still tied -> period-break (3OT will follow)
     expect(get().status).toBe("period-break");
+  });
+});
+
+// ─── Feature 004: editEvent / deleteEvent ──────────────────────────────
+
+/** Seeds two valid 5v5 rosters and starts a live game. Returns the
+ *  state's home/away rosters so tests can reach for specific players. */
+function seedLiveGame() {
+  seedRoster("home", 5);
+  seedRoster("away", 5);
+  get().prepareGame();
+  get().startGame();
+  return {
+    home: () => get().homeTeam.roster,
+    away: () => get().awayTeam.roster,
+  };
+}
+
+const findLast = <T extends { type: string }>(
+  events: ReadonlyArray<T>,
+  predicate: (e: T) => boolean,
+): T | undefined => [...events].reverse().find(predicate);
+
+describe("editEvent — score events", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  it("edits playerId only and preserves all other fields", () => {
+    const teams = seedLiveGame();
+    const p1 = teams.home()[0]!;
+    const p2 = teams.home()[1]!;
+    get().recordScore("home", p1.id, "2pt", true);
+    const ev = findLast(get().events, (e) => e.type === "score")!;
+    get().editEvent(ev.id, { type: "score", playerId: p2.id });
+    const updated = get().events.find((e) => e.id === ev.id)!;
+    expect(updated).toMatchObject({
+      type: "score",
+      side: "home",
+      playerId: p2.id,
+      kind: "2pt",
+      made: true,
+    });
+    // Identity fields preserved
+    if (updated.type === "score") {
+      expect(updated.id).toBe(ev.id);
+      expect(updated.period).toBe(ev.period);
+      expect(updated.timestamp).toBe(ev.timestamp);
+    }
+  });
+
+  it("edits side + playerId together (cross-team mis-attribution)", () => {
+    const teams = seedLiveGame();
+    const home0 = teams.home()[0]!;
+    const away0 = teams.away()[0]!;
+    get().recordScore("home", home0.id, "2pt", true);
+    const ev = findLast(get().events, (e) => e.type === "score")!;
+    get().editEvent(ev.id, { type: "score", side: "away", playerId: away0.id });
+    const stats = computeStats(
+      get().events,
+      get().homeTeam,
+      get().awayTeam,
+      get().settings,
+      get().currentPeriod,
+    );
+    expect(stats.home.points).toBe(0);
+    expect(stats.away.points).toBe(2);
+    const updated = get().events.find((e) => e.id === ev.id);
+    expect(updated).toMatchObject({ side: "away", playerId: away0.id });
+  });
+
+  it("edits kind from 2pt to 3pt and stats reflect 3 points", () => {
+    const teams = seedLiveGame();
+    const p = teams.home()[0]!;
+    get().recordScore("home", p.id, "2pt", true);
+    const ev = findLast(get().events, (e) => e.type === "score")!;
+    get().editEvent(ev.id, { type: "score", kind: "3pt" });
+    const stats = computeStats(
+      get().events,
+      get().homeTeam,
+      get().awayTeam,
+      get().settings,
+      get().currentPeriod,
+    );
+    expect(stats.home.points).toBe(3);
+  });
+
+  it("edits made from true to false (turns make into miss)", () => {
+    const teams = seedLiveGame();
+    const p = teams.home()[0]!;
+    get().recordScore("home", p.id, "2pt", true);
+    const ev = findLast(get().events, (e) => e.type === "score")!;
+    get().editEvent(ev.id, { type: "score", made: false });
+    const stats = computeStats(
+      get().events,
+      get().homeTeam,
+      get().awayTeam,
+      get().settings,
+      get().currentPeriod,
+    );
+    expect(stats.home.points).toBe(0);
+    const playerStats = stats.home.players.find((ps) => ps.playerId === p.id)!;
+    expect(playerStats.fgMade).toBe(0);
+    expect(playerStats.fgAttempted).toBe(1);
+  });
+});
+
+describe("editEvent — foul events", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  it("edits foul kind and team-foul count re-derives correctly", () => {
+    const teams = seedLiveGame();
+    const p = teams.home()[0]!;
+    get().recordFoul("home", p.id, "personal");
+    const ev = findLast(get().events, (e) => e.type === "foul")!;
+    get().editEvent(ev.id, { type: "foul", kind: "technical" });
+    const updated = get().events.find((e) => e.id === ev.id);
+    if (!updated || updated.type !== "foul") throw new Error("expected foul");
+    expect(updated.kind).toBe("technical");
+    const stats = computeStats(
+      get().events,
+      get().homeTeam,
+      get().awayTeam,
+      get().settings,
+      get().currentPeriod,
+    );
+    const playerStats = stats.home.players.find((ps) => ps.playerId === p.id)!;
+    expect(playerStats.fouls).toBe(1);
+  });
+});
+
+describe("editEvent — stat events", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  it("edits stat kind from steal to block", () => {
+    const teams = seedLiveGame();
+    const p = teams.home()[0]!;
+    get().recordStat("home", p.id, "steal");
+    const ev = findLast(get().events, (e) => e.type === "stat")!;
+    get().editEvent(ev.id, { type: "stat", kind: "block" });
+    const updated = get().events.find((e) => e.id === ev.id);
+    if (!updated || updated.type !== "stat") throw new Error("expected stat");
+    expect(updated.kind).toBe("block");
+    const stats = computeStats(
+      get().events,
+      get().homeTeam,
+      get().awayTeam,
+      get().settings,
+      get().currentPeriod,
+    );
+    const playerStats = stats.home.players.find((ps) => ps.playerId === p.id)!;
+    expect(playerStats.steals).toBe(0);
+    expect(playerStats.blocks).toBe(1);
+  });
+});
+
+describe("editEvent — timeout events", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  it("flips timeout side; per-team timeouts taken re-derive", () => {
+    seedLiveGame();
+    get().recordTimeout("home");
+    const ev = findLast(get().events, (e) => e.type === "timeout")!;
+    get().editEvent(ev.id, { type: "timeout", side: "away" });
+    const updated = get().events.find((e) => e.id === ev.id);
+    if (!updated || updated.type !== "timeout") throw new Error("expected timeout");
+    expect(updated.side).toBe("away");
+    const stats = computeStats(
+      get().events,
+      get().homeTeam,
+      get().awayTeam,
+      get().settings,
+      get().currentPeriod,
+    );
+    expect(stats.home.timeoutsTaken).toBe(0);
+    expect(stats.away.timeoutsTaken).toBe(1);
+  });
+});
+
+describe("editEvent — foul playerId & stat playerId", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  it("edits foul playerId to another rostered player", () => {
+    const teams = seedLiveGame();
+    const p1 = teams.home()[0]!;
+    const p2 = teams.home()[1]!;
+    get().recordFoul("home", p1.id, "personal");
+    const ev = findLast(get().events, (e) => e.type === "foul")!;
+    get().editEvent(ev.id, { type: "foul", playerId: p2.id });
+    const updated = get().events.find((e) => e.id === ev.id);
+    if (!updated || updated.type !== "foul") throw new Error("expected foul");
+    expect(updated.playerId).toBe(p2.id);
+  });
+
+  it("edits stat playerId to another rostered player", () => {
+    const teams = seedLiveGame();
+    const p1 = teams.home()[0]!;
+    const p2 = teams.home()[1]!;
+    get().recordStat("home", p1.id, "assist");
+    const ev = findLast(get().events, (e) => e.type === "stat")!;
+    get().editEvent(ev.id, { type: "stat", playerId: p2.id });
+    const updated = get().events.find((e) => e.id === ev.id);
+    if (!updated || updated.type !== "stat") throw new Error("expected stat");
+    expect(updated.playerId).toBe(p2.id);
+  });
+
+  it("edits foul clockAt (covers the clockAt-set branch for foul)", () => {
+    const teams = seedLiveGame();
+    const p = teams.home()[0]!;
+    get().recordFoul("home", p.id, "personal");
+    const ev = findLast(get().events, (e) => e.type === "foul")!;
+    get().editEvent(ev.id, { type: "foul", clockAt: 250 });
+    expect(get().events.find((e) => e.id === ev.id)?.clockAt).toBe(250);
+  });
+
+  it("edits stat clockAt (covers the clockAt-set branch for stat)", () => {
+    const teams = seedLiveGame();
+    const p = teams.home()[0]!;
+    get().recordStat("home", p.id, "assist");
+    const ev = findLast(get().events, (e) => e.type === "stat")!;
+    get().editEvent(ev.id, { type: "stat", clockAt: 250 });
+    expect(get().events.find((e) => e.id === ev.id)?.clockAt).toBe(250);
+  });
+
+  it("edits timeout clockAt (covers the clockAt-set branch for timeout)", () => {
+    seedLiveGame();
+    get().recordTimeout("home");
+    const ev = findLast(get().events, (e) => e.type === "timeout")!;
+    get().editEvent(ev.id, { type: "timeout", clockAt: 250 });
+    expect(get().events.find((e) => e.id === ev.id)?.clockAt).toBe(250);
+  });
+});
+
+describe("editEvent — clockAt validation", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  it("accepts a clockAt within [0, periodLength]", () => {
+    const teams = seedLiveGame();
+    const p = teams.home()[0]!;
+    get().recordScore("home", p.id, "2pt", true);
+    const ev = findLast(get().events, (e) => e.type === "score")!;
+    const target = 263; // 4:23
+    get().editEvent(ev.id, { type: "score", clockAt: target });
+    const updated = get().events.find((e) => e.id === ev.id);
+    expect(updated?.clockAt).toBe(target);
+  });
+
+  it("rejects a clockAt outside the period range (no-op)", () => {
+    const teams = seedLiveGame();
+    const p = teams.home()[0]!;
+    get().recordScore("home", p.id, "2pt", true);
+    const ev = findLast(get().events, (e) => e.type === "score")!;
+    const before = { ...ev };
+    const overshoot = get().settings.periodSeconds + 60; // larger than periodLength
+    get().editEvent(ev.id, { type: "score", clockAt: overshoot });
+    const after = get().events.find((e) => e.id === ev.id)!;
+    expect(after.clockAt).toBe(before.clockAt);
+  });
+
+  it("rejects a negative clockAt (no-op)", () => {
+    const teams = seedLiveGame();
+    const p = teams.home()[0]!;
+    get().recordScore("home", p.id, "2pt", true);
+    const ev = findLast(get().events, (e) => e.type === "score")!;
+    const before = { ...ev };
+    get().editEvent(ev.id, { type: "score", clockAt: -1 });
+    const after = get().events.find((e) => e.id === ev.id)!;
+    expect(after.clockAt).toBe(before.clockAt);
+  });
+
+  it("uses overtimeSeconds as the upper bound for events in an OT period", () => {
+    // Seed a tied 0-0 game into overtime so the score event's period > settings.periods.
+    seedToFinalRegulationWith(0, 0);
+    get().endPeriod();        // ends final regulation tied → period-break
+    get().startNextPeriod();  // tip 1OT
+    const home0 = get().homeTeam.roster[0]!;
+    get().recordScore("home", home0.id, "2pt", true);
+    const ev = findLast(get().events, (e) => e.type === "score")!;
+    expect(ev.period).toBeGreaterThan(get().settings.periods);
+    // overtimeSeconds defaults to 5 * 60 = 300; a value within is accepted.
+    get().editEvent(ev.id, { type: "score", clockAt: 250 });
+    expect(get().events.find((e) => e.id === ev.id)?.clockAt).toBe(250);
+    // A value above overtimeSeconds is rejected (would be valid against
+    // periodSeconds = 600 but invalid for an OT period).
+    const overOt = get().settings.overtimeSeconds + 30;
+    get().editEvent(ev.id, { type: "score", clockAt: overOt });
+    expect(get().events.find((e) => e.id === ev.id)?.clockAt).toBe(250);
+  });
+});
+
+describe("editEvent — invariant guards", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  it("no-ops when playerId is not on the resulting side's roster", () => {
+    const teams = seedLiveGame();
+    const p = teams.home()[0]!;
+    get().recordScore("home", p.id, "2pt", true);
+    const ev = findLast(get().events, (e) => e.type === "score")!;
+    if (ev.type !== "score") throw new Error("expected score");
+    const beforePlayerId = ev.playerId;
+    get().editEvent(ev.id, { type: "score", playerId: "ghost-id" });
+    const after = get().events.find((e) => e.id === ev.id);
+    if (!after || after.type !== "score") throw new Error("expected score");
+    expect(after.playerId).toBe(beforePlayerId);
+  });
+
+  it("no-ops when side flips without a new playerId (orphan player)", () => {
+    const teams = seedLiveGame();
+    const p = teams.home()[0]!;
+    get().recordScore("home", p.id, "2pt", true);
+    const ev = findLast(get().events, (e) => e.type === "score")!;
+    if (ev.type !== "score") throw new Error("expected score");
+    const beforeSide = ev.side;
+    const beforePlayerId = ev.playerId;
+    get().editEvent(ev.id, { type: "score", side: "away" });
+    const after = get().events.find((e) => e.id === ev.id);
+    if (!after || after.type !== "score") throw new Error("expected score");
+    expect(after.side).toBe(beforeSide);
+    expect(after.playerId).toBe(beforePlayerId);
+  });
+
+  it("no-ops on type mismatch (patch type ≠ event type)", () => {
+    const teams = seedLiveGame();
+    const p = teams.home()[0]!;
+    get().recordScore("home", p.id, "2pt", true);
+    const ev = findLast(get().events, (e) => e.type === "score")!;
+    const before = { ...ev };
+    get().editEvent(ev.id, { type: "foul", kind: "technical" });
+    const after = get().events.find((e) => e.id === ev.id)!;
+    expect(after).toEqual(before);
+  });
+
+  it("no-ops on a non-existent event id", () => {
+    const teams = seedLiveGame();
+    const p = teams.home()[0]!;
+    get().recordScore("home", p.id, "2pt", true);
+    const before = get().events.map((e) => ({ ...e }));
+    get().editEvent("ghost-event-id", { type: "score", made: false });
+    expect(get().events).toEqual(before);
+  });
+});
+
+describe("deleteEvent", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  it("removes a single event from the middle and leaves later events intact", () => {
+    const teams = seedLiveGame();
+    const p = teams.home()[0]!;
+    get().recordScore("home", p.id, "3pt", true);
+    const scoreEv = findLast(get().events, (e) => e.type === "score")!;
+    get().recordFoul("home", p.id, "personal");
+    const foulEv = findLast(get().events, (e) => e.type === "foul")!;
+    get().recordStat("home", p.id, "assist");
+    const statEv = findLast(get().events, (e) => e.type === "stat")!;
+
+    get().deleteEvent(scoreEv.id);
+
+    expect(get().events.find((e) => e.id === scoreEv.id)).toBeUndefined();
+    expect(get().events.find((e) => e.id === foulEv.id)).toBeDefined();
+    expect(get().events.find((e) => e.id === statEv.id)).toBeDefined();
+    // Order of survivors preserved
+    const foulIdx = get().events.findIndex((e) => e.id === foulEv.id);
+    const statIdx = get().events.findIndex((e) => e.id === statEv.id);
+    expect(foulIdx).toBeLessThan(statIdx);
+
+    // Stats reflect the removal
+    const stats = computeStats(
+      get().events,
+      get().homeTeam,
+      get().awayTeam,
+      get().settings,
+      get().currentPeriod,
+    );
+    expect(stats.home.points).toBe(0);
+  });
+
+  it("no-ops when targeting a non-editable event type (defense-in-depth)", () => {
+    const teams = seedLiveGame();
+    const outId = teams.home()[0]!.id;
+    get().addPlayer("home", {
+      number: "99",
+      name: "Bench",
+      isStarter: false,
+      isCaptain: false,
+    });
+    const benchId = get().homeTeam.roster.find((pl) => pl.name === "Bench")!.id;
+    get().substitute("home", outId, benchId);
+    const subEv = findLast(get().events, (e) => e.type === "substitution")!;
+    const before = get().events.map((e) => ({ ...e }));
+    get().deleteEvent(subEv.id);
+    // Note: the survivor list is compared by ids and types in order
+    expect(get().events.map((e) => e.id)).toEqual(before.map((e) => e.id));
+  });
+
+  it("no-ops on a non-existent event id", () => {
+    seedLiveGame();
+    const before = get().events.map((e) => ({ ...e }));
+    get().deleteEvent("ghost-event-id");
+    expect(get().events.map((e) => e.id)).toEqual(before.map((e) => e.id));
   });
 });

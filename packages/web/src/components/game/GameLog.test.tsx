@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { useGameStore } from "@/lib/store";
 import { GameLog } from "./GameLog";
 import { seedReadyGame, addBench } from "@/test/seed";
@@ -145,6 +146,106 @@ describe("GameLog", () => {
     expect(screen.getByText("ADJ")).toBeInTheDocument();
     // Both formatted times are rendered (mm:ss for >= 60 seconds)
     expect(screen.getByText(/07:42.*07:45/)).toBeInTheDocument();
+  });
+
+  it("shows Edit button on a score row", () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordScore("home", players.homePlayer(0).id, "2pt", true);
+    render(<GameLog />);
+    expect(screen.getAllByRole("button", { name: /Edit play/ }).length).toBeGreaterThan(0);
+  });
+
+  it("shows Edit button on a foul row", () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordFoul("home", players.homePlayer(0).id, "personal");
+    render(<GameLog />);
+    expect(screen.getAllByRole("button", { name: /Edit play/ }).length).toBeGreaterThan(0);
+  });
+
+  it("shows Edit button on a stat row", () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordStat("home", players.homePlayer(0).id, "assist");
+    render(<GameLog />);
+    expect(screen.getAllByRole("button", { name: /Edit play/ }).length).toBeGreaterThan(0);
+  });
+
+  it("shows Edit button on a timeout row", () => {
+    seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordTimeout("home");
+    render(<GameLog />);
+    expect(screen.getAllByRole("button", { name: /Edit play/ }).length).toBeGreaterThan(0);
+  });
+
+  it("does NOT show Edit button on a substitution row", () => {
+    const players = seedReadyGame();
+    addBench("home", 1);
+    useGameStore.getState().startGame();
+    const out = players.homePlayer(0);
+    const bench = useGameStore
+      .getState()
+      .homeTeam.roster.find((p) => p.name === "Bench 1")!;
+    useGameStore.getState().substitute("home", out.id, bench.id);
+    render(<GameLog />);
+    // Only the period-start row exists before this — it should also not have an Edit button
+    expect(screen.queryAllByRole("button", { name: /Edit play/ })).toHaveLength(0);
+  });
+
+  it("does NOT show Edit button on clock or period rows", () => {
+    seedReadyGame();
+    useGameStore.getState().startGame(); // period start
+    useGameStore.getState().startClock();
+    useGameStore.getState().stopClock();
+    render(<GameLog />);
+    expect(screen.queryAllByRole("button", { name: /Edit play/ })).toHaveLength(0);
+  });
+
+  it("clicking Edit on a score row opens the edit modal pre-filled", async () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordScore("home", players.homePlayer(0).id, "2pt", true);
+    const user = userEvent.setup();
+    render(<GameLog />);
+    await user.click(screen.getByRole("button", { name: /Edit play/ }));
+    // The edit modal renders a "Edit play" title and a Save button
+    expect(screen.getAllByText(/Edit play/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Save/ })).toBeInTheDocument();
+  });
+
+  it("shows Delete button on a score row", () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordScore("home", players.homePlayer(0).id, "2pt", true);
+    render(<GameLog />);
+    expect(screen.getAllByRole("button", { name: /Delete play/ }).length).toBeGreaterThan(0);
+  });
+
+  it("does NOT show Delete button on a substitution row", () => {
+    const players = seedReadyGame();
+    addBench("home", 1);
+    useGameStore.getState().startGame();
+    const out = players.homePlayer(0);
+    const bench = useGameStore
+      .getState()
+      .homeTeam.roster.find((p) => p.name === "Bench 1")!;
+    useGameStore.getState().substitute("home", out.id, bench.id);
+    render(<GameLog />);
+    expect(screen.queryAllByRole("button", { name: /Delete play/ })).toHaveLength(0);
+  });
+
+  it("clicking Delete on a foul row opens the delete confirm modal", async () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordFoul("home", players.homePlayer(0).id, "personal");
+    const user = userEvent.setup();
+    render(<GameLog />);
+    await user.click(screen.getByRole("button", { name: /Delete play/ }));
+    // Modal title is rendered
+    expect(screen.getByText(/Delete play\?/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Delete$/ })).toBeInTheDocument();
   });
 
   it("falls back to 'Unknown' if the playerId no longer exists", () => {

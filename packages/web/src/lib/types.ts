@@ -172,6 +172,55 @@ export type GameEvent =
       action: "end" | "start";
     };
 
+/**
+ * The four `GameEvent` variants that support edit/delete through the
+ * play-by-play log. Substitution, clock, and period events are excluded
+ * because they carry derived state (on-court lineup, status transitions)
+ * that cannot be re-derived from arbitrary edits.
+ */
+export type EditableEvent =
+  | Extract<GameEvent, { type: "score" }>
+  | Extract<GameEvent, { type: "foul" }>
+  | Extract<GameEvent, { type: "stat" }>
+  | Extract<GameEvent, { type: "timeout" }>;
+
+/**
+ * Patch supplied to `editEvent` for mutating an existing GameEvent in
+ * place. The `type` discriminant MUST match the target event's `type`;
+ * mismatch is a no-op at the store. Only the editable fields for that
+ * event-type variant may appear — identity fields (`id`, `period`,
+ * `timestamp`, `type`) are immutable through edit and are absent from
+ * every branch.
+ */
+export type EditEventPatch =
+  | {
+      type: "score";
+      clockAt?: number;
+      side?: Side;
+      playerId?: ID;
+      kind?: ScoreKind;
+      made?: boolean;
+    }
+  | {
+      type: "foul";
+      clockAt?: number;
+      side?: Side;
+      playerId?: ID;
+      kind?: FoulKind;
+    }
+  | {
+      type: "stat";
+      clockAt?: number;
+      side?: Side;
+      playerId?: ID;
+      kind?: StatKind;
+    }
+  | {
+      type: "timeout";
+      clockAt?: number;
+      side?: Side;
+    };
+
 /** High-level lifecycle of a game. */
 export type GameStatus =
   | "setup" // still in pre-game setup screen

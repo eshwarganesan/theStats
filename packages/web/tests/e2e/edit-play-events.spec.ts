@@ -30,15 +30,13 @@ test.describe("Feature 004 — US1: correct a mis-attributed play", () => {
     // The edit modal is visible
     await expect(page.getByRole("button", { name: /^Save$/ })).toBeVisible();
 
-    // Change side to away
-    await page.getByLabel("Side").selectOption("away");
+    // Change side to away via the segmented tile in the Side group
+    const sideGroup = page.getByRole("group", { name: "Side" });
+    await sideGroup.getByRole("button", { name: /Away/ }).click();
 
-    // Pick Away #11 (jersey 11, "Away One")
-    const awayPlayer = page.getByLabel("Player");
-    const awayPlayerOptions = await awayPlayer.locator("option").allTextContents();
-    const awayOneOption = awayPlayerOptions.find((t) => /Away One/.test(t));
-    expect(awayOneOption).toBeTruthy();
-    await awayPlayer.selectOption({ label: awayOneOption! });
+    // Pick Away #11 (jersey 11, "Away One") via the Player tile row
+    const playerGroup = page.getByRole("group", { name: "Player" });
+    await playerGroup.getByRole("button", { name: /Away One/ }).click();
 
     // Save
     await page.getByRole("button", { name: /^Save$/ }).click();

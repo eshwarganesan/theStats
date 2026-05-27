@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { TileGroup, Tile } from "@/components/ui/TileGroup";
 import { useGameStore } from "@/lib/store";
 import {
   FOUL_LABELS,
@@ -185,7 +186,7 @@ export function EditEventModal({ event, onClose }: EditEventModalProps) {
       }
     >
       <div className="flex flex-col gap-4">
-        {/* clockAt */}
+        {/* clockAt — text input (mm:ss) matching the live ClockEditor */}
         <Field label="Clock time" htmlFor="edit-clock">
           <input
             id="edit-clock"
@@ -209,122 +210,105 @@ export function EditEventModal({ event, onClose }: EditEventModalProps) {
           ) : null}
         </Field>
 
-        {/* side */}
-        <Field label="Side" htmlFor="edit-side">
-          <select
-            id="edit-side"
-            value={sideDraft}
-            onChange={(e) => handleSideChange(e.target.value as Side)}
-            aria-label="Side"
-            className="w-full bg-surface-raised border border-surface-border px-3 py-2 text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        {/* side — segmented two-button toggle */}
+        <TileGroup label="Side">
+          <Tile
+            selected={sideDraft === "home"}
+            onClick={() => handleSideChange("home")}
           >
-            <option value="home">{homeTeam.name || "Home"}</option>
-            <option value="away">{awayTeam.name || "Away"}</option>
-          </select>
-        </Field>
+            {homeTeam.name || "Home"}
+          </Tile>
+          <Tile
+            selected={sideDraft === "away"}
+            onClick={() => handleSideChange("away")}
+          >
+            {awayTeam.name || "Away"}
+          </Tile>
+        </TileGroup>
 
-        {/* player (score, foul, stat only) */}
+        {/* player (score, foul, stat only) — scrollable list of rows */}
         {event.type !== "timeout" ? (
-          <Field label="Player" htmlFor="edit-player">
-            <select
-              id="edit-player"
-              value={playerIdDraft ?? ""}
-              onChange={(e) =>
-                setPlayerIdDraft(e.target.value === "" ? null : e.target.value)
-              }
-              aria-label="Player"
-              className="w-full bg-surface-raised border border-surface-border px-3 py-2 text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              {playerIdDraft === null ? (
-                <option value="">— select a player —</option>
-              ) : null}
+          <TileGroup label="Player">
+            <div className="col-span-full max-h-48 overflow-y-auto scrollbar-thin flex flex-col gap-1 -mx-1 px-1">
               {roster.map((p) => (
-                <option key={p.id} value={p.id}>
-                  #{p.number} {p.name}
-                </option>
+                <PlayerRow
+                  key={p.id}
+                  selected={playerIdDraft === p.id}
+                  onClick={() => setPlayerIdDraft(p.id)}
+                  number={p.number}
+                  name={p.name}
+                />
               ))}
-            </select>
-          </Field>
+            </div>
+          </TileGroup>
         ) : null}
 
-        {/* kind — varies by type */}
+        {/* kind — varies by type, rendered as a tile grid */}
         {event.type === "score" ? (
-          <Field label="Shot kind" htmlFor="edit-score-kind">
-            <select
-              id="edit-score-kind"
-              value={scoreKindDraft}
-              onChange={(e) => setScoreKindDraft(e.target.value as ScoreKind)}
-              aria-label="Shot kind"
-              className="w-full bg-surface-raised border border-surface-border px-3 py-2 text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              {(Object.entries(SCORE_LABELS) as Array<[ScoreKind, string]>).map(
-                ([k, label]) => (
-                  <option key={k} value={k}>
-                    {label}
-                  </option>
-                ),
-              )}
-            </select>
-          </Field>
+          <TileGroup label="Shot kind" columns={3}>
+            {(Object.entries(SCORE_LABELS) as Array<[ScoreKind, string]>).map(
+              ([k, label]) => (
+                <Tile
+                  key={k}
+                  selected={scoreKindDraft === k}
+                  onClick={() => setScoreKindDraft(k)}
+                >
+                  {label}
+                </Tile>
+              ),
+            )}
+          </TileGroup>
         ) : null}
 
         {event.type === "foul" ? (
-          <Field label="Foul kind" htmlFor="edit-foul-kind">
-            <select
-              id="edit-foul-kind"
-              value={foulKindDraft}
-              onChange={(e) => setFoulKindDraft(e.target.value as FoulKind)}
-              aria-label="Foul kind"
-              className="w-full bg-surface-raised border border-surface-border px-3 py-2 text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              {(Object.entries(FOUL_LABELS) as Array<[FoulKind, string]>).map(
-                ([k, label]) => (
-                  <option key={k} value={k}>
-                    {label}
-                  </option>
-                ),
-              )}
-            </select>
-          </Field>
+          <TileGroup label="Foul kind" columns={2}>
+            {(Object.entries(FOUL_LABELS) as Array<[FoulKind, string]>).map(
+              ([k, label]) => (
+                <Tile
+                  key={k}
+                  variant="danger"
+                  selected={foulKindDraft === k}
+                  onClick={() => setFoulKindDraft(k)}
+                >
+                  {label}
+                </Tile>
+              ),
+            )}
+          </TileGroup>
         ) : null}
 
         {event.type === "stat" ? (
-          <Field label="Stat kind" htmlFor="edit-stat-kind">
-            <select
-              id="edit-stat-kind"
-              value={statKindDraft}
-              onChange={(e) => setStatKindDraft(e.target.value as StatKind)}
-              aria-label="Stat kind"
-              className="w-full bg-surface-raised border border-surface-border px-3 py-2 text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              {(Object.entries(STAT_LABELS) as Array<[StatKind, string]>).map(
-                ([k, label]) => (
-                  <option key={k} value={k}>
-                    {label}
-                  </option>
-                ),
-              )}
-            </select>
-          </Field>
+          <TileGroup label="Stat kind" columns={3}>
+            {(Object.entries(STAT_LABELS) as Array<[StatKind, string]>).map(
+              ([k, label]) => (
+                <Tile
+                  key={k}
+                  selected={statKindDraft === k}
+                  onClick={() => setStatKindDraft(k)}
+                >
+                  {label}
+                </Tile>
+              ),
+            )}
+          </TileGroup>
         ) : null}
 
-        {/* made (score only) */}
+        {/* made (score only) — Made/Missed segmented toggle */}
         {event.type === "score" ? (
-          <Field label="Made" htmlFor="edit-made">
-            <label className="inline-flex items-center gap-2">
-              <input
-                id="edit-made"
-                type="checkbox"
-                checked={madeDraft}
-                onChange={(e) => setMadeDraft(e.target.checked)}
-                aria-label="Made"
-                className="w-4 h-4"
-              />
-              <span className="text-sm text-ink-muted">
-                Shot was made (uncheck for a miss)
-              </span>
-            </label>
-          </Field>
+          <TileGroup label="Outcome">
+            <Tile
+              selected={madeDraft === true}
+              onClick={() => setMadeDraft(true)}
+            >
+              Made
+            </Tile>
+            <Tile
+              selected={madeDraft === false}
+              onClick={() => setMadeDraft(false)}
+            >
+              Missed
+            </Tile>
+          </TileGroup>
         ) : null}
       </div>
     </Modal>
@@ -347,5 +331,40 @@ function Field({
       </label>
       {children}
     </div>
+  );
+}
+
+/** Roster row used in the Player selector. Mirrors the visual idiom
+ *  of `SubstitutionModal`'s player rows for consistency. */
+function PlayerRow({
+  number,
+  name,
+  selected,
+  onClick,
+}: {
+  number: string;
+  name: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className={cn(
+        "w-full flex items-center gap-3 px-3 py-2 border text-left",
+        "transition-colors duration-150",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+        selected
+          ? "border-accent bg-accent/5 text-ink"
+          : "border-surface-border bg-surface-raised text-ink-muted hover:border-accent/60",
+      )}
+    >
+      <span className="font-mono tabular w-8 text-right text-ink-muted">
+        {number}
+      </span>
+      <span className="text-sm">{name}</span>
+    </button>
   );
 }

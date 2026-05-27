@@ -33,21 +33,18 @@ describe("EditEventModal — score event", () => {
 
     render(<EditEventModal event={ev} onClose={() => {}} />);
 
-    // clockAt input
+    // clockAt input (still a text input)
     expect(screen.getByLabelText(/Clock time/i)).toBeInTheDocument();
-    // side selector
-    expect(screen.getByLabelText(/Side/i)).toBeInTheDocument();
-    // player selector
-    expect(screen.getByLabelText(/Player/i)).toBeInTheDocument();
-    // kind selector (score kind)
-    expect(screen.getByLabelText(/Shot kind/i)).toBeInTheDocument();
-    // made toggle
-    expect(screen.getByLabelText(/Made/i)).toBeInTheDocument();
+    // Tile groups — accessible via role="group"
+    expect(screen.getByRole("group", { name: /Side/i })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /Player/i })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /Shot kind/i })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /Outcome/i })).toBeInTheDocument();
   });
 });
 
 describe("EditEventModal — foul event", () => {
-  it("renders without `made`; shows foul kind", () => {
+  it("renders without `Outcome`; shows foul kind", () => {
     const players = seedReadyGame();
     useGameStore.getState().startGame();
     useGameStore
@@ -56,8 +53,8 @@ describe("EditEventModal — foul event", () => {
     const ev = lastEvent("foul");
 
     render(<EditEventModal event={ev} onClose={() => {}} />);
-    expect(screen.queryByLabelText(/Made/i)).not.toBeInTheDocument();
-    expect(screen.getByLabelText(/Foul kind/i)).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /Outcome/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /Foul kind/i })).toBeInTheDocument();
   });
 });
 
@@ -72,17 +69,19 @@ describe("EditEventModal — stat event", () => {
     const ev = lastEvent("stat");
 
     render(<EditEventModal event={ev} onClose={() => {}} />);
-    // All 7 home players (5 starters + 2 bench) appear as options
-    const playerSelect = screen.getByLabelText(/Player/i) as HTMLSelectElement;
-    const optionTexts = Array.from(playerSelect.options).map((o) => o.text);
-    expect(optionTexts.some((t) => /Home 1/.test(t))).toBe(true);
-    expect(optionTexts.some((t) => /Bench 1/.test(t))).toBe(true);
-    expect(optionTexts.some((t) => /Bench 2/.test(t))).toBe(true);
+    // All 7 home players (5 starters + 2 bench) appear as button rows in the
+    // Player group.
+    const playerGroup = screen.getByRole("group", { name: /Player/i });
+    const playerButtons = playerGroup.querySelectorAll("button");
+    const buttonTexts = Array.from(playerButtons).map((b) => b.textContent ?? "");
+    expect(buttonTexts.some((t) => /Home 1/.test(t))).toBe(true);
+    expect(buttonTexts.some((t) => /Bench 1/.test(t))).toBe(true);
+    expect(buttonTexts.some((t) => /Bench 2/.test(t))).toBe(true);
   });
 });
 
 describe("EditEventModal — timeout event", () => {
-  it("renders only clockAt and side (no player, no kind, no made)", () => {
+  it("renders only clockAt and side (no player, no kind, no outcome)", () => {
     seedReadyGame();
     useGameStore.getState().startGame();
     useGameStore.getState().recordTimeout("home");
@@ -90,10 +89,12 @@ describe("EditEventModal — timeout event", () => {
 
     render(<EditEventModal event={ev} onClose={() => {}} />);
     expect(screen.getByLabelText(/Clock time/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Side/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Player/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Shot|Foul kind|Stat kind/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Made/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /Side/i })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /Player/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("group", { name: /Shot kind|Foul kind|Stat kind/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /Outcome/i })).not.toBeInTheDocument();
   });
 });
 
@@ -109,17 +110,24 @@ describe("EditEventModal — side change behavior", () => {
 
     render(<EditEventModal event={ev} onClose={() => {}} />);
 
-    const sideSelect = screen.getByLabelText(/Side/i) as HTMLSelectElement;
-    await user.selectOptions(sideSelect, "away");
+    // Click the Away tile in the Side group
+    const sideGroup = screen.getByRole("group", { name: /Side/i });
+    const awayTile = Array.from(sideGroup.querySelectorAll("button")).find((b) =>
+      /Away/i.test(b.textContent ?? ""),
+    );
+    if (!awayTile) throw new Error("expected an Away tile");
+    await user.click(awayTile);
 
     const save = screen.getByRole("button", { name: /Save/ });
     expect(save).toBeDisabled();
 
-    const playerSelect = screen.getByLabelText(/Player/i) as HTMLSelectElement;
-    // Player selector now lists Away roster (Away 1..Away 5)
-    const optionTexts = Array.from(playerSelect.options).map((o) => o.text);
-    expect(optionTexts.some((t) => /Away 1/.test(t))).toBe(true);
-    expect(optionTexts.some((t) => /Home 1/.test(t))).toBe(false);
+    // Player group now lists the Away roster (Away 1..Away 5)
+    const playerGroup = screen.getByRole("group", { name: /Player/i });
+    const buttonTexts = Array.from(playerGroup.querySelectorAll("button")).map(
+      (b) => b.textContent ?? "",
+    );
+    expect(buttonTexts.some((t) => /Away 1/.test(t))).toBe(true);
+    expect(buttonTexts.some((t) => /Home 1/.test(t))).toBe(false);
   });
 });
 
@@ -178,9 +186,13 @@ describe("EditEventModal — Save and Cancel", () => {
 
     render(<EditEventModal event={ev} onClose={onClose} />);
 
-    // Change only the player
-    const playerSelect = screen.getByLabelText(/Player/i) as HTMLSelectElement;
-    await user.selectOptions(playerSelect, home1.id);
+    // Click the row for the new player in the Player group
+    const playerGroup = screen.getByRole("group", { name: /Player/i });
+    const home1Tile = Array.from(playerGroup.querySelectorAll("button")).find(
+      (b) => new RegExp(home1.name).test(b.textContent ?? ""),
+    );
+    if (!home1Tile) throw new Error("expected a Home 2 tile");
+    await user.click(home1Tile);
     await user.click(screen.getByRole("button", { name: /Save/ }));
 
     expect(onClose).toHaveBeenCalledOnce();
@@ -208,8 +220,12 @@ describe("EditEventModal — Save and Cancel", () => {
     render(<EditEventModal event={ev} onClose={onClose} />);
 
     const home1 = players.homePlayer(1);
-    const playerSelect = screen.getByLabelText(/Player/i) as HTMLSelectElement;
-    await user.selectOptions(playerSelect, home1.id);
+    const playerGroup = screen.getByRole("group", { name: /Player/i });
+    const home1Tile = Array.from(playerGroup.querySelectorAll("button")).find(
+      (b) => new RegExp(home1.name).test(b.textContent ?? ""),
+    );
+    if (!home1Tile) throw new Error("expected a Home 2 tile");
+    await user.click(home1Tile);
     await user.click(screen.getByRole("button", { name: /Cancel/ }));
 
     expect(onClose).toHaveBeenCalledOnce();

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 interface TileGroupProps {
@@ -40,8 +40,15 @@ interface TileProps {
   /** Whether this tile represents the currently chosen value. */
   selected: boolean;
   /** Visual treatment. Use `danger` for destructive or foul-flavored
-   *  choices (red accent on selection). */
+   *  choices (red accent on selection). Ignored when `accentColor`
+   *  is provided. */
   variant?: "default" | "danger";
+  /** Optional explicit accent color (hex string, e.g. team color).
+   *  When set, overrides the `variant`-based accent for the selected
+   *  state: the border and text take the color, and the background is
+   *  tinted with ~10% alpha. The unselected state stays neutral so
+   *  contrast against the modal background remains readable. */
+  accentColor?: string;
   onClick: () => void;
   children: ReactNode;
 }
@@ -54,24 +61,46 @@ interface TileProps {
 export function Tile({
   selected,
   variant = "default",
+  accentColor,
   onClick,
   children,
 }: TileProps) {
+  const useCustomAccent = accentColor !== undefined;
+  // Selected + custom accent → inline-style the border/text/bg. We
+  // append `1A` (≈10% alpha) to the hex for the background tint; this
+  // works for the 6-digit hex format produced by the team color picker.
+  const customStyle: CSSProperties | undefined =
+    useCustomAccent && selected
+      ? {
+          borderColor: accentColor,
+          color: accentColor,
+          backgroundColor: `${accentColor}1A`,
+        }
+      : undefined;
+
   return (
     <button
       type="button"
       aria-pressed={selected}
       onClick={onClick}
+      style={customStyle}
       className={cn(
         "flex items-center justify-center px-3 py-2 border text-sm font-medium",
         "transition-colors duration-150",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
-        variant === "danger" && selected && "border-danger text-danger bg-danger/10",
-        variant === "danger" &&
+        // Variant-based styling is skipped entirely when accentColor is set.
+        !useCustomAccent && variant === "danger" && selected && "border-danger text-danger bg-danger/10",
+        !useCustomAccent &&
+          variant === "danger" &&
           !selected &&
           "border-surface-border text-ink-muted bg-surface-raised hover:border-danger/60",
-        variant === "default" && selected && "border-accent text-accent bg-accent/10",
-        variant === "default" &&
+        !useCustomAccent && variant === "default" && selected && "border-accent text-accent bg-accent/10",
+        !useCustomAccent &&
+          variant === "default" &&
+          !selected &&
+          "border-surface-border text-ink-muted bg-surface-raised hover:border-accent/60",
+        // Custom-accent unselected: neutral base.
+        useCustomAccent &&
           !selected &&
           "border-surface-border text-ink-muted bg-surface-raised hover:border-accent/60",
       )}

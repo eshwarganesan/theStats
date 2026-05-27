@@ -210,16 +210,19 @@ export function EditEventModal({ event, onClose }: EditEventModalProps) {
           ) : null}
         </Field>
 
-        {/* side — segmented two-button toggle */}
+        {/* side — segmented two-button toggle, themed with each
+            team's color for instant identification. */}
         <TileGroup label="Side">
           <Tile
             selected={sideDraft === "home"}
+            accentColor={homeTeam.color}
             onClick={() => handleSideChange("home")}
           >
             {homeTeam.name || "Home"}
           </Tile>
           <Tile
             selected={sideDraft === "away"}
+            accentColor={awayTeam.color}
             onClick={() => handleSideChange("away")}
           >
             {awayTeam.name || "Away"}

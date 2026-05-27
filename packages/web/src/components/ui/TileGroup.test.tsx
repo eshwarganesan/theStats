@@ -137,4 +137,29 @@ describe("Tile", () => {
       /border-surface-border/,
     );
   });
+
+  it("applies an inline accent color via style when accentColor is set and selected", () => {
+    render(
+      <Tile selected accentColor="#3B82F6" onClick={() => {}}>
+        Home
+      </Tile>,
+    );
+    const btn = screen.getByRole("button", { name: "Home" });
+    expect(btn.style.borderColor).toBe("rgb(59, 130, 246)");
+    expect(btn.style.color).toBe("rgb(59, 130, 246)");
+    // The Tailwind class for the static accent should NOT be applied
+    expect(btn.className).not.toMatch(/border-accent\b/);
+  });
+
+  it("does not apply inline accent color when accentColor is set but unselected", () => {
+    render(
+      <Tile selected={false} accentColor="#3B82F6" onClick={() => {}}>
+        Home
+      </Tile>,
+    );
+    const btn = screen.getByRole("button", { name: "Home" });
+    expect(btn.style.borderColor).toBe("");
+    // Still queryable; falls back to neutral surface border
+    expect(btn.className).toMatch(/border-surface-border/);
+  });
 });

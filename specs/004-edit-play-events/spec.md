@@ -5,6 +5,16 @@
 **Status**: Draft  
 **Input**: User description: "Add an edit feature for the play by play log that allows editing certain events. Within each row of the play by play log, there should be an edit button to edit the corresponding play and a delete button to delete the play. When editing the play, a modal should pop up allowing certain features to be edited depending on the play. The recordScore, recordFoul, recordStat and recordTimeout should be allowed to be edited. The clockAt and side should be editable for each of these plays. For recordScore, the playerId, kind and made need to be editable. For recordFoul, recordStat, the playerId and kind need to be editable. For the recordTimeout, the side needs to be editable."
 
+## Clarifications
+
+### Session 2026-05-26
+
+- Q: When editing `side` or `playerId`, which players should appear in the player selector? → A: Any current rostered player of the chosen side, regardless of whether they were on-court at the event's `clockAt`.
+- Q: After an event is edited, should the log visually indicate that the row was modified? → A: No indicator. Edited rows are indistinguishable from unedited rows; no audit metadata or history is recorded.
+- Q: What confirmation pattern should the delete button use? → A: Modal confirmation dialog with Cancel/Delete buttons and a one-line summary of the play being deleted.
+- Q: How should the user enter `clockAt` in the edit modal? → A: `mm:ss` free-text input matching the existing `ClockEditor` pattern (parsed with the existing `parseClock`/`formatClock` utilities).
+- Q: Should the log be lockable after the game finishes, or remain editable indefinitely? → A: No lock. Edit and delete remain available in every game status, including `finished` (FR-017 stands).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Correct a Mis-Attributed Play (Priority: P1)
@@ -78,15 +88,18 @@ A scorekeeper realizes a recorded play was logged a few seconds late (e.g., the 
 - **FR-007**: For stat events, the edit modal MUST additionally allow editing `playerId` and `kind` (stat kind).
 - **FR-008**: For timeout events, the editable fields MUST be limited to `clockAt` and `side` (no `playerId` or `kind`).
 - **FR-009**: When `side` is changed in the modal, the player selector MUST reset and require a player from the new side's current roster before save is permitted.
+- **FR-009a**: The player selector MUST list ALL current rostered players of the chosen side, regardless of whether they were on-court at the event's `clockAt`. No filtering by historical on-court state is applied.
 - **FR-010**: The `clockAt` field MUST be constrained to `[0, periodLength]` for the event's period; values outside that range MUST block save with a visible error.
+- **FR-010a**: The `clockAt` input MUST accept the same `mm:ss` text format as the existing clock-edit affordance (the value displayed on every clock in the app), parsed identically. Unparseable input MUST block save with a visible error.
 - **FR-011**: System MUST NOT allow changing an event's `period`, `id`, `timestamp`, or `type` through this feature.
 - **FR-012**: On save, system MUST update the event in place within the events list, preserving its position in chronological order.
 - **FR-013**: After save or delete, all derived views (scoreboard, team panels, player stats, log row contents) MUST reflect the change without a page reload.
 - **FR-014**: Cancelling the edit modal MUST discard any pending changes; the event MUST be unchanged.
-- **FR-015**: Activating the delete button MUST require an explicit confirmation step before the event is removed.
+- **FR-015**: Activating the delete button MUST open a modal confirmation dialog with Cancel and Delete buttons and a one-line summary identifying the play being deleted (e.g., player name, side, and event kind). Only the Delete action removes the event; Cancel and modal dismissal leave the event intact.
 - **FR-016**: Confirming deletion MUST remove the event from the events list and leave all other events intact and in order.
 - **FR-017**: The edit and delete affordances MUST be available regardless of game status (setup, ready, live, timeout, period-break, finished), as long as the event exists in the log.
 - **FR-018**: Edit and delete operations MUST be reversible only through normal in-app workflows (re-recording or re-editing); a dedicated undo for an edit or delete is not part of this feature.
+- **FR-019**: System MUST NOT add any visible audit indicator (e.g., "edited" badge) or store any audit metadata (e.g., edit history, `editedAt` timestamp) on events that have been modified. Edited rows are visually identical to unedited rows.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -110,6 +123,6 @@ A scorekeeper realizes a recorded play was logged a few seconds late (e.g., the 
 - An event's `period` cannot be changed through this feature. Re-attributing a play to a different period would require deleting and re-recording, since period transitions carry their own clock-reset semantics.
 - A single shared modal scaffold is used for all four eligible event types, with the displayed fields conditional on event type.
 - Edit and delete affordances are available regardless of game status. There is no requirement to pause the clock or enter a stoppage to make a correction.
-- The delete confirmation is a lightweight inline confirm (e.g., a second tap or a small confirmation dialog) — no separate "trash" or "soft delete" recovery state is in scope.
+- The delete confirmation is a modal dialog (Cancel/Delete) matching the app's existing modal patterns — no separate "trash" or "soft delete" recovery state is in scope.
 - Stat recomputation is fast enough at the scale of a single game's event volume that no incremental recomputation strategy is required for this feature.
 - This feature does not introduce new persistence: edits and deletes mutate the in-memory event list managed by the existing store, alongside the existing append and `undoLastEvent` operations.

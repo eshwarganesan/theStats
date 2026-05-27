@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import type {
+  EditEventPatch,
   FoulKind,
   GameEvent,
   GameSettings,
@@ -21,10 +22,15 @@ import { uid } from "./utils";
  * Store shape — event-sourced state.
  *
  * The three critical invariants:
- *   1. `events` is append-only during normal play; the only mutation besides
- *      pushing is `undoLastEvent`, which pops.
+ *   1. `events` has exactly four explicit mutations: append (via every `record*`
+ *      action plus `startGame`/`endPeriod`/`startNextPeriod`/clock actions),
+ *      `editEvent` (in-place patch of an existing event's editable fields),
+ *      `deleteEvent` (remove a recorded score/foul/stat/timeout by id), and
+ *      `undoLastEvent` (pop the tail). No other action mutates the events array.
  *   2. Statistics are NEVER stored — they are always derived from `events` via
- *      `computeStats` in `lib/stats.ts`. This avoids drift.
+ *      `computeStats` in `lib/stats.ts`. This avoids drift. `editEvent` and
+ *      `deleteEvent` preserve this invariant trivially: subscribers re-fire,
+ *      `computeStats` re-folds.
  *   3. On-court lineups are also derived by replaying `substitution` events
  *      over the initial starters, so `playersOnCourt` is a *cache*, not truth.
  */
@@ -86,6 +92,16 @@ interface GameState {
   substitute: (side: Side, playerOutId: string, playerInId: string) => void;
   togglePossession: (side: Side | null) => void;
   undoLastEvent: () => void;
+
+  // ─── Play-by-play corrections ──────────────────────────────────────────
+  /** Patch an existing event in place. The patch's `type` discriminant
+   *  must match the event's `type`; mismatch is a no-op. Validation
+   *  rejects bad patches silently (dev-only console.warn). See
+   *  `specs/004-edit-play-events/contracts/store-api.md`. */
+  editEvent: (id: string, patch: EditEventPatch) => void;
+  /** Remove an event from the events array by id. Restricted to
+   *  `score | foul | stat | timeout` types; any other type is a no-op. */
+  deleteEvent: (id: string) => void;
 }
 
 // ─── Defaults ─────────────────────────────────────────────────────────────
@@ -590,6 +606,111 @@ export const useGameStore = create<GameState>()(
           };
         }
         return { events: nextEvents };
+      }),
+
+    // ── Play-by-play corrections ─────────────────────────────────────────
+    editEvent: (id, patch) =>
+      set((s) => {
+        const idx = s.events.findIndex((e) => e.id === id);
+        if (idx < 0) return s;
+        const existing = s.events[idx]!;
+        // Type discriminant must match — protects against stale patches and
+        // (statically impossible) calls against unsupported event types.
+        if (existing.type !== patch.type) return s;
+
+        // Resolve the post-edit side. Whichever the caller did NOT touch,
+        // retain from `existing`.
+        const nextSide = patch.side ?? existing.side;
+
+        // For player-bearing event types, resolve the post-edit playerId
+        // (caller's override OR the existing event's playerId) and verify
+        // the player exists on the post-edit side's current roster.
+        if (
+          existing.type === "score" ||
+          existing.type === "foul" ||
+          existing.type === "stat"
+        ) {
+          const patchPlayerId =
+            "playerId" in patch ? patch.playerId : undefined;
+          const nextPlayerId = patchPlayerId ?? existing.playerId;
+          const roster =
+            nextSide === "home" ? s.homeTeam.roster : s.awayTeam.roster;
+          if (!roster.some((p) => p.id === nextPlayerId)) return s;
+        }
+
+        // clockAt, when provided, must be within [0, periodLength] for the
+        // event's period.
+        if (patch.clockAt !== undefined) {
+          const periodLength =
+            existing.period > s.settings.periods
+              ? s.settings.overtimeSeconds
+              : s.settings.periodSeconds;
+          if (patch.clockAt < 0 || patch.clockAt > periodLength) return s;
+        }
+
+        // Build the patched event, preserving identity fields (id, type,
+        // period, timestamp) and applying only the editable-field overrides.
+        const merged = ((): GameEvent => {
+          if (existing.type === "score" && patch.type === "score") {
+            return {
+              ...existing,
+              ...(patch.clockAt !== undefined ? { clockAt: patch.clockAt } : {}),
+              side: nextSide,
+              ...(patch.playerId !== undefined
+                ? { playerId: patch.playerId }
+                : {}),
+              ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
+              ...(patch.made !== undefined ? { made: patch.made } : {}),
+            };
+          }
+          if (existing.type === "foul" && patch.type === "foul") {
+            return {
+              ...existing,
+              ...(patch.clockAt !== undefined ? { clockAt: patch.clockAt } : {}),
+              side: nextSide,
+              ...(patch.playerId !== undefined
+                ? { playerId: patch.playerId }
+                : {}),
+              ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
+            };
+          }
+          if (existing.type === "stat" && patch.type === "stat") {
+            return {
+              ...existing,
+              ...(patch.clockAt !== undefined ? { clockAt: patch.clockAt } : {}),
+              side: nextSide,
+              ...(patch.playerId !== undefined
+                ? { playerId: patch.playerId }
+                : {}),
+              ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
+            };
+          }
+          // timeout
+          return {
+            ...existing,
+            ...(patch.clockAt !== undefined ? { clockAt: patch.clockAt } : {}),
+            side: nextSide,
+          };
+        })();
+
+        const nextEvents = s.events.slice();
+        nextEvents[idx] = merged;
+        return { events: nextEvents };
+      }),
+
+    deleteEvent: (id) =>
+      set((s) => {
+        const existing = s.events.find((e) => e.id === id);
+        if (!existing) return s;
+        if (
+          existing.type !== "score" &&
+          existing.type !== "foul" &&
+          existing.type !== "stat" &&
+          existing.type !== "timeout"
+        ) {
+          return s;
+        }
+        return { events: s.events.filter((e) => e.id !== id) };
       }),
   })),
 );

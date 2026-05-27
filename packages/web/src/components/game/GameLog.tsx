@@ -1,15 +1,32 @@
 "use client";
 
+import { useState } from "react";
 import { useGameStore } from "@/lib/store";
 import { formatClock, formatPeriod, cn } from "@/lib/utils";
 import { FOUL_LABELS, STAT_LABELS } from "@/lib/constants";
-import type { GameEvent } from "@/lib/types";
+import type { EditableEvent, GameEvent } from "@/lib/types";
+import { EditEventModal } from "./EditEventModal";
+import { DeleteEventConfirmModal } from "./DeleteEventConfirmModal";
+
+/** Event types that get the per-row Edit/Delete affordance.
+ *  Substitution, clock, and period rows are intentionally excluded
+ *  (Spec FR-002). */
+function isEditable(ev: GameEvent): ev is EditableEvent {
+  return (
+    ev.type === "score" ||
+    ev.type === "foul" ||
+    ev.type === "stat" ||
+    ev.type === "timeout"
+  );
+}
 
 export function GameLog() {
   const events = useGameStore((s) => s.events);
   const homeTeam = useGameStore((s) => s.homeTeam);
   const awayTeam = useGameStore((s) => s.awayTeam);
   const periods = useGameStore((s) => s.settings.periods);
+  const [editing, setEditing] = useState<EditableEvent | null>(null);
+  const [deleting, setDeleting] = useState<EditableEvent | null>(null);
 
   // Most recent events first (UX convention for a live log)
   const reversed = [...events].reverse();
@@ -32,10 +49,18 @@ export function GameLog() {
               homeTeam={homeTeam}
               awayTeam={awayTeam}
               periods={periods}
+              onEdit={isEditable(ev) ? () => setEditing(ev) : undefined}
+              onDelete={isEditable(ev) ? () => setDeleting(ev) : undefined}
             />
           ))}
         </ul>
       )}
+
+      <EditEventModal event={editing} onClose={() => setEditing(null)} />
+      <DeleteEventConfirmModal
+        event={deleting}
+        onClose={() => setDeleting(null)}
+      />
     </section>
   );
 }
@@ -45,9 +70,15 @@ interface LogRowProps {
   homeTeam: { roster: { id: string; name: string; number: string }[]; tag: string };
   awayTeam: { roster: { id: string; name: string; number: string }[]; tag: string };
   periods: number;
+  /** When set, the row renders an Edit button that calls this handler.
+   *  Omitted for non-editable event types (substitution, clock, period). */
+  onEdit?: () => void;
+  /** When set, the row renders a Delete button that calls this handler.
+   *  Omitted for non-editable event types (substitution, clock, period). */
+  onDelete?: () => void;
 }
 
-function LogRow({ event, homeTeam, awayTeam, periods }: LogRowProps) {
+function LogRow({ event, homeTeam, awayTeam, periods, onEdit, onDelete }: LogRowProps) {
   const descriptor = describe(event, homeTeam, awayTeam);
   return (
     <li className="px-4 py-2 flex items-center gap-3 hover:bg-surface-hover">
@@ -86,6 +117,26 @@ function LogRow({ event, homeTeam, awayTeam, periods }: LogRowProps) {
         >
           {descriptor.tag}
         </span>
+      ) : null}
+      {onEdit ? (
+        <button
+          type="button"
+          aria-label="Edit play"
+          onClick={onEdit}
+          className="shrink-0 w-7 h-7 flex items-center justify-center text-ink-muted hover:text-ink hover:bg-surface-hover border border-transparent hover:border-surface-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          ✎
+        </button>
+      ) : null}
+      {onDelete ? (
+        <button
+          type="button"
+          aria-label="Delete play"
+          onClick={onDelete}
+          className="shrink-0 w-7 h-7 flex items-center justify-center text-ink-muted hover:text-danger hover:bg-surface-hover border border-transparent hover:border-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger"
+        >
+          ✕
+        </button>
       ) : null}
     </li>
   );

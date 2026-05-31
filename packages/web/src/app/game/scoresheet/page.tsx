@@ -2,10 +2,11 @@
 
 import { useMemo } from "react";
 import { useGameStore } from "@/lib/store";
-import { computeStats } from "@/lib/stats";
-import type { GameEvent, Side, Team } from "@/lib/types";
-import { formatPeriod, cn } from "@/lib/utils";
-import { POINTS_BY_KIND } from "@/lib/constants";
+import { computeStats } from "@thestats/core";
+import type { GameEvent, Side, Team } from "@thestats/core";
+import { formatPeriod } from "@thestats/core";
+import { cn } from "@/lib/utils";
+import { POINTS_BY_KIND } from "@thestats/core";
 
 /**
  * Official-style digital scoresheet. Designed to mirror the layout of a

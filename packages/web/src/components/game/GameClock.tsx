@@ -1,7 +1,8 @@
 "use client";
 
 import { useGameStore } from "@/lib/store";
-import { cn, formatClock } from "@/lib/utils";
+import { formatClock } from "@thestats/core";
+import { cn } from "@/lib/utils";
 
 /**
  * Pure clock display. Subscribes to clock state and renders the styled

@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useGameStore } from "@/lib/store";
 import { ClockEditor } from "./ClockEditor";
-import { formatClock } from "@/lib/utils";
+import { formatClock } from "@thestats/core";
 
 beforeEach(() => {
   useGameStore.getState().resetAll();

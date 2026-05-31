@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useGameStore } from "@/lib/store";
-import { DEFAULT_SETTINGS } from "@/lib/constants";
+import { DEFAULT_SETTINGS } from "@thestats/core";
 import SetupPage from "./page";
 
 // next/navigation is used by SetupPage's Continue button; stub it for tests.

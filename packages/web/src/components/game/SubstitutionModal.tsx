@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useGameStore } from "@/lib/store";
-import type { Side } from "@/lib/types";
+import type { Side } from "@thestats/core";
 import { cn } from "@/lib/utils";
 
 interface SubstitutionModalProps {

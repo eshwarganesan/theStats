@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useGameStore } from "@/lib/store";
-import { formatClock, formatPeriod, cn } from "@/lib/utils";
-import { FOUL_LABELS, STAT_LABELS } from "@/lib/constants";
-import type { EditableEvent, GameEvent } from "@/lib/types";
+import { formatClock, formatPeriod } from "@thestats/core";
+import { cn } from "@/lib/utils";
+import { FOUL_LABELS, STAT_LABELS } from "@thestats/core";
+import type { EditableEvent, GameEvent } from "@thestats/core";
 import { EditEventModal } from "./EditEventModal";
 import { DeleteEventConfirmModal } from "./DeleteEventConfirmModal";
 

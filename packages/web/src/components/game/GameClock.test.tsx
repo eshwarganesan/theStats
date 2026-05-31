@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { useGameStore } from "@/lib/store";
 import { GameClock } from "./GameClock";
-import { formatClock } from "@/lib/utils";
+import { formatClock } from "@thestats/core";
 
 beforeEach(() => {
   useGameStore.getState().resetAll();

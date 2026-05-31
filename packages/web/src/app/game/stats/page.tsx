@@ -2,8 +2,8 @@
 
 import { useMemo } from "react";
 import { useGameStore } from "@/lib/store";
-import { computeStats } from "@/lib/stats";
-import type { PlayerStats, Team } from "@/lib/types";
+import { computeStats } from "@thestats/core";
+import type { PlayerStats, Team } from "@thestats/core";
 import { cn } from "@/lib/utils";
 
 /**

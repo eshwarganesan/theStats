@@ -27,7 +27,11 @@
       "Bash(bash /Users/eganesan/Documents/theStatsApp/theStats/.specify/scripts/bash/update-agent-context.sh claude)",
       "Bash(bash /Users/eganesan/Documents/theStatsApp/theStats/.specify/scripts/bash/check-prerequisites.sh --json)",
       "Bash(bash /Users/eganesan/Documents/theStatsApp/theStats/.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks)",
-      "Bash(bash /Users/eganesan/Documents/theStatsApp/theStats/.specify/extensions/git/scripts/bash/auto-commit.sh after_implement)"
+      "Bash(bash /Users/eganesan/Documents/theStatsApp/theStats/.specify/extensions/git/scripts/bash/auto-commit.sh after_implement)",
+      "Bash(xargs sed *)",
+      "Bash(echo \"Grep exit=$?\")",
+      "Bash(grep -rn -E \"from .@/lib/\\(types|constants|stats\\).$\" src tests --include='*.ts' --include='*.tsx')",
+      "Bash(echo \"exit1=$?\")"
     ]
   }
 }

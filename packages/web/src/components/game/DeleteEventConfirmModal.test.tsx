@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { useGameStore } from "@/lib/store";
 import { DeleteEventConfirmModal } from "./DeleteEventConfirmModal";
 import { seedReadyGame } from "@/test/seed";
-import type { GameEvent } from "@/lib/types";
+import type { GameEvent } from "@thestats/core";
 
 beforeEach(() => {
   useGameStore.getState().resetAll();

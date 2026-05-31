@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { Side } from "@/lib/types";
+import type { Side } from "@thestats/core";
 import { useGameStore } from "@/lib/store";
-import { PLAYERS_ON_COURT } from "@/lib/constants";
+import { PLAYERS_ON_COURT } from "@thestats/core";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";

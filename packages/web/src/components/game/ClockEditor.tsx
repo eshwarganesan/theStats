@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useGameStore } from "@/lib/store";
-import { cn, formatClock, parseClock } from "@/lib/utils";
+import { formatClock, parseClock } from "@thestats/core";
+import { cn } from "@/lib/utils";
 import { GameClock } from "./GameClock";
 
 /**

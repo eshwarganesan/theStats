@@ -7,7 +7,7 @@ import { useGameStore } from "@/lib/store";
 import { TeamSetupCard } from "@/components/setup/TeamSetupCard";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import type { GameFormat } from "@/lib/types";
+import type { GameFormat } from "@thestats/core";
 import { cn } from "@/lib/utils";
 
 export default function SetupPage() {

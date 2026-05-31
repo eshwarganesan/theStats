@@ -7,9 +7,9 @@ import {
   FOUL_LABELS,
   SCORE_LABELS,
   STAT_LABELS,
-} from "@/lib/constants";
-import { formatClock } from "@/lib/utils";
-import type { EditableEvent } from "@/lib/types";
+} from "@thestats/core";
+import { formatClock } from "@thestats/core";
+import type { EditableEvent } from "@thestats/core";
 
 interface DeleteEventConfirmModalProps {
   /** The event awaiting confirmation. `null` closes the dialog. */

@@ -2,9 +2,9 @@
 
 import { useMemo } from "react";
 import { useGameStore } from "@/lib/store";
-import { computeStats } from "@/lib/stats";
-import type { Side } from "@/lib/types";
-import { FOUL_OUT_THRESHOLD } from "@/lib/constants";
+import { computeStats } from "@thestats/core";
+import type { Side } from "@thestats/core";
+import { FOUL_OUT_THRESHOLD } from "@thestats/core";
 import { cn } from "@/lib/utils";
 
 interface TeamPanelProps {

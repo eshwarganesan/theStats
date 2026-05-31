@@ -13,10 +13,13 @@ import type {
   Side,
   StatKind,
   Team,
-} from "./types";
-import { DEFAULT_SETTINGS, PLAYERS_ON_COURT } from "./constants";
-import { computeStats } from "./stats";
-import { uid } from "./utils";
+} from "@thestats/core";
+import {
+  DEFAULT_SETTINGS,
+  PLAYERS_ON_COURT,
+  computeStats,
+  uid,
+} from "@thestats/core";
 
 /**
  * Store shape — event-sourced state.

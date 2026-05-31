@@ -1,0 +1,20 @@
+{
+  "name": "thestats",
+  "version": "0.1.0",
+  "private": true,
+  "description": "theStats — digital basketball scoresheet and statistics workspace.",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=scorekeeping-app",
+    "build": "npm run build --workspace=scorekeeping-app",
+    "start": "npm run start --workspace=scorekeeping-app",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:coverage": "npm run test:coverage --workspaces --if-present",
+    "test:e2e": "npm run test:e2e --workspace=scorekeeping-app",
+    "test:all": "npm run typecheck && npm run lint && npm run test:coverage && npm run test:e2e"
+  }
+}

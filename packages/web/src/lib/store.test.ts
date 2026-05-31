@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useGameStore } from "./store";
-import { DEFAULT_SETTINGS, PLAYERS_ON_COURT } from "./constants";
-import { computeStats } from "./stats";
-import type { Player } from "./types";
+import {
+  DEFAULT_SETTINGS,
+  PLAYERS_ON_COURT,
+  computeStats,
+  type Player,
+} from "@thestats/core";
 
 const initial = useGameStore.getState();
 

@@ -7,7 +7,7 @@ import { ActionPad } from "@/components/game/ActionPad";
 import { GameLog } from "@/components/game/GameLog";
 import { ActionModal } from "@/components/game/ActionModal";
 import { SubstitutionModal } from "@/components/game/SubstitutionModal";
-import type { Side } from "@/lib/types";
+import type { Side } from "@thestats/core";
 
 /**
  * Live scoring console.

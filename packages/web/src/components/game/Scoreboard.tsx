@@ -2,8 +2,8 @@
 
 import { useMemo } from "react";
 import { useGameStore } from "@/lib/store";
-import { computeStats } from "@/lib/stats";
-import { formatPeriod } from "@/lib/utils";
+import { computeStats } from "@thestats/core";
+import { formatPeriod } from "@thestats/core";
 import { cn } from "@/lib/utils";
 import { ClockPanel } from "./ClockPanel";
 

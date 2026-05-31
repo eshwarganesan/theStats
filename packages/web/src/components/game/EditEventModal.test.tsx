@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { useGameStore } from "@/lib/store";
 import { EditEventModal } from "./EditEventModal";
 import { seedReadyGame, addBench } from "@/test/seed";
-import type { EditableEvent, GameEvent } from "@/lib/types";
+import type { EditableEvent, GameEvent } from "@thestats/core";
 
 beforeEach(() => {
   useGameStore.getState().resetAll();

@@ -1,5 +1,5 @@
 import { useGameStore } from "@/lib/store";
-import type { Side } from "@/lib/types";
+import type { Side } from "@thestats/core";
 
 /**
  * Test helper: seeds the store with two valid 5v5 rosters and runs

@@ -9,8 +9,9 @@ import {
   FOUL_LABELS,
   SCORE_LABELS,
   STAT_LABELS,
-} from "@/lib/constants";
-import { formatClock, parseClock, cn } from "@/lib/utils";
+} from "@thestats/core";
+import { formatClock, parseClock } from "@thestats/core";
+import { cn } from "@/lib/utils";
 import type {
   EditableEvent,
   EditEventPatch,
@@ -18,7 +19,7 @@ import type {
   ScoreKind,
   Side,
   StatKind,
-} from "@/lib/types";
+} from "@thestats/core";
 
 interface EditEventModalProps {
   /** The event being edited. `null` closes the modal. */

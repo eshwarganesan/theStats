@@ -3,8 +3,8 @@ import { render, screen } from "@testing-library/react";
 import { useGameStore } from "@/lib/store";
 import { Scoreboard } from "./Scoreboard";
 import { seedReadyGame } from "@/test/seed";
-import { computeStats } from "@/lib/stats";
-import { formatPeriod } from "@/lib/utils";
+import { computeStats } from "@thestats/core";
+import { formatPeriod } from "@thestats/core";
 
 beforeEach(() => {
   useGameStore.getState().resetAll();

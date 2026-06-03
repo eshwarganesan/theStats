@@ -3,7 +3,8 @@
     "collect": {
       "url": [
         "http://localhost:3000/",
-        "http://localhost:3000/setup"
+        "http://localhost:3000/setup",
+        "http://localhost:3000/login"
       ],
       "startServerCommand": "npm run start",
       "startServerReadyPattern": "Ready in",

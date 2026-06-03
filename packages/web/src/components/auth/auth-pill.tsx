@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { SignOutButton } from "./sign-out-button";
 
 interface AuthPillProps {
   className?: string;
 }
 
 /**
- * Top-bar identity badge. US1 scope: three states (anonymous, signed-in
- * unconfirmed, signed-in confirmed). US3 will extend this with a sign-out
- * affordance.
+ * Top-bar identity badge. Three states: anonymous, signed-in unconfirmed,
+ * signed-in confirmed. Signed-in states include a sign-out control (US3).
  */
 export async function AuthPill({ className }: AuthPillProps = {}) {
   const supabase = await createServerClient();
@@ -36,7 +36,7 @@ export async function AuthPill({ className }: AuthPillProps = {}) {
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-2 h-8 px-3 text-xs font-mono uppercase tracking-wider",
+        "inline-flex items-center gap-3 h-8 px-3 text-xs font-mono uppercase tracking-wider",
         "bg-surface-raised border border-surface-border text-ink",
         className,
       )}
@@ -47,6 +47,7 @@ export async function AuthPill({ className }: AuthPillProps = {}) {
           Pending confirmation
         </span>
       ) : null}
+      <SignOutButton className="text-xs" />
     </div>
   );
 }

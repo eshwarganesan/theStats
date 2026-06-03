@@ -153,3 +153,72 @@ test.describe("US2: sign in", () => {
     }
   });
 });
+
+test.describe("US3: sign out + account-gate", () => {
+  test("anonymous deep-link to /account redirects to /login?from=%2Faccount; signed-in deep-link renders", async ({
+    page,
+  }) => {
+    const email = uniqueEmail("e2e-gate");
+    try {
+      await admin.auth.admin.createUser({
+        email,
+        password: "password12345",
+        email_confirm: true,
+      });
+
+      // Anonymous deep link → redirect to login carrying the destination.
+      await page.goto("/account");
+      await page.waitForURL((url) => url.pathname === "/login");
+      expect(page.url()).toContain("from=%2Faccount");
+
+      // Sign in via the same page.
+      await page.getByRole("tab", { name: /sign in/i }).click();
+      await page.getByLabel(/email/i).fill(email);
+      await page.getByLabel(/password/i).fill("password12345");
+      await page.getByRole("button", { name: /^sign in$/i }).click();
+
+      // After sign-in we should be returned to the originally requested
+      // screen (the page reads `from` from searchParams and redirects).
+      await page.waitForURL("/account");
+      await expect(page.getByText(/signed in as/i)).toBeVisible();
+      await expect(page.getByText(email)).toBeVisible();
+    } finally {
+      await deleteUserByEmail(email);
+    }
+  });
+
+  test("sign-out reverts the app to anonymous mode and blocks subsequent access to /account", async ({
+    page,
+  }) => {
+    const email = uniqueEmail("e2e-signout");
+    try {
+      await admin.auth.admin.createUser({
+        email,
+        password: "password12345",
+        email_confirm: true,
+      });
+
+      await page.goto("/login");
+      await page.getByRole("tab", { name: /sign in/i }).click();
+      await page.getByLabel(/email/i).fill(email);
+      await page.getByLabel(/password/i).fill("password12345");
+      await page.getByRole("button", { name: /^sign in$/i }).click();
+      await page.waitForURL("/");
+
+      // Sign out from the AuthPill.
+      await page.getByRole("button", { name: /sign out/i }).click();
+      await expect(page.getByRole("link", { name: /sign in/i })).toBeVisible();
+
+      // Anonymous screens still load (`/` is anonymous-accessible per the
+      // hybrid mode clarification).
+      await page.goto("/");
+      await expect(page).toHaveURL("/");
+
+      // But /account now redirects to /login again.
+      await page.goto("/account");
+      await page.waitForURL((url) => url.pathname === "/login");
+    } finally {
+      await deleteUserByEmail(email);
+    }
+  });
+});

@@ -138,15 +138,15 @@ This is a Next.js 15 monorepo (per [plan.md](./plan.md)). All paths below are re
 
 ### Tests for User Story 3 (MANDATORY per Constitution Principle I) ⚠️
 
-- [ ] T044 [P] [US3] Author failing integration test `packages/web/tests/integration/auth/sign-out.test.ts` covering [contracts/post_sign_out.md](./contracts/post_sign_out.md): signed-in caller → 204 + cookies cleared + subsequent authenticated request fails, unauthenticated caller → 204 (no-op), sign-out on one cookie set does not invalidate a second device's session.
-- [ ] T045 [US3] Extend `packages/web/src/components/auth/auth-pill.test.tsx` (modifies the file from T026): when signed in, renders a sign-out button; clicking it calls `fetch('/api/auth/sign-out', { method: 'POST' })` and then refreshes the page (or navigates to `/`).
-- [ ] T046 [US3] Extend `packages/web/tests/e2e/auth.spec.ts` (modifies the file from T027 / T039) with a `test.describe("US3: sign out + auth gate", ...)` block: covers (a) sign-out reverts the app to anonymous mode on `/` (no redirect), (b) hitting `/account` after sign-out redirects to `/login?from=%2Faccount`, (c) hitting `/account` while signed in renders the demonstration page.
+- [X] T044 [P] [US3] Author failing integration test `packages/web/tests/integration/auth/sign-out.test.ts` covering [contracts/post_sign_out.md](./contracts/post_sign_out.md): signed-in caller → 204 + cookies cleared + subsequent authenticated request fails, unauthenticated caller → 204 (no-op), sign-out on one cookie set does not invalidate a second device's session.
+- [X] T045 [US3] Extend `packages/web/src/components/auth/auth-pill.test.tsx` (modifies the file from T026): when signed in, renders a sign-out button; clicking it calls `fetch('/api/auth/sign-out', { method: 'POST' })` and then refreshes the page (or navigates to `/`).
+- [X] T046 [US3] Extend `packages/web/tests/e2e/auth.spec.ts` (modifies the file from T027 / T039) with a `test.describe("US3: sign out + auth gate", ...)` block: covers (a) sign-out reverts the app to anonymous mode on `/` (no redirect), (b) hitting `/account` after sign-out redirects to `/login?from=%2Faccount`, (c) hitting `/account` while signed in renders the demonstration page.
 
 ### Implementation for User Story 3
 
-- [ ] T047 [P] [US3] Implement `packages/web/src/app/api/auth/sign-out/route.ts` per [contracts/post_sign_out.md](./contracts/post_sign_out.md): read session via `createServerClient()`, call `supabase.auth.signOut()` if a session exists, return 204; `logAuthEvent` on entry/exit. Make T044 pass.
-- [ ] T048 [US3] Update `packages/web/src/components/auth/auth-pill.tsx` (modifies the file from T031) to add a Client Component child that renders the sign-out button when a session is present, POSTs to `/api/auth/sign-out`, then calls `router.refresh()` (or `router.push("/")` if the current route is account-gated). Make T045 pass.
-- [ ] T049 [P] [US3] Implement the demonstration account-gated route `packages/web/src/app/(authenticated)/account/page.tsx` as a Server Component that calls `await requireAuth({ from: "/account" })` at the top and renders a minimal "Signed in as {email}" view. This is intentionally bare — it exists to anchor the auth gate and provide a test target; future features will expand it. (Per spec Assumptions: profile management is out of scope; this page reads `email` only.) Make T046 pass.
+- [X] T047 [P] [US3] Implement `packages/web/src/app/api/auth/sign-out/route.ts` per [contracts/post_sign_out.md](./contracts/post_sign_out.md): read session via `createServerClient()`, call `supabase.auth.signOut()` if a session exists, return 204; `logAuthEvent` on entry/exit. Make T044 pass.
+- [X] T048 [US3] Update `packages/web/src/components/auth/auth-pill.tsx` (modifies the file from T031) to add a Client Component child that renders the sign-out button when a session is present, POSTs to `/api/auth/sign-out`, then calls `router.refresh()` (or `router.push("/")` if the current route is account-gated). Make T045 pass.
+- [X] T049 [P] [US3] Implement the demonstration account-gated route `packages/web/src/app/(authenticated)/account/page.tsx` as a Server Component that calls `await requireAuth({ from: "/account" })` at the top and renders a minimal "Signed in as {email}" view. This is intentionally bare — it exists to anchor the auth gate and provide a test target; future features will expand it. (Per spec Assumptions: profile management is out of scope; this page reads `email` only.) Make T046 pass.
 
 **Checkpoint**: All three user stories functional. The auth feature is end-to-end usable: sign up → confirm → sign in → use the app → sign out → revert to anonymous → hit an account-gated route → redirected to `/login`.
 
@@ -156,11 +156,11 @@ This is a Next.js 15 monorepo (per [plan.md](./plan.md)). All paths below are re
 
 **Purpose**: Verify constitution gates one more time, lock down budgets, and capture any deferred follow-ups in the PR description.
 
-- [ ] T050 Run `npm run test:all` from the repo root. Resolve any coverage regressions in `packages/web` so the new code does not drop overall coverage on `main` (Constitution Principle I).
-- [ ] T051 Add a `size-limit` budget for the `/login` and `/account` route bundles in `packages/web/package.json`'s `size-limit` section (Constitution Principle IV: bundle additions >20KB gzipped MUST be justified). Pick a budget ≤30KB gzipped for `/login` and ≤20KB for `/account`.
-- [ ] T052 Add a `lhci` audit for `/login` in `packages/web/lighthouserc.json` so the login screen is gated by the same Lighthouse Performance ≥90 and Core Web Vitals "Good" bands as the rest of the app (Constitution Principle IV).
-- [ ] T053 Audit `packages/web/src/app/api/auth/**/route.ts`, `packages/web/src/app/auth/callback/route.ts`, and `packages/web/middleware.ts` for any introduced `any`, `as Foo`, `!`, or `@ts-ignore` (Constitution Principle II). Fix in place; do not justify.
-- [ ] T054 Edit `packages/web/eslint.config.mjs` to add a rule forbidding `import` of `env.SUPABASE_SERVICE_ROLE_KEY` from any file that is not under `src/lib/supabase/admin.ts` or marked `import "server-only"` (defense-in-depth on the Constitution Principle VI "server-only secrets" rule). Add a test that runs `npm run lint` and asserts a sample violation file fails.
+- [X] T050 Run `npm run test:all` from the repo root. Resolve any coverage regressions in `packages/web` so the new code does not drop overall coverage on `main` (Constitution Principle I).
+- [X] T051 Add a `size-limit` budget for the `/login` and `/account` route bundles in `packages/web/package.json`'s `size-limit` section (Constitution Principle IV: bundle additions >20KB gzipped MUST be justified). Pick a budget ≤30KB gzipped for `/login` and ≤20KB for `/account`.
+- [X] T052 Add a `lhci` audit for `/login` in `packages/web/lighthouserc.json` so the login screen is gated by the same Lighthouse Performance ≥90 and Core Web Vitals "Good" bands as the rest of the app (Constitution Principle IV).
+- [X] T053 Audit `packages/web/src/app/api/auth/**/route.ts`, `packages/web/src/app/auth/callback/route.ts`, and `packages/web/middleware.ts` for any introduced `any`, `as Foo`, `!`, or `@ts-ignore` (Constitution Principle II). Fix in place; do not justify.
+- [X] T054 Edit `packages/web/eslint.config.mjs` to add a rule forbidding `import` of `env.SUPABASE_SERVICE_ROLE_KEY` from any file that is not under `src/lib/supabase/admin.ts` or marked `import "server-only"` (defense-in-depth on the Constitution Principle VI "server-only secrets" rule). Add a test that runs `npm run lint` and asserts a sample violation file fails.
 
 ---
 

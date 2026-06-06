@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
@@ -28,7 +27,6 @@ interface ErrorResponseBody {
 }
 
 export function SignInForm({ from }: SignInFormProps) {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -68,8 +66,8 @@ export function SignInForm({ from }: SignInFormProps) {
     }
 
     if (res.ok) {
-      router.refresh();
-      router.push(from && /^\/(?!\/)/.test(from) ? from : "/");
+      const target = from && /^\/(?!\/)/.test(from) ? from : "/";
+      window.location.assign(target);
       return;
     }
 

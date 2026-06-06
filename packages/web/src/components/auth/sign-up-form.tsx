@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
@@ -26,7 +25,6 @@ interface ErrorResponseBody {
 }
 
 export function SignUpForm({ from }: SignUpFormProps) {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -53,8 +51,8 @@ export function SignUpForm({ from }: SignUpFormProps) {
 
     if (res.ok) {
       setStatus({ kind: "ok", email });
-      router.refresh();
-      router.push(from && /^\/(?!\/)/.test(from) ? from : "/");
+      const target = from && /^\/(?!\/)/.test(from) ? from : "/";
+      window.location.assign(target);
       return;
     }
 

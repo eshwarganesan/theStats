@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 interface SignOutButtonProps {
@@ -14,7 +13,6 @@ interface SignOutButtonProps {
  * scorekeeping screen in anonymous mode (FR-009 / US3).
  */
 export function SignOutButton({ className }: SignOutButtonProps) {
-  const router = useRouter();
   const [pending, setPending] = useState(false);
   const [, startTransition] = useTransition();
 
@@ -26,10 +24,7 @@ export function SignOutButton({ className }: SignOutButtonProps) {
     } finally {
       setPending(false);
     }
-    startTransition(() => {
-      router.refresh();
-      router.push("/");
-    });
+    window.location.assign("/");
   }
 
   return (

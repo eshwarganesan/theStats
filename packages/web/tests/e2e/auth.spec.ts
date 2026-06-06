@@ -16,33 +16,39 @@
  * in their own task phases.
  */
 import { test, expect } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 test.skip(!url || !serviceRole, "Hosted Supabase env vars missing — skipping E2E auth flow");
 
-const admin = createClient(url ?? "", serviceRole ?? "", {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
+let _admin: SupabaseClient | undefined;
+function admin(): SupabaseClient {
+  if (!_admin) {
+    _admin = createClient(url!, serviceRole!, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+  }
+  return _admin;
+}
 
 function uniqueEmail(prefix = "e2e-signup"): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
 }
 
 async function deleteUserByEmail(email: string): Promise<void> {
-  const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+  const { data } = await admin().auth.admin.listUsers({ page: 1, perPage: 200 });
   const u = data.users.find((x) => x.email === email);
   if (u) {
     try {
-      await admin.auth.admin.deleteUser(u.id);
+      await admin().auth.admin.deleteUser(u.id);
     } catch {
       /* best-effort */
     }
   }
   try {
-    await admin.from("auth_attempts").delete().eq("key", `e:${email}`);
+    await admin().from("auth_attempts").delete().eq("key", `e:${email}`);
   } catch {
     /* best-effort */
   }
@@ -65,10 +71,10 @@ test.describe("US1: sign up", () => {
 
       // Confirm the account via the admin API to simulate the user clicking
       // the email link (Mailpit isn't available in cloud-only setups).
-      const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      const { data } = await admin().auth.admin.listUsers({ page: 1, perPage: 200 });
       const user = data.users.find((u) => u.email === email);
       expect(user).toBeDefined();
-      await admin.auth.admin.updateUserById(user!.id, { email_confirm: true });
+      await admin().auth.admin.updateUserById(user!.id, { email_confirm: true });
 
       await page.reload();
       await expect(page.getByText(email)).toBeVisible();
@@ -82,7 +88,7 @@ test.describe("US1: sign up", () => {
     const email = uniqueEmail("e2e-signed-in");
     try {
       // Seed: create a confirmed user.
-      const { data: created } = await admin.auth.admin.createUser({
+      const { data: created } = await admin().auth.admin.createUser({
         email,
         password: "password12345",
         email_confirm: true,
@@ -102,7 +108,7 @@ test.describe("US2: sign in", () => {
   test("a confirmed user signs in via the panel toggle and lands on /", async ({ page }) => {
     const email = uniqueEmail("e2e-signin");
     try {
-      await admin.auth.admin.createUser({
+      await admin().auth.admin.createUser({
         email,
         password: "password12345",
         email_confirm: true,
@@ -132,7 +138,7 @@ test.describe("US2: sign in", () => {
   }) => {
     const email = uniqueEmail("e2e-unconfirmed");
     try {
-      await admin.auth.admin.createUser({
+      await admin().auth.admin.createUser({
         email,
         password: "password12345",
         email_confirm: false,
@@ -160,7 +166,7 @@ test.describe("US3: sign out + account-gate", () => {
   }) => {
     const email = uniqueEmail("e2e-gate");
     try {
-      await admin.auth.admin.createUser({
+      await admin().auth.admin.createUser({
         email,
         password: "password12345",
         email_confirm: true,
@@ -192,7 +198,7 @@ test.describe("US3: sign out + account-gate", () => {
   }) => {
     const email = uniqueEmail("e2e-signout");
     try {
-      await admin.auth.admin.createUser({
+      await admin().auth.admin.createUser({
         email,
         password: "password12345",
         email_confirm: true,

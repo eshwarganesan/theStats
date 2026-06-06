@@ -22,16 +22,29 @@ function jsonResponse(body: unknown, init?: ResponseInit): Response {
 
 describe("<SignInForm />", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
+  let assignMock: ReturnType<typeof vi.fn>;
+  const originalLocation = window.location;
 
   beforeEach(() => {
     fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     refreshMock.mockReset();
     pushMock.mockReset();
+    assignMock = vi.fn();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: { ...originalLocation, assign: assignMock },
+    });
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: originalLocation,
+    });
   });
 
   it("renders email + password inputs with the correct autocomplete hints", () => {
@@ -63,7 +76,7 @@ describe("<SignInForm />", () => {
     });
   });
 
-  it("on 200, refreshes the router and navigates to `from` (or /)", async () => {
+  it("on 200, redirects to `from` via a full document navigation", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }));
     const user = userEvent.setup();
     render(<SignInForm from="/account" />);
@@ -72,8 +85,7 @@ describe("<SignInForm />", () => {
     await user.type(screen.getByLabelText(/password/i), "hunter22hunter");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
-    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/account"));
-    expect(refreshMock).toHaveBeenCalled();
+    await waitFor(() => expect(assignMock).toHaveBeenCalledWith("/account"));
   });
 
   it("on 401 invalid_credentials, surfaces the generic error message", async () => {

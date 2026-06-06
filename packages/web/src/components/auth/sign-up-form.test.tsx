@@ -22,16 +22,29 @@ function jsonResponse(body: unknown, init?: ResponseInit): Response {
 
 describe("<SignUpForm />", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
+  let assignMock: ReturnType<typeof vi.fn>;
+  const originalLocation = window.location;
 
   beforeEach(() => {
     fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     refreshMock.mockReset();
     pushMock.mockReset();
+    assignMock = vi.fn();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: { ...originalLocation, assign: assignMock },
+    });
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: originalLocation,
+    });
   });
 
   it("renders email + password inputs and a submit button", () => {
@@ -76,7 +89,7 @@ describe("<SignUpForm />", () => {
     );
   });
 
-  it("on 200, refreshes the router and navigates to / (or `from`)", async () => {
+  it("on 200, redirects to `from` (or /) via a full document navigation", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }));
     const user = userEvent.setup();
     render(<SignUpForm from="/account" />);
@@ -85,8 +98,7 @@ describe("<SignUpForm />", () => {
     await user.type(screen.getByLabelText(/password/i), "hunter22hunter");
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
-    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/account"));
-    expect(refreshMock).toHaveBeenCalled();
+    await waitFor(() => expect(assignMock).toHaveBeenCalledWith("/account"));
   });
 
   it("surfaces a 400 invalid_input error inline next to the right field", async () => {

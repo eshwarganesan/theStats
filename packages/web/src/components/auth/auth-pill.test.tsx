@@ -78,17 +78,30 @@ describe("<AuthPill />", () => {
 
   describe("sign-out (US3)", () => {
     let fetchMock: ReturnType<typeof vi.fn>;
+    let assignMock: ReturnType<typeof vi.fn>;
+    const originalLocation = window.location;
 
     beforeEach(() => {
       fetchMock = vi.fn();
       vi.stubGlobal("fetch", fetchMock);
+      assignMock = vi.fn();
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        writable: true,
+        value: { ...originalLocation, assign: assignMock },
+      });
     });
 
     afterEach(() => {
       vi.unstubAllGlobals();
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        writable: true,
+        value: originalLocation,
+      });
     });
 
-    it("clicking sign-out POSTs to /api/auth/sign-out and then refreshes + navigates to /", async () => {
+    it("clicking sign-out POSTs to /api/auth/sign-out and then redirects to / via a full document navigation", async () => {
       getUserMock.mockResolvedValueOnce({
         data: {
           user: { id: "u_1", email: "alice@example.com", email_confirmed_at: "2026-05-31T00:00:00Z" },
@@ -107,8 +120,7 @@ describe("<AuthPill />", () => {
       const [path, init] = fetchMock.mock.calls[0]!;
       expect(path).toBe("/api/auth/sign-out");
       expect((init as RequestInit).method).toBe("POST");
-      await waitFor(() => expect(refreshMock).toHaveBeenCalled());
-      expect(pushMock).toHaveBeenCalledWith("/");
+      await waitFor(() => expect(assignMock).toHaveBeenCalledWith("/"));
     });
 
     it("disables the sign-out button while the request is in flight", async () => {
@@ -135,7 +147,7 @@ describe("<AuthPill />", () => {
       await waitFor(() => expect(btn).toBeDisabled());
 
       resolveFetch?.();
-      await waitFor(() => expect(refreshMock).toHaveBeenCalled());
+      await waitFor(() => expect(assignMock).toHaveBeenCalledWith("/"));
     });
   });
 });

@@ -14,5 +14,17 @@
     ],
     "limit": "120 KB",
     "gzip": true
+  },
+  {
+    "name": "/login route chunk (gzipped)",
+    "path": ".next/static/chunks/app/login/**/*.js",
+    "limit": "30 KB",
+    "gzip": true
+  },
+  {
+    "name": "/account route chunk (gzipped)",
+    "path": ".next/static/chunks/app/**/account/**/*.js",
+    "limit": "20 KB",
+    "gzip": true
   }
 ]

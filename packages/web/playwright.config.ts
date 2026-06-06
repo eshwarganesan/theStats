@@ -1,5 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // .env.local is optional — tests guard on the vars and skip when missing.
+}
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,

@@ -31,7 +31,16 @@
       "Bash(xargs sed *)",
       "Bash(echo \"Grep exit=$?\")",
       "Bash(grep -rn -E \"from .@/lib/\\(types|constants|stats\\).$\" src tests --include='*.ts' --include='*.tsx')",
-      "Bash(echo \"exit1=$?\")"
+      "Bash(echo \"exit1=$?\")",
+      "Bash(git checkout *)",
+      "Bash(mkdir -p /Users/eganesan/Documents/theStatsApp/theStats/specs/005-user-auth/checklists)",
+      "Bash(cp /Users/eganesan/Documents/theStatsApp/theStats/.specify/templates/spec-template.md /Users/eganesan/Documents/theStatsApp/theStats/specs/005-user-auth/spec.md)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(awk -F'T' '{print $2}')",
+      "Bash(awk '{print $1}')",
+      "Bash(node -e \"console.log\\(require\\('@next/env/package.json'\\).version\\)\")",
+      "Bash(node -e \"require.resolve\\('server-only'\\)\")",
+      "Bash(git push *)"
     ]
   }
 }

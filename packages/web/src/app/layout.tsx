@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, Manrope, JetBrains_Mono } from "next/font/google";
+import { Suspense } from "react";
+import { AuthPill } from "@/components/auth/auth-pill";
 import "./globals.css";
 
 const display = Bebas_Neue({
@@ -41,7 +43,12 @@ export default function RootLayout({
       lang="en"
       className={`${display.variable} ${body.variable} ${mono.variable}`}
     >
-      <body className="font-sans">{children}</body>
+      <body className="font-sans">
+        <Suspense fallback={null}>
+          <AuthPill className="fixed top-3 right-3 z-50" />
+        </Suspense>
+        {children}
+      </body>
     </html>
   );
 }

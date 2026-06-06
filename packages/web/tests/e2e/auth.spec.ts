@@ -54,6 +54,18 @@ async function deleteUserByEmail(email: string): Promise<void> {
   }
 }
 
+// Clear per-IP throttle rows before every test. The auth handler throttles
+// per-account AND per-IP; localhost runs all share `ip:unknown`, so without
+// this the IP key accumulates failures across consecutive runs and trips
+// `rate_limited` even with a fresh email.
+test.beforeEach(async () => {
+  try {
+    await admin().from("auth_attempts").delete().like("key", "ip:%");
+  } catch {
+    /* best-effort */
+  }
+});
+
 test.describe("US1: sign up", () => {
   test("a new visitor signs up and lands on / with the AuthPill showing their email", async ({
     page,
@@ -61,6 +73,7 @@ test.describe("US1: sign up", () => {
     const email = uniqueEmail();
     try {
       await page.goto("/login");
+      await page.getByRole("tab", { name: /sign up/i }).click();
       await page.getByLabel(/email/i).fill(email);
       await page.getByLabel(/password/i).fill("password12345");
       await page.getByRole("button", { name: /create account/i }).click();
@@ -187,7 +200,7 @@ test.describe("US3: sign out + account-gate", () => {
       // screen (the page reads `from` from searchParams and redirects).
       await page.waitForURL("/account");
       await expect(page.getByText(/signed in as/i)).toBeVisible();
-      await expect(page.getByText(email)).toBeVisible();
+      await expect(page.getByRole("main").getByText(email)).toBeVisible();
     } finally {
       await deleteUserByEmail(email);
     }

@@ -151,7 +151,12 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
-    logAuthEvent({ handler: "sign-up", userId: null, outcome: "internal_error", requestId: reqId });
+    logAuthEvent({
+      handler: "sign-up",
+      userId: null,
+      outcome: `internal_error:${code || "unknown"}:${msg.slice(0, 200)}`,
+      requestId: reqId,
+    });
     return toJsonError("internal_error", "Something went wrong.");
   }
 

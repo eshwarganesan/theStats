@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useGameStore } from "@/lib/store";
 import { Scoreboard } from "@/components/game/Scoreboard";
 import { useGameClock } from "@/hooks/useGameClock";
+import { useClockCheckpoint } from "@/hooks/useClockCheckpoint";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -19,6 +20,9 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
 
   // Mount the clock driver once at the layout level.
   useGameClock();
+  // Persist the clock value at 1 Hz + on pagehide / visibilitychange so
+  // a refresh restores within ≤1 s of the value at the moment of refresh.
+  useClockCheckpoint();
 
   // If the user navigates here without completing setup, show a gentle prompt
   // rather than crashing. This is a client-side guard — SSR still renders the

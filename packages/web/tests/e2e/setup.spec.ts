@@ -4,7 +4,9 @@ import { seedSetup, DEFAULT_HOME, DEFAULT_AWAY } from "./_helpers";
 test.describe("Setup", () => {
   test("landing → /setup link works", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: /New Game/ }).click();
+    // "New Game" is now a button (it wipes localStorage before
+    // navigating); the prior Link variant was replaced in feature 006.
+    await page.getByRole("button", { name: /New Game/ }).click();
     await expect(page).toHaveURL(/\/setup$/);
     await expect(page.getByRole("heading", { name: "Game Setup" })).toBeVisible();
   });

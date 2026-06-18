@@ -1,7 +1,11 @@
 "use client";
 
-import { create } from "zustand";
-import { subscribeWithSelector } from "zustand/middleware";
+import { create, type StateCreator } from "zustand";
+import {
+  createJSONStorage,
+  persist,
+  subscribeWithSelector,
+} from "zustand/middleware";
 import type {
   EditEventPatch,
   FoulKind,
@@ -20,6 +24,17 @@ import {
   computeStats,
   uid,
 } from "@thestats/core";
+import {
+  GAME_STORAGE_KEY,
+  clearPersistedGame,
+  createGuardedLocalStorage,
+  createNoopStorage,
+  isStorageAvailable,
+  notifyRecoveryFailed,
+  parseGameRecord,
+  readClockCheckpoint,
+  type PersistedGameRecord,
+} from "./persistence";
 
 /**
  * Store shape — event-sourced state.
@@ -124,8 +139,18 @@ const INITIAL_SETTINGS = DEFAULT_SETTINGS["5v5"];
 
 // ─── Store ────────────────────────────────────────────────────────────────
 
-export const useGameStore = create<GameState>()(
-  subscribeWithSelector((set, get) => ({
+/**
+ * The store reducer body — a Zustand `StateCreator`-shaped function
+ * shared between the unwrapped factory (used by unit tests) and the
+ * persist-wrapped exported store (used by the app). Both stores see
+ * their own bound `set`/`get`, so actions close over the correct
+ * instance.
+ */
+const storeBody: StateCreator<
+  GameState,
+  [["zustand/subscribeWithSelector", never]],
+  []
+> = (set, get) => ({
     // ── Initial state ────────────────────────────────────────────────────
     homeTeam: makeBlankTeam("home"),
     awayTeam: makeBlankTeam("away"),
@@ -715,5 +740,64 @@ export const useGameStore = create<GameState>()(
         }
         return { events: s.events.filter((e) => e.id !== id) };
       }),
-  })),
+});
+
+/**
+ * Unwrapped store factory — used by unit tests that need to exercise
+ * the reducer without touching `localStorage`. The exported
+ * `useGameStore` below wraps the same body with `persist`.
+ */
+export const createGameStore = () =>
+  create<GameState>()(subscribeWithSelector(storeBody));
+
+// ─── Persistence wrapping ─────────────────────────────────────────────
+
+export const useGameStore = create<GameState>()(
+  persist(subscribeWithSelector(storeBody), {
+    name: GAME_STORAGE_KEY,
+    version: 1,
+    storage: createJSONStorage<PersistedGameRecord>(() =>
+      isStorageAvailable() ? createGuardedLocalStorage() : createNoopStorage(),
+    ),
+    partialize: (state): PersistedGameRecord => ({
+      schemaVersion: 1,
+      homeTeam: state.homeTeam,
+      awayTeam: state.awayTeam,
+      settings: state.settings,
+      status: state.status,
+      currentPeriod: state.currentPeriod,
+      events: state.events,
+      possession: state.possession,
+      onCourt: state.onCourt,
+    }),
+    merge: (persisted, current) => {
+      const parsed = parseGameRecord(persisted);
+      if (!parsed) {
+        clearPersistedGame();
+        notifyRecoveryFailed();
+        return current;
+      }
+      const checkpoint = readClockCheckpoint();
+      return {
+        ...current,
+        homeTeam: parsed.homeTeam,
+        awayTeam: parsed.awayTeam,
+        settings: parsed.settings,
+        status: parsed.status,
+        currentPeriod: parsed.currentPeriod,
+        events: parsed.events,
+        possession: parsed.possession,
+        onCourt: parsed.onCourt,
+        clockSeconds: checkpoint?.clockSeconds ?? parsed.settings.periodSeconds,
+        breakSeconds: checkpoint?.breakSeconds ?? 0,
+        clockRunning: false,
+      };
+    },
+    onRehydrateStorage: () => (state) => {
+      if (state && state.clockRunning) {
+        state.clockRunning = false;
+      }
+    },
+  }),
 );
+

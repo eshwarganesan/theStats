@@ -54,6 +54,78 @@ if (typeof HTMLDialogElement !== "undefined") {
   }
 }
 
+// Node 22+ ships an experimental built-in `localStorage` that shadows
+// jsdom's Storage instance inside vitest's jsdom env. The Node placeholder
+// has no working `setItem`/`getItem`/`clear` without the
+// `--localstorage-file` flag, which breaks every test that uses
+// browser storage. Replace both globals with an in-memory polyfill that
+// satisfies the `Storage` interface (including being a `Storage`
+// instance so `Storage.prototype` spies still target it).
+if (typeof window !== "undefined" && typeof Storage !== "undefined") {
+  // We cannot subclass jsdom's Storage (its constructor is marked
+  // illegal to call directly). Use a plain object that satisfies the
+  // Storage interface instead. Tests that want to simulate quota errors
+  // should spy on the instance method (e.g. `vi.spyOn(localStorage,
+  // "setItem")`), not on `Storage.prototype`.
+  const makeMemoryStorage = (): Storage => {
+    const data = new Map<string, string>();
+    const api: Storage = {
+      get length(): number {
+        return data.size;
+      },
+      clear(): void {
+        data.clear();
+      },
+      getItem(key: string): string | null {
+        return data.has(key) ? data.get(key)! : null;
+      },
+      key(index: number): string | null {
+        return Array.from(data.keys())[index] ?? null;
+      },
+      removeItem(key: string): void {
+        data.delete(key);
+      },
+      setItem(key: string, value: string): void {
+        data.set(key, String(value));
+      },
+    };
+    return api;
+  };
+  const installFreshStorage = (key: "localStorage" | "sessionStorage") => {
+    const fresh = makeMemoryStorage();
+    Object.defineProperty(window, key, {
+      value: fresh,
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(globalThis, key, {
+      value: fresh,
+      writable: true,
+      configurable: true,
+    });
+  };
+  installFreshStorage("localStorage");
+  installFreshStorage("sessionStorage");
+}
+
+afterEach(() => {
+  // Reset storage between tests so writes don't leak across test files.
+  if (typeof localStorage !== "undefined" && typeof localStorage.clear === "function") {
+    try {
+      localStorage.clear();
+    } catch {
+      // ignore — tests that mock storage methods may have replaced clear
+    }
+  }
+  if (typeof sessionStorage !== "undefined" && typeof sessionStorage.clear === "function") {
+    try {
+      sessionStorage.clear();
+    } catch {
+      // ignore
+    }
+  }
+});
+
 // jsdom lacks matchMedia; Next/font reads it during render in some envs.
 if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
   Object.defineProperty(window, "matchMedia", {

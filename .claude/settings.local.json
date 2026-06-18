@@ -40,7 +40,15 @@
       "Bash(awk '{print $1}')",
       "Bash(node -e \"console.log\\(require\\('@next/env/package.json'\\).version\\)\")",
       "Bash(node -e \"require.resolve\\('server-only'\\)\")",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(.specify/extensions/git/scripts/bash/create-new-feature.sh --json --short-name \"preserve-game-state-on-refresh\" \"Preserve the zustand game state on browser refresh. When in the middle of a game, the timer should stop and the game state should be preserved instead of losing it and going back to setup.\")",
+      "Bash(node -e \"const m = require\\('zustand/middleware'\\); console.log\\('persist:', typeof m.persist, 'createJSONStorage:', typeof m.createJSONStorage\\);\")",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"console.log\\(require\\('jsdom/package.json'\\).version\\)\")",
+      "Bash(env)",
+      "Bash(npx tsc *)",
+      "Bash(awk '/threshold/' /tmp/cov.txt)",
+      "Bash(awk '/global/' /tmp/cov.txt)"
     ]
   }
 }

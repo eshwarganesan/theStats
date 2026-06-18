@@ -1,11 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { useGameStore } from "./store";
+import { createGameStore } from "./store";
 import {
   DEFAULT_SETTINGS,
   PLAYERS_ON_COURT,
   computeStats,
   type Player,
 } from "@thestats/core";
+
+// These tests exercise the unwrapped store reducer in isolation from
+// the persist middleware. `useGameStore` is the wrapped, persisted
+// instance used by the running app; rehydration is covered by
+// storeRehydration.test.ts.
+const useGameStore = createGameStore();
 
 const initial = useGameStore.getState();
 

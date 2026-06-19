@@ -66,6 +66,7 @@ export const FOUL_LABELS = {
   technical: "Technical",
   unsportsmanlike: "Unsportsmanlike",
   disqualifying: "Disqualifying",
+  offensive: "Offensive"
 } as const;
 
 export const SCORE_LABELS = {

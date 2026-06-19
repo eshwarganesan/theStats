@@ -78,7 +78,7 @@ export interface GameSettings {
 export type ScoreKind = "ft" | "2pt" | "3pt";
 
 /** Kinds of foul. */
-export type FoulKind = "personal" | "technical" | "unsportsmanlike" | "disqualifying";
+export type FoulKind = "personal" | "technical" | "unsportsmanlike" | "disqualifying" | "offensive";
 
 /** Kinds of non-scoring, non-foul stat actions. */
 export type StatKind =

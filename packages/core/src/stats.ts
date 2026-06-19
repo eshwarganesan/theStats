@@ -104,7 +104,10 @@ export function computeStats(
         player.fouls += 1;
         if (player.fouls >= foulOutAt) player.fouledOut = true;
         team.totalFouls += 1;
-        if (ev.period === currentPeriod) team.fouls += 1;
+        if (ev.kind !== "offensive") {
+          if (ev.period === currentPeriod) team.fouls += 1;
+        }
+        else player.turnovers += 1;
         break;
       }
 

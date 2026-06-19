@@ -129,6 +129,11 @@ export function ActionModal({ open, onClose, side, playerId }: ActionModalProps)
             label="Disqualifying"
             onClick={() => handle(() => recordFoul(side, playerId, "disqualifying"))}
           />
+          <ActionTile
+            variant="danger"
+            label="Offensive"
+            onClick={() => handle(() => recordFoul(side, playerId, "offensive"))}
+          />
         </Group>
       </div>
 

@@ -17,6 +17,12 @@ export type ID = string;
 /** Home or away side. */
 export type Side = "home" | "away";
 
+/** Direction the alternating-possession arrow points.
+ *  `unset` is the start-of-game state; once the scorekeeper taps the
+ *  indicator, the value enters the home ↔ away oscillation and there is
+ *  no mid-game path back to `unset` (spec 007, FR-006). */
+export type PossessionArrowDirection = "unset" | "home" | "away";
+
 /** A single player on a team's roster. */
 export interface Player {
   id: ID;
@@ -56,6 +62,12 @@ export interface GameSettings {
    *  `Start Overtime`. When `false`, tied results finalize the game as-is.
    *  Combined with `overtimeSeconds > 0` for the effective gate. */
   overtimeEnabled: boolean;
+  /** When `true`, the live game screen renders a tap-to-flip
+   *  alternating-possession arrow indicator beside the clock. When `false`,
+   *  the indicator is not rendered and no arrow state is tracked.
+   *  Frozen at game start (cannot be changed mid-game), consistent with
+   *  every other field on this interface. */
+  possessionArrowEnabled: boolean;
   /** Team-fouls threshold per period that triggers bonus (default 5). */
   bonusFoulThreshold: number;
   /** Timeouts available per team for the whole game. */

@@ -27,6 +27,7 @@ export const DEFAULT_SETTINGS: Record<GameFormat, GameSettings> = {
     periodSeconds: 10 * 60, // 10 minutes
     overtimeSeconds: 5 * 60,
     overtimeEnabled: true,
+    possessionArrowEnabled: true, // refereed 5v5 uses an alternating-possession arrow
     bonusFoulThreshold: 5,
     timeoutsPerGame: 5,
     timeoutSeconds: 60,
@@ -41,6 +42,7 @@ export const DEFAULT_SETTINGS: Record<GameFormat, GameSettings> = {
     periodSeconds: 10 * 60, // 10 minute running clock or first to 21
     overtimeSeconds: 5 * 60, // length preserved so the toggle is meaningful when flipped to On
     overtimeEnabled: false, // FIBA 3x3 uses first-to-2 sudden-death; default opts out of the timed-OT trigger
+    possessionArrowEnabled: false, // FIBA 3x3 has no alternating-possession arrow concept
     bonusFoulThreshold: 7,
     timeoutsPerGame: 1,
     timeoutSeconds: 30,

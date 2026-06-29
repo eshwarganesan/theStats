@@ -123,3 +123,69 @@ describe("SetupPage — overtime length input + toggle (feature 003)", () => {
     expect(section.contains(screen.getByRole("button", { name: /^Off$/ }))).toBe(true);
   });
 });
+
+describe("SetupPage — possession arrow toggle (feature 007)", () => {
+  it("renders Possession arrow On/Off toggle with On active for 5v5 default", () => {
+    render(<SetupPage />);
+    const on = screen.getByRole("button", { name: /^Possession arrow On$/ });
+    const off = screen.getByRole("button", { name: /^Possession arrow Off$/ });
+    expect(on).toHaveAttribute("aria-pressed", "true");
+    expect(off).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("flips to Off active when format is switched to 3v3 (cascade)", async () => {
+    const user = userEvent.setup();
+    render(<SetupPage />);
+    await user.click(screen.getByRole("button", { name: /^3v3$/ }));
+    const on = screen.getByRole("button", { name: /^Possession arrow On$/ });
+    const off = screen.getByRole("button", { name: /^Possession arrow Off$/ });
+    expect(off).toHaveAttribute("aria-pressed", "true");
+    expect(on).toHaveAttribute("aria-pressed", "false");
+    expect(useGameStore.getState().settings.possessionArrowEnabled).toBe(false);
+  });
+
+  it("clicking Off in 5v5 dispatches setSettings({ possessionArrowEnabled: false })", async () => {
+    const user = userEvent.setup();
+    render(<SetupPage />);
+    await user.click(screen.getByRole("button", { name: /^Possession arrow Off$/ }));
+    expect(useGameStore.getState().settings.possessionArrowEnabled).toBe(false);
+  });
+
+  it("clicking On (after Off) dispatches setSettings({ possessionArrowEnabled: true })", async () => {
+    const user = userEvent.setup();
+    render(<SetupPage />);
+    await user.click(screen.getByRole("button", { name: /^Possession arrow Off$/ }));
+    await user.click(screen.getByRole("button", { name: /^Possession arrow On$/ }));
+    expect(useGameStore.getState().settings.possessionArrowEnabled).toBe(true);
+  });
+
+  it("format cascade restores the default (5v5 → 3v3 → 5v5 returns toggle to On)", async () => {
+    const user = userEvent.setup();
+    render(<SetupPage />);
+    // Flip off in 5v5
+    await user.click(screen.getByRole("button", { name: /^Possession arrow Off$/ }));
+    expect(useGameStore.getState().settings.possessionArrowEnabled).toBe(false);
+    // Cascade to 3v3 (already off by default)
+    await user.click(screen.getByRole("button", { name: /^3v3$/ }));
+    expect(useGameStore.getState().settings.possessionArrowEnabled).toBe(false);
+    // Cascade back to 5v5 (default on)
+    await user.click(screen.getByRole("button", { name: /^5v5$/ }));
+    expect(useGameStore.getState().settings.possessionArrowEnabled).toBe(true);
+  });
+
+  it("places the Possession arrow toggle inside the Game Settings section", () => {
+    render(<SetupPage />);
+    const section = screen.getByText(/Game Settings/i).closest("section");
+    if (!section) throw new Error("Game Settings section not found");
+    expect(
+      section.contains(
+        screen.getByRole("button", { name: /^Possession arrow On$/ }),
+      ),
+    ).toBe(true);
+    expect(
+      section.contains(
+        screen.getByRole("button", { name: /^Possession arrow Off$/ }),
+      ),
+    ).toBe(true);
+  });
+});

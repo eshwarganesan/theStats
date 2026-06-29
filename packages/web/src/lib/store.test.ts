@@ -1462,3 +1462,116 @@ describe("deleteEvent", () => {
     expect(get().events.map((e) => e.id)).toEqual(before.map((e) => e.id));
   });
 });
+
+// ─── Possession arrow (feature 007) ─────────────────────────────────────
+
+describe("possessionArrow — initialization (feature 007)", () => {
+  it("starts as 'unset' on a fresh store", () => {
+    expect(initial.possessionArrow).toBe("unset");
+  });
+
+  it("resetAll() returns possessionArrow to 'unset' after it was set", () => {
+    get().setPossessionArrow("home");
+    expect(get().possessionArrow).toBe("home");
+    get().resetAll();
+    expect(get().possessionArrow).toBe("unset");
+  });
+
+  it("prepareGame() returns possessionArrow to 'unset' after it was set", () => {
+    // Seed the rosters so prepareGame succeeds.
+    seedRoster("home", PLAYERS_ON_COURT["5v5"]);
+    seedRoster("away", PLAYERS_ON_COURT["5v5"]);
+    get().setPossessionArrow("away");
+    expect(get().possessionArrow).toBe("away");
+    const result = get().prepareGame();
+    expect(result.ok).toBe(true);
+    expect(get().possessionArrow).toBe("unset");
+  });
+});
+
+describe("setPossessionArrow — FR-006 select model (feature 007)", () => {
+  it("sets unset → home when 'home' is selected", () => {
+    expect(get().possessionArrow).toBe("unset");
+    get().setPossessionArrow("home");
+    expect(get().possessionArrow).toBe("home");
+  });
+
+  it("sets unset → away when 'away' is selected", () => {
+    expect(get().possessionArrow).toBe("unset");
+    get().setPossessionArrow("away");
+    expect(get().possessionArrow).toBe("away");
+  });
+
+  it("swaps home → away when 'away' is selected", () => {
+    get().setPossessionArrow("home");
+    get().setPossessionArrow("away");
+    expect(get().possessionArrow).toBe("away");
+  });
+
+  it("swaps away → home when 'home' is selected", () => {
+    get().setPossessionArrow("away");
+    get().setPossessionArrow("home");
+    expect(get().possessionArrow).toBe("home");
+  });
+
+  it("is a no-op when selecting the side that is already current", () => {
+    get().setPossessionArrow("home");
+    const stateRef = get();
+    get().setPossessionArrow("home");
+    // Object identity is preserved when the action no-ops.
+    expect(get()).toBe(stateRef);
+    expect(get().possessionArrow).toBe("home");
+  });
+
+  it("never returns to 'unset' through any sequence of selections", () => {
+    get().setPossessionArrow("home"); // leave the unset state
+    const sequence: Array<"home" | "away"> = [
+      "home",
+      "away",
+      "away",
+      "home",
+      "away",
+      "home",
+      "home",
+      "away",
+      "home",
+      "away",
+    ];
+    for (const side of sequence) {
+      get().setPossessionArrow(side);
+      expect(get().possessionArrow).not.toBe("unset");
+    }
+  });
+
+  it("does not mutate any other store field", () => {
+    seedRoster("home", PLAYERS_ON_COURT["5v5"]);
+    seedRoster("away", PLAYERS_ON_COURT["5v5"]);
+    const before = get();
+    const snapshot = {
+      homeTeam: before.homeTeam,
+      awayTeam: before.awayTeam,
+      settings: before.settings,
+      status: before.status,
+      currentPeriod: before.currentPeriod,
+      clockSeconds: before.clockSeconds,
+      clockRunning: before.clockRunning,
+      breakSeconds: before.breakSeconds,
+      events: before.events,
+      possession: before.possession,
+      onCourt: before.onCourt,
+    };
+    get().setPossessionArrow("home");
+    const after = get();
+    expect(after.homeTeam).toBe(snapshot.homeTeam);
+    expect(after.awayTeam).toBe(snapshot.awayTeam);
+    expect(after.settings).toBe(snapshot.settings);
+    expect(after.status).toBe(snapshot.status);
+    expect(after.currentPeriod).toBe(snapshot.currentPeriod);
+    expect(after.clockSeconds).toBe(snapshot.clockSeconds);
+    expect(after.clockRunning).toBe(snapshot.clockRunning);
+    expect(after.breakSeconds).toBe(snapshot.breakSeconds);
+    expect(after.events).toBe(snapshot.events);
+    expect(after.possession).toBe(snapshot.possession);
+    expect(after.onCourt).toBe(snapshot.onCourt);
+  });
+});

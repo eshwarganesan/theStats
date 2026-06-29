@@ -19,6 +19,7 @@ import type {
   GameEvent,
   GameSettings,
   GameStatus,
+  PossessionArrowDirection,
   Side,
   Team,
 } from "@thestats/core";
@@ -44,6 +45,10 @@ export interface PersistedGameRecord {
   currentPeriod: number;
   events: GameEvent[];
   possession: Side | null;
+  /** Alternating-possession arrow direction (feature 007). Optional for
+   *  backward compatibility — records persisted before feature 007 lack
+   *  this field; the store's `merge` callback substitutes `'unset'`. */
+  possessionArrow?: PossessionArrowDirection;
   onCourt: { home: string[]; away: string[] };
 }
 
@@ -105,6 +110,18 @@ export function parseGameRecord(raw: unknown): PersistedGameRecord | null {
   if (!isObject(raw.settings)) return null;
   if (!isObject(raw.onCourt)) return null;
   if (raw.possession !== null && raw.possession !== "home" && raw.possession !== "away") {
+    return null;
+  }
+  // possessionArrow is optional (feature 007 added it post-1.0; older
+  // records lack the field). When present it MUST be one of the three
+  // literal values; an unknown value invalidates the record.
+  if (
+    "possessionArrow" in raw &&
+    raw.possessionArrow !== undefined &&
+    raw.possessionArrow !== "unset" &&
+    raw.possessionArrow !== "home" &&
+    raw.possessionArrow !== "away"
+  ) {
     return null;
   }
   // Trust the inner shape from here — the parser's job is to reject

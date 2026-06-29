@@ -118,14 +118,14 @@ describe("PossessionArrow — disabled state", () => {
 });
 
 describe("PossessionArrow — accessibility and layout", () => {
-  it("uses a min 20x20 touch target on each arrow button", () => {
+  it("uses a min 10x10 touch target on each arrow button", () => {
     render(<PossessionArrow direction="unset" onSelect={() => {}} />);
     const home = screen.getByRole("button", { name: /^Possession arrow: home$/ });
     const away = screen.getByRole("button", { name: /^Possession arrow: away$/ });
-    expect(home.className).toMatch(/min-w-\[20px\]/);
-    expect(home.className).toMatch(/min-h-\[20px\]/);
-    expect(away.className).toMatch(/min-w-\[20px\]/);
-    expect(away.className).toMatch(/min-h-\[20px\]/);
+    expect(home.className).toMatch(/min-w-\[10px\]/);
+    expect(home.className).toMatch(/min-h-\[10px\]/);
+    expect(away.className).toMatch(/min-w-\[10px\]/);
+    expect(away.className).toMatch(/min-h-\[10px\]/);
   });
 
   it("merges a custom className into the root container", () => {

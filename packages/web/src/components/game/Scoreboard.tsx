@@ -6,6 +6,7 @@ import { computeStats } from "@thestats/core";
 import { formatPeriod } from "@thestats/core";
 import { cn } from "@/lib/utils";
 import { ClockPanel } from "./ClockPanel";
+import { PossessionArrow } from "./PossessionArrow";
 
 export function Scoreboard() {
   const homeTeam = useGameStore((s) => s.homeTeam);
@@ -14,6 +15,8 @@ export function Scoreboard() {
   const events = useGameStore((s) => s.events);
   const currentPeriod = useGameStore((s) => s.currentPeriod);
   const possession = useGameStore((s) => s.possession);
+  const possessionArrow = useGameStore((s) => s.possessionArrow);
+  const setPossessionArrow = useGameStore((s) => s.setPossessionArrow);
   const status = useGameStore((s) => s.status);
 
   // Derive team totals from events. Memoised so we don't recompute on
@@ -46,6 +49,14 @@ export function Scoreboard() {
               : formatPeriod(currentPeriod, settings.periods)}
         </span>
         <ClockPanel />
+        {settings.possessionArrowEnabled ? (
+          <PossessionArrow
+            direction={possessionArrow}
+            onSelect={setPossessionArrow}
+            disabled={status === "finished"}
+            className="mt-2"
+          />
+        ) : null}
       </div>
 
       <TeamScore

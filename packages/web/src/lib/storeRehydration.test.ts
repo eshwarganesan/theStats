@@ -168,6 +168,39 @@ describe("store rehydration from persisted record", () => {
   });
 });
 
+describe("possessionArrow persistence round-trip (feature 007)", () => {
+  it("restores possessionArrow from a seeded record", async () => {
+    localStorage.setItem(
+      GAME_STORAGE_KEY,
+      JSON.stringify({
+        state: { ...seedRecord(), possessionArrow: "away" },
+        version: 1,
+      }),
+    );
+    const useGameStore = await loadStore();
+    expect(useGameStore.getState().possessionArrow).toBe("away");
+  });
+
+  it("defaults possessionArrow to 'unset' when the persisted record lacks the field (backward compatibility)", async () => {
+    // A record from before feature 007 — no possessionArrow key at all.
+    localStorage.setItem(
+      GAME_STORAGE_KEY,
+      JSON.stringify({ state: seedRecord(), version: 1 }),
+    );
+    const useGameStore = await loadStore();
+    expect(useGameStore.getState().possessionArrow).toBe("unset");
+  });
+
+  it("writes possessionArrow into the persisted payload after a select action", async () => {
+    const useGameStore = await loadStore();
+    useGameStore.getState().setPossessionArrow("away");
+    const raw = localStorage.getItem(GAME_STORAGE_KEY);
+    expect(raw).not.toBeNull();
+    const parsed = JSON.parse(raw!) as { state: Record<string, unknown> };
+    expect(parsed.state.possessionArrow).toBe("away");
+  });
+});
+
 describe("noop storage fallback when localStorage is unavailable", () => {
   it("keeps the store functional via the in-memory noop storage", async () => {
     // Force the storage factory to return the noop adapter via vi.doMock

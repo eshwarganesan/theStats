@@ -10,6 +10,7 @@ export type {
   GameFormat,
   ID,
   Side,
+  PossessionArrowDirection,
   Player,
   Team,
   GameSettings,

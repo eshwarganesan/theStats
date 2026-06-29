@@ -48,7 +48,12 @@
       "Bash(env)",
       "Bash(npx tsc *)",
       "Bash(awk '/threshold/' /tmp/cov.txt)",
-      "Bash(awk '/global/' /tmp/cov.txt)"
+      "Bash(awk '/global/' /tmp/cov.txt)",
+      "Bash(npm --workspace packages/web run test -- --run)",
+      "Bash(npm --workspace packages/core run test -- --run)",
+      "Bash(npm --workspace packages/web run test:e2e -- auth.spec.ts --reporter=line)",
+      "Bash(npm --workspace packages/web run test -- --run src/components/game/PossessionArrow.test.tsx src/lib/store.test.ts src/lib/storeRehydration.test.ts src/app/setup/page.test.tsx)",
+      "Bash(npm --workspace packages/web run test:e2e -- possession-arrow)"
     ]
   }
 }

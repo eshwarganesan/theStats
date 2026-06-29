@@ -186,6 +186,21 @@ export default function SetupPage() {
                 />
               </div>
             </div>
+            <div className="flex flex-col gap-1.5 col-span-2 md:col-span-1">
+              <label className="label-eyebrow">Possession arrow</label>
+              <div className="flex">
+                <PossessionArrowToggle
+                  value="On"
+                  active={settings.possessionArrowEnabled}
+                  onClick={() => setSettings({ possessionArrowEnabled: true })}
+                />
+                <PossessionArrowToggle
+                  value="Off"
+                  active={!settings.possessionArrowEnabled}
+                  onClick={() => setSettings({ possessionArrowEnabled: false })}
+                />
+              </div>
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <Input
@@ -270,6 +285,38 @@ function OvertimeToggle({
     <button
       type="button"
       onClick={onClick}
+      className={cn(
+        "flex-1 h-11 text-sm font-mono uppercase tracking-widest transition-colors",
+        "border first:border-r-0",
+        active
+          ? "border-accent bg-accent text-surface"
+          : "border-surface-border bg-surface-raised text-ink-muted hover:text-ink",
+      )}
+      aria-pressed={active}
+    >
+      {value}
+    </button>
+  );
+}
+
+/** Two-button On/Off toggle for the Possession arrow opt-in setting
+ *  (feature 007). Uses a distinct `aria-label` so accessibility-name
+ *  queries (e.g. screen readers, tests) can disambiguate from the
+ *  visually identical Overtime toggle pair. */
+function PossessionArrowToggle({
+  value,
+  active,
+  onClick,
+}: {
+  value: "On" | "Off";
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Possession arrow ${value}`}
       className={cn(
         "flex-1 h-11 text-sm font-mono uppercase tracking-widest transition-colors",
         "border first:border-r-0",

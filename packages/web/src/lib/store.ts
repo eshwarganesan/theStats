@@ -13,6 +13,7 @@ import type {
   GameSettings,
   GameStatus,
   Player,
+  PossessionArrowDirection,
   ScoreKind,
   Side,
   StatKind,
@@ -73,6 +74,12 @@ interface GameState {
   events: GameEvent[];
   /** Which team has possession; `null` means not yet determined. */
   possession: Side | null;
+  /** Direction of the alternating-possession arrow (feature 007). Initializes
+   *  to `'unset'` for every new game; mutates only via `cyclePossessionArrow`
+   *  per FR-006. Only meaningful when `settings.possessionArrowEnabled` is
+   *  `true`; when the toggle is off, this field is still present (always
+   *  `'unset'`) but is never read by any view. */
+  possessionArrow: PossessionArrowDirection;
   /** IDs currently on the floor, per side. */
   onCourt: { home: string[]; away: string[] };
 
@@ -109,6 +116,12 @@ interface GameState {
   recordTimeout: (side: Side) => void;
   substitute: (side: Side, playerOutId: string, playerInId: string) => void;
   togglePossession: (side: Side | null) => void;
+  /** Set the alternating-possession arrow to the given side (feature 007,
+   *  FR-006). When the current direction already equals `side`, the call
+   *  is a no-op. The action mutates only `possessionArrow`. There is no
+   *  path back to `'unset'` through this action — that state is reachable
+   *  only via `resetAll` / `prepareGame`. */
+  setPossessionArrow: (side: Side) => void;
   undoLastEvent: () => void;
 
   // ─── Play-by-play corrections ──────────────────────────────────────────
@@ -162,6 +175,7 @@ const storeBody: StateCreator<
     breakSeconds: 0,
     events: [],
     possession: null,
+    possessionArrow: "unset",
     onCourt: { home: [], away: [] },
 
     // ── Setup ────────────────────────────────────────────────────────────
@@ -239,6 +253,7 @@ const storeBody: StateCreator<
         breakSeconds: 0,
         events: [],
         possession: null,
+        possessionArrow: "unset",
         onCourt: { home: [], away: [] },
       })),
 
@@ -279,6 +294,7 @@ const storeBody: StateCreator<
         clockSeconds: settings.periodSeconds,
         currentPeriod: 1,
         events: [],
+        possessionArrow: "unset",
       });
       return { ok: true };
     },
@@ -617,6 +633,11 @@ const storeBody: StateCreator<
 
     togglePossession: (side) => set({ possession: side }),
 
+    setPossessionArrow: (side) =>
+      set((s) =>
+        s.possessionArrow === side ? s : { possessionArrow: side },
+      ),
+
     undoLastEvent: () =>
       set((s) => {
         if (s.events.length === 0) return s;
@@ -768,6 +789,7 @@ export const useGameStore = create<GameState>()(
       currentPeriod: state.currentPeriod,
       events: state.events,
       possession: state.possession,
+      possessionArrow: state.possessionArrow,
       onCourt: state.onCourt,
     }),
     merge: (persisted, current) => {
@@ -787,6 +809,10 @@ export const useGameStore = create<GameState>()(
         currentPeriod: parsed.currentPeriod,
         events: parsed.events,
         possession: parsed.possession,
+        // Older records (pre-feature 007) lack possessionArrow — fall
+        // back to the FR-010 default of 'unset' rather than letting an
+        // undefined value leak through.
+        possessionArrow: parsed.possessionArrow ?? "unset",
         onCourt: parsed.onCourt,
         clockSeconds: checkpoint?.clockSeconds ?? parsed.settings.periodSeconds,
         breakSeconds: checkpoint?.breakSeconds ?? 0,

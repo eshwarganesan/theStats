@@ -3,7 +3,7 @@
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useGameStore } from "@/lib/store";
-import type { Side } from "@thestats/core";
+import { formatClock, type Side } from "@thestats/core";
 import { cn } from "@/lib/utils";
 
 interface ActionModalProps {
@@ -11,6 +11,11 @@ interface ActionModalProps {
   onClose: () => void;
   side: Side | null;
   playerId: string | null;
+  /** Game-clock reading captured at the moment the scorekeeper tapped the
+   *  player. Forwarded to every `record*` store call so the recorded
+   *  `clockAt` reflects when the action happened, not when this modal was
+   *  finally submitted. */
+  capturedClockAt: number | null;
 }
 
 /**
@@ -19,7 +24,13 @@ interface ActionModalProps {
  *
  * All actions dispatch through the store so undo is free.
  */
-export function ActionModal({ open, onClose, side, playerId }: ActionModalProps) {
+export function ActionModal({
+  open,
+  onClose,
+  side,
+  playerId,
+  capturedClockAt,
+}: ActionModalProps) {
   const homeTeam = useGameStore((s) => s.homeTeam);
   const awayTeam = useGameStore((s) => s.awayTeam);
   const recordScore = useGameStore((s) => s.recordScore);
@@ -45,66 +56,126 @@ export function ActionModal({ open, onClose, side, playerId }: ActionModalProps)
       size="lg"
     >
       <div className="flex flex-col gap-5">
+        {capturedClockAt !== null ? (
+          <div
+            className="flex items-center gap-2 -mt-1"
+            data-testid="captured-clock-at"
+          >
+            <span className="label-eyebrow">Time of play</span>
+            <span className="font-display tabular text-base text-ink">
+              {formatClock(capturedClockAt)}
+            </span>
+          </div>
+        ) : null}
+
         <Group label="Scoring">
           <ActionTile
             primary
             label="+2 Made"
             sub="Field goal"
-            onClick={() => handle(() => recordScore(side, playerId, "2pt", true))}
+            onClick={() =>
+              handle(() =>
+                recordScore(side, playerId, "2pt", true, capturedClockAt ?? undefined),
+              )
+            }
           />
           <ActionTile
             primary
             label="+3 Made"
             sub="Three pointer"
-            onClick={() => handle(() => recordScore(side, playerId, "3pt", true))}
+            onClick={() =>
+              handle(() =>
+                recordScore(side, playerId, "3pt", true, capturedClockAt ?? undefined),
+              )
+            }
           />
           <ActionTile
             primary
             label="+1 Made"
             sub="Free throw"
-            onClick={() => handle(() => recordScore(side, playerId, "ft", true))}
+            onClick={() =>
+              handle(() =>
+                recordScore(side, playerId, "ft", true, capturedClockAt ?? undefined),
+              )
+            }
           />
           <ActionTile
             label="2 Missed"
             sub="Field goal"
-            onClick={() => handle(() => recordScore(side, playerId, "2pt", false))}
+            onClick={() =>
+              handle(() =>
+                recordScore(side, playerId, "2pt", false, capturedClockAt ?? undefined),
+              )
+            }
           />
           <ActionTile
             label="3 Missed"
             sub="Three pointer"
-            onClick={() => handle(() => recordScore(side, playerId, "3pt", false))}
+            onClick={() =>
+              handle(() =>
+                recordScore(side, playerId, "3pt", false, capturedClockAt ?? undefined),
+              )
+            }
           />
           <ActionTile
             label="1 Missed"
             sub="Free throw"
-            onClick={() => handle(() => recordScore(side, playerId, "ft", false))}
+            onClick={() =>
+              handle(() =>
+                recordScore(side, playerId, "ft", false, capturedClockAt ?? undefined),
+              )
+            }
           />
         </Group>
 
         <Group label="Stats">
           <ActionTile
             label="Off. Rebound"
-            onClick={() => handle(() => recordStat(side, playerId, "rebound-off"))}
+            onClick={() =>
+              handle(() =>
+                recordStat(side, playerId, "rebound-off", capturedClockAt ?? undefined),
+              )
+            }
           />
           <ActionTile
             label="Def. Rebound"
-            onClick={() => handle(() => recordStat(side, playerId, "rebound-def"))}
+            onClick={() =>
+              handle(() =>
+                recordStat(side, playerId, "rebound-def", capturedClockAt ?? undefined),
+              )
+            }
           />
           <ActionTile
             label="Assist"
-            onClick={() => handle(() => recordStat(side, playerId, "assist"))}
+            onClick={() =>
+              handle(() =>
+                recordStat(side, playerId, "assist", capturedClockAt ?? undefined),
+              )
+            }
           />
           <ActionTile
             label="Steal"
-            onClick={() => handle(() => recordStat(side, playerId, "steal"))}
+            onClick={() =>
+              handle(() =>
+                recordStat(side, playerId, "steal", capturedClockAt ?? undefined),
+              )
+            }
           />
           <ActionTile
             label="Block"
-            onClick={() => handle(() => recordStat(side, playerId, "block"))}
+            onClick={() =>
+              handle(() =>
+                recordStat(side, playerId, "block", capturedClockAt ?? undefined),
+              )
+            }
           />
           <ActionTile
             label="Turnover"
-            onClick={() => handle(() => recordStat(side, playerId, "turnover"))}
+            onClick={() =>
+              handle(() =>
+                recordStat(side, playerId, "turnover", capturedClockAt ?? undefined),
+              )
+            }
           />
         </Group>
 
@@ -112,27 +183,57 @@ export function ActionModal({ open, onClose, side, playerId }: ActionModalProps)
           <ActionTile
             variant="danger"
             label="Personal"
-            onClick={() => handle(() => recordFoul(side, playerId, "personal"))}
+            onClick={() =>
+              handle(() =>
+                recordFoul(side, playerId, "personal", capturedClockAt ?? undefined),
+              )
+            }
           />
           <ActionTile
             variant="danger"
             label="Technical"
-            onClick={() => handle(() => recordFoul(side, playerId, "technical"))}
+            onClick={() =>
+              handle(() =>
+                recordFoul(side, playerId, "technical", capturedClockAt ?? undefined),
+              )
+            }
           />
           <ActionTile
             variant="danger"
             label="Unsportsmanlike"
-            onClick={() => handle(() => recordFoul(side, playerId, "unsportsmanlike"))}
+            onClick={() =>
+              handle(() =>
+                recordFoul(
+                  side,
+                  playerId,
+                  "unsportsmanlike",
+                  capturedClockAt ?? undefined,
+                ),
+              )
+            }
           />
           <ActionTile
             variant="danger"
             label="Disqualifying"
-            onClick={() => handle(() => recordFoul(side, playerId, "disqualifying"))}
+            onClick={() =>
+              handle(() =>
+                recordFoul(
+                  side,
+                  playerId,
+                  "disqualifying",
+                  capturedClockAt ?? undefined,
+                ),
+              )
+            }
           />
           <ActionTile
             variant="danger"
             label="Offensive"
-            onClick={() => handle(() => recordFoul(side, playerId, "offensive"))}
+            onClick={() =>
+              handle(() =>
+                recordFoul(side, playerId, "offensive", capturedClockAt ?? undefined),
+              )
+            }
           />
         </Group>
       </div>

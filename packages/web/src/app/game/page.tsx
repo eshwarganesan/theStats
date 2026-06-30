@@ -29,15 +29,19 @@ export default function LiveGamePage() {
   const recordTimeout = useGameStore((s) => s.recordTimeout);
 
   // Transient UI state: which player is selected for the action modal, and
-  // which team is being substituted.
+  // which team is being substituted. `capturedClockAt` freezes the game clock
+  // reading at the moment of tap, so the recorded event reflects when the
+  // action happened — not when the user finished picking from the modal.
   const [selectedAction, setSelectedAction] = useState<{
     side: Side;
     playerId: string;
+    capturedClockAt: number;
   } | null>(null);
   const [subSide, setSubSide] = useState<Side | null>(null);
 
   const handlePlayerTap = (side: Side) => (playerId: string) => {
-    setSelectedAction({ side, playerId });
+    const capturedClockAt = useGameStore.getState().clockSeconds;
+    setSelectedAction({ side, playerId, capturedClockAt });
   };
 
   return (
@@ -85,6 +89,7 @@ export default function LiveGamePage() {
         onClose={() => setSelectedAction(null)}
         side={selectedAction?.side ?? null}
         playerId={selectedAction?.playerId ?? null}
+        capturedClockAt={selectedAction?.capturedClockAt ?? null}
       />
 
       <SubstitutionModal

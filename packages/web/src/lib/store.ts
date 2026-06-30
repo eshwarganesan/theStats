@@ -110,9 +110,30 @@ interface GameState {
   adjustClock: (seconds: number) => void;
 
   // ─── Gameplay actions ──────────────────────────────────────────────────
-  recordScore: (side: Side, playerId: string, kind: ScoreKind, made: boolean) => void;
-  recordFoul: (side: Side, playerId: string, kind: FoulKind) => void;
-  recordStat: (side: Side, playerId: string, kind: StatKind) => void;
+  /** `clockAt`, when provided, overrides the live `clockSeconds` reading
+   *  for this event. The UI captures it at the moment the scorekeeper taps
+   *  a player, so the recorded play time reflects when the action *happened*
+   *  rather than when the action modal was finally submitted. Omit for
+   *  callers that genuinely want "now" semantics (tests, seed scripts). */
+  recordScore: (
+    side: Side,
+    playerId: string,
+    kind: ScoreKind,
+    made: boolean,
+    clockAt?: number,
+  ) => void;
+  recordFoul: (
+    side: Side,
+    playerId: string,
+    kind: FoulKind,
+    clockAt?: number,
+  ) => void;
+  recordStat: (
+    side: Side,
+    playerId: string,
+    kind: StatKind,
+    clockAt?: number,
+  ) => void;
   recordTimeout: (side: Side) => void;
   substitute: (side: Side, playerOutId: string, playerInId: string) => void;
   togglePossession: (side: Side | null) => void;
@@ -538,7 +559,7 @@ const storeBody: StateCreator<
       }),
 
     // ── Gameplay ─────────────────────────────────────────────────────────
-    recordScore: (side, playerId, kind, made) =>
+    recordScore: (side, playerId, kind, made, clockAt) =>
       set((s) => ({
         events: [
           ...s.events,
@@ -547,7 +568,7 @@ const storeBody: StateCreator<
             id: uid(),
             timestamp: Date.now(),
             period: s.currentPeriod,
-            clockAt: s.clockSeconds,
+            clockAt: clockAt ?? s.clockSeconds,
             side,
             playerId,
             kind,
@@ -556,7 +577,7 @@ const storeBody: StateCreator<
         ],
       })),
 
-    recordFoul: (side, playerId, kind) =>
+    recordFoul: (side, playerId, kind, clockAt) =>
       set((s) => ({
         events: [
           ...s.events,
@@ -565,7 +586,7 @@ const storeBody: StateCreator<
             id: uid(),
             timestamp: Date.now(),
             period: s.currentPeriod,
-            clockAt: s.clockSeconds,
+            clockAt: clockAt ?? s.clockSeconds,
             side,
             playerId,
             kind,
@@ -573,7 +594,7 @@ const storeBody: StateCreator<
         ],
       })),
 
-    recordStat: (side, playerId, kind) =>
+    recordStat: (side, playerId, kind, clockAt) =>
       set((s) => ({
         events: [
           ...s.events,
@@ -582,7 +603,7 @@ const storeBody: StateCreator<
             id: uid(),
             timestamp: Date.now(),
             period: s.currentPeriod,
-            clockAt: s.clockSeconds,
+            clockAt: clockAt ?? s.clockSeconds,
             side,
             playerId,
             kind,

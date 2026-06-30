@@ -9,13 +9,19 @@ beforeEach(() => {
   useGameStore.getState().resetAll();
 });
 
-function setup() {
+function setup(capturedClockAt: number | null = null) {
   const players = seedReadyGame();
   useGameStore.getState().startGame();
   const onClose = vi.fn();
   const playerId = players.homePlayer(0).id;
   const r = render(
-    <ActionModal open onClose={onClose} side="home" playerId={playerId} />,
+    <ActionModal
+      open
+      onClose={onClose}
+      side="home"
+      playerId={playerId}
+      capturedClockAt={capturedClockAt}
+    />,
   );
   return { onClose, playerId, ...r };
 }
@@ -24,7 +30,13 @@ describe("ActionModal — return null guards", () => {
   it("returns null when side is null", () => {
     seedReadyGame();
     const { container } = render(
-      <ActionModal open onClose={() => {}} side={null} playerId="x" />,
+      <ActionModal
+        open
+        onClose={() => {}}
+        side={null}
+        playerId="x"
+        capturedClockAt={null}
+      />,
     );
     expect(container.firstChild).toBeNull();
   });
@@ -32,7 +44,13 @@ describe("ActionModal — return null guards", () => {
   it("returns null when playerId is null", () => {
     seedReadyGame();
     const { container } = render(
-      <ActionModal open onClose={() => {}} side="home" playerId={null} />,
+      <ActionModal
+        open
+        onClose={() => {}}
+        side="home"
+        playerId={null}
+        capturedClockAt={null}
+      />,
     );
     expect(container.firstChild).toBeNull();
   });
@@ -40,7 +58,13 @@ describe("ActionModal — return null guards", () => {
   it("returns null when player is not in roster", () => {
     seedReadyGame();
     const { container } = render(
-      <ActionModal open onClose={() => {}} side="home" playerId="bogus" />,
+      <ActionModal
+        open
+        onClose={() => {}}
+        side="home"
+        playerId="bogus"
+        capturedClockAt={null}
+      />,
     );
     expect(container.firstChild).toBeNull();
   });
@@ -56,6 +80,7 @@ describe("ActionModal — title", () => {
         onClose={() => {}}
         side="home"
         playerId={players.homePlayer(0).id}
+        capturedClockAt={null}
       />,
     );
     expect(
@@ -143,5 +168,43 @@ describe("ActionModal — cancel", () => {
     await user.click(screen.getByRole("button", { name: /Cancel/ }));
     expect(onClose).toHaveBeenCalledOnce();
     expect(useGameStore.getState().events.length).toBe(before);
+  });
+});
+
+describe("ActionModal — captured clockAt", () => {
+  it("stamps the captured tap-time on the recorded event, not the live clock", async () => {
+    // Captured at tap: 600s. Then the clock ticks down to 593s before the
+    // user picks an action. The recorded event must reflect 600, not 593.
+    const { playerId } = setup(600);
+    useGameStore.setState({ clockSeconds: 593 });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /^\+2 Made/ }));
+
+    const last = useGameStore.getState().events.at(-1);
+    expect(last?.type).toBe("score");
+    if (last?.type === "score") {
+      expect(last.clockAt).toBe(600);
+      expect(last.playerId).toBe(playerId);
+    }
+  });
+
+  it("falls back to the live clock when no capture is provided", async () => {
+    setup(null);
+    useGameStore.setState({ clockSeconds: 421 });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Personal/ }));
+
+    const last = useGameStore.getState().events.at(-1);
+    expect(last?.type).toBe("foul");
+    if (last?.type === "foul") {
+      expect(last.clockAt).toBe(421);
+    }
+  });
+
+  it("renders the captured time pill", () => {
+    setup(125); // 02:05
+    expect(screen.getByTestId("captured-clock-at")).toHaveTextContent("02:05");
   });
 });

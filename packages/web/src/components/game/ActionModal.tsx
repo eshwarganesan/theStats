@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { useGameStore } from "@/lib/store";
 import { formatClock, type Side } from "@thestats/core";
 import { cn } from "@/lib/utils";
+import { ClockNudge } from "./ClockNudge";
 
 interface ActionModalProps {
   open: boolean;
@@ -56,6 +57,8 @@ export function ActionModal({
       size="lg"
     >
       <div className="flex flex-col gap-5">
+        <ClockStrip />
+
         {capturedClockAt !== null ? (
           <div
             className="flex items-center gap-2 -mt-1"
@@ -248,6 +251,58 @@ export function ActionModal({
 }
 
 /* ── Internals ─────────────────────────────────────────────────────── */
+
+/**
+ * Compact live-clock strip mounted at the top of the ActionModal. Lets the
+ * scorekeeper stop/start the clock and nudge ±1s without dismissing the
+ * modal — mirrors the main `ClockPanel` gating (nudges appear only while
+ * the clock is paused, since `adjustClock` no-ops while running).
+ *
+ * Sized down from the full `ClockPanel` (which uses `text-clock`, tuned
+ * for the scoreboard) to sit inside a modal header without dominating it.
+ * Full-bleed via negative margins so the bottom border spans the modal
+ * width, echoing the modal's own title-bar divider.
+ */
+function ClockStrip() {
+  const clockSeconds = useGameStore((s) => s.clockSeconds);
+  const clockRunning = useGameStore((s) => s.clockRunning);
+  const status = useGameStore((s) => s.status);
+  const startClock = useGameStore((s) => s.startClock);
+  const stopClock = useGameStore((s) => s.stopClock);
+
+  const canStart = status === "live" && clockSeconds > 0;
+  const showNudge = status === "live" && !clockRunning;
+
+  return (
+    <div
+      data-testid="modal-clock-strip"
+      className="-mx-5 -mt-4 mb-1 px-5 py-3 border-b border-surface-border flex items-center justify-between gap-3"
+    >
+      <div className="flex items-baseline gap-2">
+        <span className="label-eyebrow">Clock</span>
+        <span
+          className={cn(
+            "font-display tabular text-2xl leading-none",
+            clockRunning ? "text-ink" : "text-ink-muted",
+          )}
+        >
+          {formatClock(clockSeconds)}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        {showNudge ? <ClockNudge stepSeconds={1} unitLabel="s" /> : null}
+        <Button
+          size="sm"
+          variant={clockRunning ? "secondary" : "primary"}
+          onClick={clockRunning ? stopClock : startClock}
+          disabled={!clockRunning && !canStart}
+        >
+          {clockRunning ? "Stop" : "Start"}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 function Group({
   label,

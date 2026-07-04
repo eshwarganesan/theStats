@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useGameStore } from "@/lib/store";
 import { ActionModal } from "./ActionModal";
@@ -206,5 +206,76 @@ describe("ActionModal — captured clockAt", () => {
   it("renders the captured time pill", () => {
     setup(125); // 02:05
     expect(screen.getByTestId("captured-clock-at")).toHaveTextContent("02:05");
+  });
+});
+
+describe("ActionModal — embedded clock strip", () => {
+  it("shows the live clock, not the captured time", () => {
+    setup(120); // captured at tap = 120
+    // 5v5 seed leaves clockSeconds at the period length (10:00 / 600s).
+    // The strip displays the live clock; the captured time is separate.
+    const strip = screen.getByTestId("modal-clock-strip");
+    expect(strip).toHaveTextContent("10:00");
+    expect(screen.getByTestId("captured-clock-at")).toHaveTextContent("02:00");
+  });
+
+  it("starts the clock from the strip when paused", async () => {
+    setup(600);
+    expect(useGameStore.getState().clockRunning).toBe(false);
+
+    const user = userEvent.setup();
+    const strip = screen.getByTestId("modal-clock-strip");
+    await user.click(within(strip).getByRole("button", { name: "Start" }));
+
+    expect(useGameStore.getState().clockRunning).toBe(true);
+  });
+
+  it("stops the clock from the strip when running", async () => {
+    setup(600);
+    const user = userEvent.setup();
+    const strip = screen.getByTestId("modal-clock-strip");
+
+    // Route the initial start through the UI so React commits before the
+    // next query — a direct store call wouldn't flush the re-render.
+    await user.click(within(strip).getByRole("button", { name: "Start" }));
+    expect(useGameStore.getState().clockRunning).toBe(true);
+
+    await user.click(within(strip).getByRole("button", { name: "Stop" }));
+    expect(useGameStore.getState().clockRunning).toBe(false);
+  });
+
+  it("hides nudges once the clock is running", async () => {
+    setup(600);
+    const user = userEvent.setup();
+    const strip = screen.getByTestId("modal-clock-strip");
+
+    // Paused → nudges visible.
+    expect(within(strip).getByRole("button", { name: "+1s" })).toBeInTheDocument();
+
+    await user.click(within(strip).getByRole("button", { name: "Start" }));
+
+    expect(within(strip).queryByRole("button", { name: "+1s" })).toBeNull();
+    expect(within(strip).queryByRole("button", { name: "−1s" })).toBeNull();
+  });
+
+  it("nudges adjust the live clock, leaving the captured tap-time untouched", async () => {
+    setup(600); // captured at tap
+    // 5v5 seed leaves the live clock at 600s.
+    expect(useGameStore.getState().clockSeconds).toBe(600);
+
+    const user = userEvent.setup();
+    const strip = screen.getByTestId("modal-clock-strip");
+    await user.click(within(strip).getByRole("button", { name: "−1s" }));
+
+    // Live clock moved to 599; the pill still shows the captured 600.
+    expect(useGameStore.getState().clockSeconds).toBe(599);
+    expect(screen.getByTestId("captured-clock-at")).toHaveTextContent("10:00");
+
+    // Recorded event uses the captured tap-time (600), not the nudged live
+    // clock (599) — proves Layer 1 + Layer 3(a) compose correctly.
+    await user.click(screen.getByRole("button", { name: /^\+2 Made/ }));
+    const last = useGameStore.getState().events.at(-1);
+    expect(last?.type).toBe("score");
+    if (last?.type === "score") expect(last.clockAt).toBe(600);
   });
 });

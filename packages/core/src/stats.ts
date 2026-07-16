@@ -58,6 +58,7 @@ export function computeStats(
     totalFouls: 0,
     timeoutsTaken: 0,
     timeoutsRemaining: settings.timeoutsPerGame,
+    teamTurnovers: 0,
     players: team.roster.map((p) => emptyPlayerStats(p.id)),
   });
 
@@ -144,6 +145,18 @@ export function computeStats(
         const team = stats[ev.side];
         team.timeoutsTaken += 1;
         team.timeoutsRemaining = Math.max(0, team.timeoutsRemaining - 1);
+        break;
+      }
+
+      case "team-turnover": {
+        // Team-attributed violation turnover — charged to the team, never a player.
+        stats[ev.side].teamTurnovers += 1;
+        break;
+      }
+
+      case "team-score-adjust": {
+        // Additive-only score award (e.g. missing-jersey +5, technical +2).
+        stats[ev.side].points += ev.points;
         break;
       }
 

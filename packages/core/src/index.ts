@@ -17,6 +17,7 @@ export type {
   ScoreKind,
   FoulKind,
   StatKind,
+  TeamTurnoverKind,
   GameEvent,
   EditableEvent,
   EditEventPatch,
@@ -33,6 +34,8 @@ export {
   STAT_LABELS,
   FOUL_LABELS,
   SCORE_LABELS,
+  TEAM_TURNOVER_KINDS,
+  TEAM_TURNOVER_LABELS,
 } from "./constants";
 
 export { computeStats, isInBonus } from "./stats";

@@ -18,6 +18,7 @@ import type {
   Side,
   StatKind,
   Team,
+  TeamTurnoverKind,
 } from "@thestats/core";
 import {
   DEFAULT_SETTINGS,
@@ -135,6 +136,22 @@ interface GameState {
     clockAt?: number,
   ) => void;
   recordTimeout: (side: Side) => void;
+  /** Record a team-attributed violation turnover (8-second, 24-second,
+   *  3-second, …) — not charged to any player (feature 008). Append-only. */
+  recordTeamTurnover: (
+    side: Side,
+    kind: TeamTurnoverKind,
+    clockAt?: number,
+  ) => void;
+  /** Award points to a team not tied to a shooter (e.g. missing-jersey +5,
+   *  technical +2). Strictly additive: `points` MUST be a positive whole
+   *  number, else the call is a no-op. Never subtracts (feature 008). */
+  recordTeamScoreAdjust: (
+    side: Side,
+    points: number,
+    reason: string,
+    clockAt?: number,
+  ) => void;
   substitute: (side: Side, playerOutId: string, playerInId: string) => void;
   togglePossession: (side: Side | null) => void;
   /** Set the alternating-possession arrow to the given side (feature 007,
@@ -629,6 +646,44 @@ const storeBody: StateCreator<
         ],
       })),
 
+    recordTeamTurnover: (side, kind, clockAt) =>
+      set((s) => ({
+        events: [
+          ...s.events,
+          {
+            type: "team-turnover",
+            id: uid(),
+            timestamp: Date.now(),
+            period: s.currentPeriod,
+            clockAt: clockAt ?? s.clockSeconds,
+            side,
+            kind,
+          },
+        ],
+      })),
+
+    recordTeamScoreAdjust: (side, points, reason, clockAt) =>
+      set((s) => {
+        // Additive-only guard: reject non-positive / non-integer awards so a
+        // team's score can never decrease through Team Actions (FR-009).
+        if (!Number.isInteger(points) || points <= 0) return s;
+        return {
+          events: [
+            ...s.events,
+            {
+              type: "team-score-adjust",
+              id: uid(),
+              timestamp: Date.now(),
+              period: s.currentPeriod,
+              clockAt: clockAt ?? s.clockSeconds,
+              side,
+              points,
+              reason,
+            },
+          ],
+        };
+      }),
+
     substitute: (side, playerOutId, playerInId) =>
       set((s) => {
         const court = s.onCourt[side];
@@ -718,6 +773,17 @@ const storeBody: StateCreator<
           if (patch.clockAt < 0 || patch.clockAt > periodLength) return s;
         }
 
+        // Additive-only guard on score-award edits: the resolved points must
+        // stay a positive whole number, so an edit can never reduce a team's
+        // score below zero or subtract points (FR-015, SC-003).
+        if (
+          existing.type === "team-score-adjust" &&
+          patch.type === "team-score-adjust"
+        ) {
+          const nextPoints = patch.points ?? existing.points;
+          if (!Number.isInteger(nextPoints) || nextPoints <= 0) return s;
+        }
+
         // Build the patched event, preserving identity fields (id, type,
         // period, timestamp) and applying only the editable-field overrides.
         const merged = ((): GameEvent => {
@@ -755,6 +821,29 @@ const storeBody: StateCreator<
               ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
             };
           }
+          if (
+            existing.type === "team-turnover" &&
+            patch.type === "team-turnover"
+          ) {
+            return {
+              ...existing,
+              ...(patch.clockAt !== undefined ? { clockAt: patch.clockAt } : {}),
+              side: nextSide,
+              ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
+            };
+          }
+          if (
+            existing.type === "team-score-adjust" &&
+            patch.type === "team-score-adjust"
+          ) {
+            return {
+              ...existing,
+              ...(patch.clockAt !== undefined ? { clockAt: patch.clockAt } : {}),
+              side: nextSide,
+              ...(patch.points !== undefined ? { points: patch.points } : {}),
+              ...(patch.reason !== undefined ? { reason: patch.reason } : {}),
+            };
+          }
           // timeout
           return {
             ...existing,
@@ -776,7 +865,9 @@ const storeBody: StateCreator<
           existing.type !== "score" &&
           existing.type !== "foul" &&
           existing.type !== "stat" &&
-          existing.type !== "timeout"
+          existing.type !== "timeout" &&
+          existing.type !== "team-turnover" &&
+          existing.type !== "team-score-adjust"
         ) {
           return s;
         }

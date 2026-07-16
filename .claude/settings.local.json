@@ -53,7 +53,13 @@
       "Bash(npm --workspace packages/core run test -- --run)",
       "Bash(npm --workspace packages/web run test:e2e -- auth.spec.ts --reporter=line)",
       "Bash(npm --workspace packages/web run test -- --run src/components/game/PossessionArrow.test.tsx src/lib/store.test.ts src/lib/storeRehydration.test.ts src/app/setup/page.test.tsx)",
-      "Bash(npm --workspace packages/web run test:e2e -- possession-arrow)"
+      "Bash(npm --workspace packages/web run test:e2e -- possession-arrow)",
+      "Bash(bash .specify/scripts/bash/update-agent-context.sh claude)",
+      "Bash(cd /Users/eganesan/Documents/theStatsApp/theStats/packages && echo \"=== .gitignore exists ===\"; ls -la ../.gitignore 2>/dev/null | head -1; echo \"=== constants.ts ===\"; cat core/src/constants.ts; echo \"=== index.ts ===\"; cat core/src/index.ts)",
+      "Read(//Users/eganesan/Documents/theStatsApp/**)",
+      "Read(//tmp/**)",
+      "Bash(.specify/extensions/git/scripts/bash/auto-commit.sh after_implement)",
+      "Bash(git reset *)"
     ]
   }
 }

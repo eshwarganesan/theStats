@@ -235,6 +235,58 @@ describe("EditEventModal — Save and Cancel", () => {
   });
 });
 
+describe("EditEventModal — team-turnover event", () => {
+  it("shows a violation picker and no player selector, and edits the kind", async () => {
+    seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordTeamTurnover("home", "8-second");
+    const ev: EditableEvent = lastEvent("team-turnover");
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+
+    render(<EditEventModal event={ev} onClose={onClose} />);
+    expect(screen.getByRole("group", { name: /Violation/i })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /Player/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /24-Second Violation/ }));
+    await user.click(screen.getByRole("button", { name: /^Save$/ }));
+
+    const after = lastEvent("team-turnover");
+    expect(after.kind).toBe("24-second");
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+describe("EditEventModal — team-score-adjust event", () => {
+  it("edits points down to a smaller positive value", async () => {
+    seedReadyGame();
+    useGameStore.getState().recordTeamScoreAdjust("home", 5, "jersey");
+    const ev: EditableEvent = lastEvent("team-score-adjust");
+    const user = userEvent.setup();
+
+    render(<EditEventModal event={ev} onClose={() => {}} />);
+    const points = screen.getByLabelText("Points");
+    await user.clear(points);
+    await user.type(points, "2");
+    await user.click(screen.getByRole("button", { name: /^Save$/ }));
+
+    expect(lastEvent("team-score-adjust").points).toBe(2);
+  });
+
+  it("blocks Save (and shows an error) for a non-positive points edit", async () => {
+    seedReadyGame();
+    useGameStore.getState().recordTeamScoreAdjust("home", 5, "jersey");
+    const ev: EditableEvent = lastEvent("team-score-adjust");
+    const user = userEvent.setup();
+
+    render(<EditEventModal event={ev} onClose={() => {}} />);
+    const points = screen.getByLabelText("Points");
+    await user.clear(points);
+    await user.type(points, "0");
+    expect(screen.getByRole("button", { name: /^Save$/ })).toBeDisabled();
+  });
+});
+
 describe("EditEventModal — closed state", () => {
   it("renders nothing when event is null", () => {
     const { container } = render(

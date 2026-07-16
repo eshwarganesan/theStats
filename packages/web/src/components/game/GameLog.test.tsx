@@ -271,4 +271,42 @@ describe("GameLog", () => {
     render(<GameLog />);
     expect(screen.getByText(/Unknown/)).toBeInTheDocument();
   });
+
+  it("describes a team turnover with the team tag and TO tag, no player", () => {
+    seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordTeamTurnover("home", "24-second");
+    render(<GameLog />);
+    expect(screen.getByText(/HME — 24-Second Violation \(team TO\)/)).toBeInTheDocument();
+    expect(screen.getAllByText("TO").length).toBeGreaterThan(0);
+  });
+
+  it("describes a score award with amount and reason", () => {
+    seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordTeamScoreAdjust("home", 5, "missing jersey");
+    render(<GameLog />);
+    expect(screen.getByText(/HME \+5 — missing jersey/)).toBeInTheDocument();
+    expect(screen.getByText("+PTS")).toBeInTheDocument();
+  });
+
+  it("omits the reason when a score award has none", () => {
+    seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordTeamScoreAdjust("home", 2, "");
+    render(<GameLog />);
+    const row = screen.getByText(/HME \+2/);
+    expect(row.textContent).not.toContain("—");
+  });
+
+  it("renders Edit and Delete affordances for team-action rows", () => {
+    seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordTeamTurnover("home", "8-second");
+    useGameStore.getState().recordTeamScoreAdjust("home", 5, "jersey");
+    render(<GameLog />);
+    // Two rows, each with an Edit and Delete button (plus the period-start row has none)
+    expect(screen.getAllByRole("button", { name: /^Edit play$/ }).length).toBe(2);
+    expect(screen.getAllByRole("button", { name: /^Delete play$/ }).length).toBe(2);
+  });
 });

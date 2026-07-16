@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useGameStore } from "@/lib/store";
 import { formatClock, formatPeriod } from "@thestats/core";
 import { cn } from "@/lib/utils";
-import { FOUL_LABELS, STAT_LABELS } from "@thestats/core";
+import { FOUL_LABELS, STAT_LABELS, TEAM_TURNOVER_LABELS } from "@thestats/core";
 import type { EditableEvent, GameEvent } from "@thestats/core";
 import { EditEventModal } from "./EditEventModal";
 import { DeleteEventConfirmModal } from "./DeleteEventConfirmModal";
@@ -17,7 +17,9 @@ function isEditable(ev: GameEvent): ev is EditableEvent {
     ev.type === "score" ||
     ev.type === "foul" ||
     ev.type === "stat" ||
-    ev.type === "timeout"
+    ev.type === "timeout" ||
+    ev.type === "team-turnover" ||
+    ev.type === "team-score-adjust"
   );
 }
 
@@ -221,6 +223,27 @@ function describe(
         tag: "TO",
         tagColor: "muted",
       };
+    case "team-turnover": {
+      const tag = ev.side === "home" ? home.tag : away.tag;
+      return {
+        text: `${tag} — ${TEAM_TURNOVER_LABELS[ev.kind]} (team TO)`,
+        sideColor: ev.side,
+        emphasis: false,
+        tag: "TO",
+        tagColor: "muted",
+      };
+    }
+    case "team-score-adjust": {
+      const tag = ev.side === "home" ? home.tag : away.tag;
+      const reason = ev.reason.trim();
+      return {
+        text: `${tag} +${ev.points}${reason ? ` — ${reason}` : ""}`,
+        sideColor: ev.side,
+        emphasis: true,
+        tag: "+PTS",
+        tagColor: "accent",
+      };
+    }
     case "clock":
       if (ev.action === "adjust") {
         return {

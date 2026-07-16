@@ -25,6 +25,7 @@ describe("TeamPanel", () => {
         side="home"
         onPlayerTap={noop}
         onSubstitutionClick={noop}
+        onTeamActionsClick={noop}
         onTimeoutClick={noop}
         selectedPlayerId={null}
       />,
@@ -55,6 +56,7 @@ describe("TeamPanel", () => {
         side="home"
         onPlayerTap={onPlayerTap}
         onSubstitutionClick={noop}
+        onTeamActionsClick={noop}
         onTimeoutClick={noop}
         selectedPlayerId={null}
       />,
@@ -79,6 +81,7 @@ describe("TeamPanel", () => {
         side="home"
         onPlayerTap={noop}
         onSubstitutionClick={noop}
+        onTeamActionsClick={noop}
         onTimeoutClick={noop}
         selectedPlayerId={null}
       />,
@@ -99,6 +102,7 @@ describe("TeamPanel", () => {
         side="home"
         onPlayerTap={noop}
         onSubstitutionClick={noop}
+        onTeamActionsClick={noop}
         onTimeoutClick={noop}
         selectedPlayerId={null}
       />,
@@ -115,6 +119,7 @@ describe("TeamPanel", () => {
         side="home"
         onPlayerTap={noop}
         onSubstitutionClick={onSub}
+        onTeamActionsClick={noop}
         onTimeoutClick={noop}
         selectedPlayerId={null}
       />,
@@ -133,6 +138,7 @@ describe("TeamPanel", () => {
         side="home"
         onPlayerTap={noop}
         onSubstitutionClick={noop}
+        onTeamActionsClick={noop}
         onTimeoutClick={onTimeout}
         selectedPlayerId={null}
       />,
@@ -149,12 +155,107 @@ describe("TeamPanel", () => {
         side="home"
         onPlayerTap={noop}
         onSubstitutionClick={noop}
+        onTeamActionsClick={noop}
         onTimeoutClick={noop}
         selectedPlayerId={sel}
       />,
     );
     const tile = screen.getByLabelText(new RegExp(players.homePlayer(0).name));
     expect(tile).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("renders a Team Actions button between Sub and Timeout", () => {
+    seedReadyGame();
+    render(
+      <TeamPanel
+        side="home"
+        onPlayerTap={noop}
+        onSubstitutionClick={noop}
+        onTeamActionsClick={noop}
+        onTimeoutClick={noop}
+        selectedPlayerId={null}
+      />,
+    );
+    const footerButtons = screen
+      .getAllByRole("button")
+      .map((b) => b.textContent?.trim())
+      .filter((t) => t === "Sub" || t === "Team Actions" || t?.startsWith("Timeout"));
+    const subIdx = footerButtons.indexOf("Sub");
+    const taIdx = footerButtons.indexOf("Team Actions");
+    const toIdx = footerButtons.findIndex((t) => t?.startsWith("Timeout"));
+    expect(subIdx).toBeGreaterThanOrEqual(0);
+    expect(subIdx).toBeLessThan(taIdx);
+    expect(taIdx).toBeLessThan(toIdx);
+  });
+
+  it("calls onTeamActionsClick when Team Actions is clicked", async () => {
+    seedReadyGame();
+    const onTeamActions = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <TeamPanel
+        side="home"
+        onPlayerTap={noop}
+        onSubstitutionClick={noop}
+        onTeamActionsClick={onTeamActions}
+        onTimeoutClick={noop}
+        selectedPlayerId={null}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Team Actions" }));
+    expect(onTeamActions).toHaveBeenCalledOnce();
+  });
+
+  it("disables Team Actions in setup but enables it once ready", () => {
+    seedReadyGame(); // seeds roster, still in setup until prepareGame
+    useGameStore.getState().resetAll();
+    // setup state (no roster prepared)
+    const { unmount } = render(
+      <TeamPanel
+        side="home"
+        onPlayerTap={noop}
+        onSubstitutionClick={noop}
+        onTeamActionsClick={noop}
+        onTimeoutClick={noop}
+        selectedPlayerId={null}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Team Actions" })).toBeDisabled();
+    unmount();
+
+    seedReadyGame(); // moves to "ready"
+    render(
+      <TeamPanel
+        side="home"
+        onPlayerTap={noop}
+        onSubstitutionClick={noop}
+        onTeamActionsClick={noop}
+        onTimeoutClick={noop}
+        selectedPlayerId={null}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Team Actions" })).toBeEnabled();
+  });
+
+  it("shows the team turnover total in the header", () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordTeamTurnover("home", "24-second");
+    void players;
+    render(
+      <TeamPanel
+        side="home"
+        onPlayerTap={noop}
+        onSubstitutionClick={noop}
+        onTeamActionsClick={noop}
+        onTimeoutClick={noop}
+        selectedPlayerId={null}
+      />,
+    );
+    expect(screen.getByText(/Team TO:/)).toBeInTheDocument();
+    // the count "1" appears in the header
+    const header = screen.getByText(/Team TO:/).closest("span");
+    expect(header?.textContent).toContain("1");
   });
 
   it("includes points and fouls in tile aria-label for screen readers", () => {
@@ -166,6 +267,7 @@ describe("TeamPanel", () => {
         side="home"
         onPlayerTap={noop}
         onSubstitutionClick={noop}
+        onTeamActionsClick={noop}
         onTimeoutClick={noop}
         selectedPlayerId={null}
       />,

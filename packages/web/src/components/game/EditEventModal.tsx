@@ -9,6 +9,7 @@ import {
   FOUL_LABELS,
   SCORE_LABELS,
   STAT_LABELS,
+  TEAM_TURNOVER_KINDS,
 } from "@thestats/core";
 import { formatClock, parseClock } from "@thestats/core";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ import type {
   ScoreKind,
   Side,
   StatKind,
+  TeamTurnoverKind,
 } from "@thestats/core";
 
 interface EditEventModalProps {
@@ -55,6 +57,10 @@ export function EditEventModal({ event, onClose }: EditEventModalProps) {
   const [foulKindDraft, setFoulKindDraft] = useState<FoulKind>("personal");
   const [statKindDraft, setStatKindDraft] = useState<StatKind>("rebound-off");
   const [madeDraft, setMadeDraft] = useState<boolean>(true);
+  const [teamTurnoverKindDraft, setTeamTurnoverKindDraft] =
+    useState<TeamTurnoverKind>("8-second");
+  const [pointsDraft, setPointsDraft] = useState<string>("");
+  const [reasonDraft, setReasonDraft] = useState<string>("");
 
   // Re-seed all draft fields whenever the event prop changes (open or swap).
   useEffect(() => {
@@ -71,6 +77,13 @@ export function EditEventModal({ event, onClose }: EditEventModalProps) {
     } else if (event.type === "stat") {
       setPlayerIdDraft(event.playerId);
       setStatKindDraft(event.kind);
+    } else if (event.type === "team-turnover") {
+      setPlayerIdDraft(null);
+      setTeamTurnoverKindDraft(event.kind);
+    } else if (event.type === "team-score-adjust") {
+      setPlayerIdDraft(null);
+      setPointsDraft(String(event.points));
+      setReasonDraft(event.reason);
     } else {
       // timeout: no player or kind
       setPlayerIdDraft(null);
@@ -96,9 +109,21 @@ export function EditEventModal({ event, onClose }: EditEventModalProps) {
   }, [parsedClock, periodLength]);
 
   const needsPlayer =
-    event !== null && event.type !== "timeout";
+    event !== null &&
+    (event.type === "score" ||
+      event.type === "foul" ||
+      event.type === "stat");
   const playerMissing = needsPlayer && playerIdDraft === null;
-  const canSave = !clockError && !playerMissing;
+
+  // Score-award edits must stay a positive whole number (additive-only).
+  const parsedPoints = Number(pointsDraft);
+  const pointsValid =
+    pointsDraft.trim() !== "" &&
+    Number.isInteger(parsedPoints) &&
+    parsedPoints > 0;
+  const pointsInvalid = event?.type === "team-score-adjust" && !pointsValid;
+
+  const canSave = !clockError && !playerMissing && !pointsInvalid;
 
   if (!event) return null;
 
@@ -153,6 +178,26 @@ export function EditEventModal({ event, onClose }: EditEventModalProps) {
         if (playerIdDraft !== null && playerIdDraft !== event.playerId)
           patch.playerId = playerIdDraft;
         if (statKindDraft !== event.kind) patch.kind = statKindDraft;
+        return patch;
+      }
+      if (event.type === "team-turnover") {
+        const patch: Extract<EditEventPatch, { type: "team-turnover" }> = {
+          type: "team-turnover",
+        };
+        if (parsedClock !== event.clockAt) patch.clockAt = parsedClock;
+        if (sideDraft !== event.side) patch.side = sideDraft;
+        if (teamTurnoverKindDraft !== event.kind)
+          patch.kind = teamTurnoverKindDraft;
+        return patch;
+      }
+      if (event.type === "team-score-adjust") {
+        const patch: Extract<EditEventPatch, { type: "team-score-adjust" }> = {
+          type: "team-score-adjust",
+        };
+        if (parsedClock !== event.clockAt) patch.clockAt = parsedClock;
+        if (sideDraft !== event.side) patch.side = sideDraft;
+        if (parsedPoints !== event.points) patch.points = parsedPoints;
+        if (reasonDraft !== event.reason) patch.reason = reasonDraft;
         return patch;
       }
       // timeout
@@ -231,7 +276,7 @@ export function EditEventModal({ event, onClose }: EditEventModalProps) {
         </TileGroup>
 
         {/* player (score, foul, stat only) — scrollable list of rows */}
-        {event.type !== "timeout" ? (
+        {needsPlayer ? (
           <TileGroup label="Player">
             <div className="col-span-full max-h-48 overflow-y-auto scrollbar-thin flex flex-col gap-1 -mx-1 px-1">
               {roster.map((p) => (
@@ -295,6 +340,65 @@ export function EditEventModal({ event, onClose }: EditEventModalProps) {
               ),
             )}
           </TileGroup>
+        ) : null}
+
+        {/* team-turnover kind — violation picker */}
+        {event.type === "team-turnover" ? (
+          <TileGroup label="Violation" columns={2}>
+            {TEAM_TURNOVER_KINDS.map(({ kind, label }) => (
+              <Tile
+                key={kind}
+                selected={teamTurnoverKindDraft === kind}
+                onClick={() => setTeamTurnoverKindDraft(kind)}
+              >
+                {label}
+              </Tile>
+            ))}
+          </TileGroup>
+        ) : null}
+
+        {/* team-score-adjust — points (positive) + optional reason */}
+        {event.type === "team-score-adjust" ? (
+          <>
+            <Field label="Points" htmlFor="edit-points">
+              <input
+                id="edit-points"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step={1}
+                value={pointsDraft}
+                onChange={(e) => setPointsDraft(e.target.value)}
+                aria-label="Points"
+                aria-invalid={pointsInvalid}
+                className={cn(
+                  "w-full bg-surface-raised border border-surface-border px-3 py-2",
+                  "font-mono tabular text-ink",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+                  pointsInvalid && "border-danger",
+                )}
+              />
+              {pointsInvalid ? (
+                <p className="text-xs text-danger mt-1" role="alert">
+                  Points must be a positive whole number.
+                </p>
+              ) : null}
+            </Field>
+            <Field label="Reason (optional)" htmlFor="edit-reason">
+              <input
+                id="edit-reason"
+                type="text"
+                value={reasonDraft}
+                onChange={(e) => setReasonDraft(e.target.value)}
+                aria-label="Reason"
+                className={cn(
+                  "w-full bg-surface-raised border border-surface-border px-3 py-2",
+                  "text-ink",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+                )}
+              />
+            </Field>
+          </>
         ) : null}
 
         {/* made (score only) — Made/Missed segmented toggle */}

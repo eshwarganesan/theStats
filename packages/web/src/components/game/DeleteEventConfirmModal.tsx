@@ -7,6 +7,7 @@ import {
   FOUL_LABELS,
   SCORE_LABELS,
   STAT_LABELS,
+  TEAM_TURNOVER_LABELS,
 } from "@thestats/core";
 import { formatClock } from "@thestats/core";
 import type { EditableEvent } from "@thestats/core";
@@ -75,9 +76,16 @@ function describe(
   away: { roster: { id: string; name: string; number: string }[]; tag: string },
 ): string {
   const clockText = formatClock(ev.clockAt);
+  const teamTag = ev.side === "home" ? home.tag : away.tag;
   if (ev.type === "timeout") {
-    const tag = ev.side === "home" ? home.tag : away.tag;
-    return `[${clockText}] ${tag} timeout`;
+    return `[${clockText}] ${teamTag} timeout`;
+  }
+  if (ev.type === "team-turnover") {
+    return `[${clockText}] ${teamTag} — ${TEAM_TURNOVER_LABELS[ev.kind]} (team TO)`;
+  }
+  if (ev.type === "team-score-adjust") {
+    const reason = ev.reason.trim();
+    return `[${clockText}] ${teamTag} +${ev.points}${reason ? ` — ${reason}` : ""}`;
   }
   const roster = ev.side === "home" ? home.roster : away.roster;
   const p = roster.find((pl) => pl.id === ev.playerId);

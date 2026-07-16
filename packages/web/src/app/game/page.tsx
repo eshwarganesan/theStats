@@ -7,6 +7,7 @@ import { ActionPad } from "@/components/game/ActionPad";
 import { GameLog } from "@/components/game/GameLog";
 import { ActionModal } from "@/components/game/ActionModal";
 import { SubstitutionModal } from "@/components/game/SubstitutionModal";
+import { TeamActionsModal } from "@/components/game/TeamActionsModal";
 import type { Side } from "@thestats/core";
 
 /**
@@ -38,10 +39,19 @@ export default function LiveGamePage() {
     capturedClockAt: number;
   } | null>(null);
   const [subSide, setSubSide] = useState<Side | null>(null);
+  const [teamActions, setTeamActions] = useState<{
+    side: Side;
+    capturedClockAt: number;
+  } | null>(null);
 
   const handlePlayerTap = (side: Side) => (playerId: string) => {
     const capturedClockAt = useGameStore.getState().clockSeconds;
     setSelectedAction({ side, playerId, capturedClockAt });
+  };
+
+  const handleTeamActionsClick = (side: Side) => () => {
+    const capturedClockAt = useGameStore.getState().clockSeconds;
+    setTeamActions({ side, capturedClockAt });
   };
 
   return (
@@ -52,6 +62,7 @@ export default function LiveGamePage() {
             side="home"
             onPlayerTap={handlePlayerTap("home")}
             onSubstitutionClick={() => setSubSide("home")}
+            onTeamActionsClick={handleTeamActionsClick("home")}
             onTimeoutClick={() => recordTimeout("home")}
             selectedPlayerId={
               selectedAction?.side === "home" ? selectedAction.playerId : null
@@ -71,6 +82,7 @@ export default function LiveGamePage() {
             side="away"
             onPlayerTap={handlePlayerTap("away")}
             onSubstitutionClick={() => setSubSide("away")}
+            onTeamActionsClick={handleTeamActionsClick("away")}
             onTimeoutClick={() => recordTimeout("away")}
             selectedPlayerId={
               selectedAction?.side === "away" ? selectedAction.playerId : null
@@ -96,6 +108,13 @@ export default function LiveGamePage() {
         open={subSide !== null}
         onClose={() => setSubSide(null)}
         side={subSide}
+      />
+
+      <TeamActionsModal
+        open={teamActions !== null}
+        onClose={() => setTeamActions(null)}
+        side={teamActions?.side ?? null}
+        capturedClockAt={teamActions?.capturedClockAt ?? null}
       />
     </>
   );

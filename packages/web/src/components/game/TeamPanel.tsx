@@ -71,9 +71,6 @@ export function TeamPanel({
           <span>
             Team fouls: <span className="text-ink font-mono">{teamStats.fouls}</span>
           </span>
-          <span>
-            Team TO: <span className="text-ink font-mono">{teamStats.teamTurnovers}</span>
-          </span>
         </span>
       </header>
 

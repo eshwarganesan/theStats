@@ -101,6 +101,16 @@ export type StatKind =
   | "block"
   | "turnover";
 
+/** Team-attributed violation turnovers (not charged to a player). The three
+ *  named kinds (8-second, 24-second, 3-second) are required; the set is
+ *  extensible. Kept in sync with `TEAM_TURNOVER_KINDS` in `constants.ts`. */
+export type TeamTurnoverKind =
+  | "8-second" // backcourt / advance violation
+  | "24-second" // shot-clock violation
+  | "3-second" // offensive lane (in-the-key) violation
+  | "5-second" // closely-guarded / inbound violation
+  | "backcourt"; // over-and-back violation
+
 /**
  * A single recorded event during a game. Events are the source of truth;
  * scores, fouls, bonus and all statistics are derived from them.
@@ -156,6 +166,28 @@ export type GameEvent =
       side: Side;
     }
   | {
+      type: "team-turnover";
+      id: ID;
+      timestamp: number;
+      period: number;
+      clockAt: number;
+      side: Side;
+      kind: TeamTurnoverKind;
+    }
+  | {
+      type: "team-score-adjust";
+      id: ID;
+      timestamp: number;
+      period: number;
+      clockAt: number;
+      side: Side;
+      /** Points awarded. MUST be a positive whole number (> 0); the store and
+       *  `editEvent` reject any other value. Never subtracts from the score. */
+      points: number;
+      /** Free-text reason (e.g. "missing jersey", "technical foul"). May be "". */
+      reason: string;
+    }
+  | {
       type: "clock";
       id: ID;
       timestamp: number;
@@ -194,7 +226,9 @@ export type EditableEvent =
   | Extract<GameEvent, { type: "score" }>
   | Extract<GameEvent, { type: "foul" }>
   | Extract<GameEvent, { type: "stat" }>
-  | Extract<GameEvent, { type: "timeout" }>;
+  | Extract<GameEvent, { type: "timeout" }>
+  | Extract<GameEvent, { type: "team-turnover" }>
+  | Extract<GameEvent, { type: "team-score-adjust" }>;
 
 /**
  * Patch supplied to `editEvent` for mutating an existing GameEvent in
@@ -231,6 +265,21 @@ export type EditEventPatch =
       type: "timeout";
       clockAt?: number;
       side?: Side;
+    }
+  | {
+      type: "team-turnover";
+      clockAt?: number;
+      side?: Side;
+      kind?: TeamTurnoverKind;
+    }
+  | {
+      type: "team-score-adjust";
+      clockAt?: number;
+      side?: Side;
+      /** When present, MUST resolve to a positive whole number; `editEvent`
+       *  rejects the patch otherwise (additive-only preserved on edit). */
+      points?: number;
+      reason?: string;
     };
 
 /** High-level lifecycle of a game. */
@@ -272,5 +321,8 @@ export interface TeamStats {
   totalFouls: number; // team fouls across the entire game
   timeoutsTaken: number;
   timeoutsRemaining: number;
+  /** Count of team-attributed violation turnovers (8-second, 24-second,
+   *  3-second, …). Distinct from the sum of individual player turnovers. */
+  teamTurnovers: number;
   players: PlayerStats[];
 }

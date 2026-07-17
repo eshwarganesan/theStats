@@ -11,6 +11,7 @@ interface TeamPanelProps {
   side: Side;
   onPlayerTap: (playerId: string) => void;
   onSubstitutionClick: () => void;
+  onTeamActionsClick: () => void;
   onTimeoutClick: () => void;
   selectedPlayerId: string | null;
 }
@@ -19,6 +20,7 @@ export function TeamPanel({
   side,
   onPlayerTap,
   onSubstitutionClick,
+  onTeamActionsClick,
   onTimeoutClick,
   selectedPlayerId,
 }: TeamPanelProps) {
@@ -28,7 +30,13 @@ export function TeamPanel({
   const settings = useGameStore((s) => s.settings);
   const events = useGameStore((s) => s.events);
   const period = useGameStore((s) => s.currentPeriod);
+  const status = useGameStore((s) => s.status);
   const onCourt = useGameStore((s) => s.onCourt[side]);
+
+  // Team Actions is available from the pre-tip "ready" state onward (score
+  // awards may be posted before tip-off), but not during setup or once the
+  // game is finished (FR-016).
+  const teamActionsEnabled = status !== "setup" && status !== "finished";
 
   const stats = useMemo(
     () => computeStats(events, homeTeam, awayTeam, settings, period),
@@ -59,8 +67,10 @@ export function TeamPanel({
           />
           <h3 className="heading-display text-base truncate">{team.name}</h3>
         </div>
-        <span className="label-eyebrow">
-          Team fouls: <span className="text-ink font-mono">{teamStats.fouls}</span>
+        <span className="label-eyebrow flex items-center gap-3">
+          <span>
+            Team fouls: <span className="text-ink font-mono">{teamStats.fouls}</span>
+          </span>
         </span>
       </header>
 
@@ -128,6 +138,14 @@ export function TeamPanel({
           className="flex-1 h-8 text-xs font-mono uppercase tracking-wider text-ink-muted hover:text-ink hover:bg-surface-hover transition-colors border border-surface-border"
         >
           Sub
+        </button>
+        <button
+          type="button"
+          onClick={onTeamActionsClick}
+          disabled={!teamActionsEnabled}
+          className="flex-1 h-8 text-xs font-mono uppercase tracking-wider text-ink-muted hover:text-ink hover:bg-surface-hover transition-colors border border-surface-border disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Team Actions
         </button>
         <button
           type="button"

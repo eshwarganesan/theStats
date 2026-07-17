@@ -601,6 +601,124 @@ describe("recording events", () => {
   });
 });
 
+describe("team actions (feature 008)", () => {
+  beforeEach(() => {
+    seedRoster("home", 5);
+    seedRoster("away", 5);
+    get().prepareGame();
+    get().startGame();
+  });
+
+  const stats = () =>
+    computeStats(
+      get().events,
+      get().homeTeam,
+      get().awayTeam,
+      get().settings,
+      get().currentPeriod,
+    );
+
+  it("recordTeamTurnover appends a team-turnover for the charged side", () => {
+    get().recordTeamTurnover("home", "24-second");
+    const last = get().events.at(-1);
+    expect(last?.type).toBe("team-turnover");
+    if (last?.type === "team-turnover") {
+      expect(last.kind).toBe("24-second");
+      expect(last.side).toBe("home");
+      expect(last.period).toBe(1);
+    }
+    expect(stats().home.teamTurnovers).toBe(1);
+    expect(stats().away.teamTurnovers).toBe(0);
+    expect(stats().home.players.every((p) => p.turnovers === 0)).toBe(true);
+  });
+
+  it("recordTeamTurnover honors an explicit clockAt override", () => {
+    get().recordTeamTurnover("away", "8-second", 123);
+    const last = get().events.at(-1);
+    if (last?.type === "team-turnover") expect(last.clockAt).toBe(123);
+  });
+
+  it("undo removes the most recent team turnover", () => {
+    get().recordTeamTurnover("home", "3-second");
+    expect(stats().home.teamTurnovers).toBe(1);
+    get().undoLastEvent();
+    expect(stats().home.teamTurnovers).toBe(0);
+  });
+
+  it("recordTeamScoreAdjust adds positive points to the team score only", () => {
+    get().recordTeamScoreAdjust("home", 5, "missing jersey");
+    const last = get().events.at(-1);
+    expect(last?.type).toBe("team-score-adjust");
+    if (last?.type === "team-score-adjust") {
+      expect(last.points).toBe(5);
+      expect(last.reason).toBe("missing jersey");
+    }
+    expect(stats().home.points).toBe(5);
+    expect(stats().home.players.every((p) => p.points === 0)).toBe(true);
+  });
+
+  it("recordTeamScoreAdjust accepts a blank reason", () => {
+    get().recordTeamScoreAdjust("away", 2, "");
+    const last = get().events.at(-1);
+    if (last?.type === "team-score-adjust") expect(last.reason).toBe("");
+    expect(stats().away.points).toBe(2);
+  });
+
+  it.each([0, -3, 2.5, NaN])(
+    "recordTeamScoreAdjust rejects non-positive/non-integer points (%s)",
+    (bad) => {
+      const before = get().events.length;
+      get().recordTeamScoreAdjust("home", bad, "invalid");
+      expect(get().events.length).toBe(before);
+      expect(stats().home.points).toBe(0);
+    },
+  );
+
+  it("undo removes the most recent score award", () => {
+    get().recordTeamScoreAdjust("home", 5, "jersey");
+    expect(stats().home.points).toBe(5);
+    get().undoLastEvent();
+    expect(stats().home.points).toBe(0);
+  });
+
+  it("editEvent lowers a score award to a smaller positive value", () => {
+    get().recordTeamScoreAdjust("home", 5, "jersey");
+    const id = get().events.at(-1)!.id;
+    get().editEvent(id, { type: "team-score-adjust", points: 2 });
+    expect(stats().home.points).toBe(2);
+  });
+
+  it.each([0, -1, 3.5])(
+    "editEvent rejects a non-positive/non-integer score-award edit (%s)",
+    (bad) => {
+      get().recordTeamScoreAdjust("home", 5, "jersey");
+      const id = get().events.at(-1)!.id;
+      get().editEvent(id, { type: "team-score-adjust", points: bad });
+      expect(stats().home.points).toBe(5);
+    },
+  );
+
+  it("editEvent changes a team turnover kind and re-folds", () => {
+    get().recordTeamTurnover("home", "8-second");
+    const id = get().events.at(-1)!.id;
+    get().editEvent(id, { type: "team-turnover", kind: "24-second" });
+    const last = get().events.at(-1);
+    if (last?.type === "team-turnover") expect(last.kind).toBe("24-second");
+    expect(stats().home.teamTurnovers).toBe(1);
+  });
+
+  it("deleteEvent removes a team turnover and a score award", () => {
+    get().recordTeamTurnover("home", "8-second");
+    const toId = get().events.at(-1)!.id;
+    get().recordTeamScoreAdjust("home", 5, "jersey");
+    const adjId = get().events.at(-1)!.id;
+    get().deleteEvent(toId);
+    expect(stats().home.teamTurnovers).toBe(0);
+    get().deleteEvent(adjId);
+    expect(stats().home.points).toBe(0);
+  });
+});
+
 describe("substitutions", () => {
   beforeEach(() => {
     // 6-player roster with 5 starters → 1 bench player available

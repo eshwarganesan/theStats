@@ -1,4 +1,4 @@
-import type { GameSettings, GameFormat } from "./types";
+import type { GameSettings, GameFormat, TeamTurnoverKind } from "./types";
 
 /** Point values for each type of made shot. */
 export const POINTS_BY_KIND = {
@@ -76,3 +76,23 @@ export const SCORE_LABELS = {
   "3pt": "3 PT",
   ft: "Free Throw",
 } as const;
+
+/** Team-attributed violation turnover kinds, ordered for display in the
+ *  Team Actions modal and labelled in the play-by-play. Single source of
+ *  truth for `TeamTurnoverKind`; the three named kinds are required. */
+export const TEAM_TURNOVER_KINDS: ReadonlyArray<{
+  kind: TeamTurnoverKind;
+  label: string;
+}> = [
+  { kind: "8-second", label: "8-Second Violation" },
+  { kind: "24-second", label: "24-Second Violation" },
+  { kind: "3-second", label: "3-Second Violation" },
+  { kind: "5-second", label: "5-Second Violation" },
+  { kind: "backcourt", label: "Backcourt Violation" },
+];
+
+/** Lookup of team-turnover kind → display label. */
+export const TEAM_TURNOVER_LABELS: Record<TeamTurnoverKind, string> =
+  Object.fromEntries(
+    TEAM_TURNOVER_KINDS.map(({ kind, label }) => [kind, label]),
+  ) as Record<TeamTurnoverKind, string>;

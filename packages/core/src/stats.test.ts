@@ -394,6 +394,84 @@ describe("computeStats — unknown identifiers", () => {
   });
 });
 
+describe("team actions (feature 008)", () => {
+  it("defaults teamTurnovers to 0 for both teams with no events", () => {
+    const stats = computeStats([], homeTeam, awayTeam, settings(), 1);
+    expect(stats.home.teamTurnovers).toBe(0);
+    expect(stats.away.teamTurnovers).toBe(0);
+  });
+
+  it("counts a team-turnover only for the charged side, no player touched", () => {
+    const stats = computeStats(
+      [
+        ev("team-turnover", {
+          period: 1,
+          clockAt: 300,
+          side: "home",
+          kind: "24-second",
+        }),
+      ],
+      homeTeam,
+      awayTeam,
+      settings(),
+      1,
+    );
+    expect(stats.home.teamTurnovers).toBe(1);
+    expect(stats.away.teamTurnovers).toBe(0);
+    expect(stats.home.players[0]!.turnovers).toBe(0);
+  });
+
+  it("accumulates multiple team-turnovers", () => {
+    const stats = computeStats(
+      [
+        ev("team-turnover", { period: 1, clockAt: 300, side: "away", kind: "8-second" }),
+        ev("team-turnover", { period: 1, clockAt: 200, side: "away", kind: "3-second" }),
+      ],
+      homeTeam,
+      awayTeam,
+      settings(),
+      1,
+    );
+    expect(stats.away.teamTurnovers).toBe(2);
+  });
+
+  it("adds team-score-adjust points to the team score, not to any player", () => {
+    const stats = computeStats(
+      [
+        ev("team-score-adjust", {
+          period: 1,
+          clockAt: 600,
+          side: "home",
+          points: 5,
+          reason: "missing jersey",
+        }),
+      ],
+      homeTeam,
+      awayTeam,
+      settings(),
+      1,
+    );
+    expect(stats.home.points).toBe(5);
+    expect(stats.away.points).toBe(0);
+    expect(stats.home.players[0]!.points).toBe(0);
+  });
+
+  it("sums multiple additive awards with player-scored points", () => {
+    const stats = computeStats(
+      [
+        ev("score", { period: 1, clockAt: 600, side: "home", playerId: "h1", kind: "2pt", made: true }),
+        ev("team-score-adjust", { period: 1, clockAt: 500, side: "home", points: 2, reason: "technical" }),
+      ],
+      homeTeam,
+      awayTeam,
+      settings(),
+      1,
+    );
+    expect(stats.home.points).toBe(4);
+    expect(stats.home.players[0]!.points).toBe(2);
+  });
+});
+
 describe("isInBonus", () => {
   const fakeTeam = (fouls: number): TeamStats => ({
     side: "home",
@@ -402,6 +480,7 @@ describe("isInBonus", () => {
     totalFouls: fouls,
     timeoutsTaken: 0,
     timeoutsRemaining: 5,
+    teamTurnovers: 0,
     players: [],
   });
 

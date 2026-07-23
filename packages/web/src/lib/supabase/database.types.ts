@@ -60,6 +60,117 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      games: {
+        Row: {
+          away_score: number
+          away_team_name: string
+          current_period: number
+          event_count: number
+          finished_at: string | null
+          home_score: number
+          home_team_name: string
+          id: string
+          last_activity_at: string
+          owner_id: string
+          started_at: string
+          state: Json
+          status: string
+        }
+        Insert: {
+          away_score?: number
+          away_team_name: string
+          current_period?: number
+          event_count?: number
+          finished_at?: string | null
+          home_score?: number
+          home_team_name: string
+          id?: string
+          last_activity_at?: string
+          owner_id: string
+          started_at?: string
+          state: Json
+          status: string
+        }
+        Update: {
+          away_score?: number
+          away_team_name?: string
+          current_period?: number
+          event_count?: number
+          finished_at?: string | null
+          home_score?: number
+          home_team_name?: string
+          id?: string
+          last_activity_at?: string
+          owner_id?: string
+          started_at?: string
+          state?: Json
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "games_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_writes: {
+        Row: {
+          created_at: string
+          game_id: string
+          idempotency_key: string
+        }
+        Insert: {
+          created_at?: string
+          game_id: string
+          idempotency_key: string
+        }
+        Update: {
+          created_at?: string
+          game_id?: string
+          idempotency_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_writes_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -69,6 +180,10 @@ export type Database = {
       record_auth_attempt: {
         Args: { p_keys: string[]; p_success: boolean }
         Returns: undefined
+      }
+      record_game_write: {
+        Args: { p_key: string; p_game_id: string }
+        Returns: boolean
       }
     }
     Enums: {

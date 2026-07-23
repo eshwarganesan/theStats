@@ -1,0 +1,245 @@
+openapi: 3.0.3
+info:
+  title: theStats Account Library API
+  version: "0.1.0"
+  description: |
+    Route Handler surface added by feature 009-account-library. Every endpoint
+    requires a Supabase session cookie; owner_id is derived from the verified
+    session, never from the request. Error responses use a single shape
+    { error: { code, message } }.
+
+servers:
+  - url: https://thestats.example/api
+    description: Production
+  - url: http://localhost:3000/api
+    description: Local dev
+
+security:
+  - supabaseSessionCookie: []
+
+paths:
+  /games:
+    get:
+      operationId: listGames
+      summary: List library entries (paginated, most-recent-activity first).
+      parameters:
+        - in: query
+          name: cursor
+          required: false
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LibraryPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+    post:
+      operationId: createGame
+      summary: Create a new saved game record.
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PostGameBody' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GameEnvelope' }
+        '200':
+          description: Idempotency replay — returned the existing row.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GameEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /games/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+
+    get:
+      operationId: getGame
+      summary: Get one saved game (full state).
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GameEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+    patch:
+      operationId: updateGame
+      summary: Write-through save of a mutated game state (idempotent).
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PatchGameBody' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GameEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Game is already in the 'finished' state and cannot be mutated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+    delete:
+      operationId: deleteGame
+      summary: Delete a saved game.
+      responses:
+        '204':
+          description: Deleted.
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+  securitySchemes:
+    supabaseSessionCookie:
+      type: apiKey
+      in: cookie
+      name: sb-<project>-auth-token
+      description: Supabase session cookie set at sign-in by @supabase/ssr.
+
+  schemas:
+    LibraryEntry:
+      type: object
+      required:
+        - id
+        - status
+        - homeTeamName
+        - awayTeamName
+        - homeScore
+        - awayScore
+        - eventCount
+        - currentPeriod
+        - startedAt
+        - lastActivityAt
+        - finishedAt
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [in-progress, finished] }
+        homeTeamName: { type: string }
+        awayTeamName: { type: string }
+        homeScore: { type: integer, minimum: 0 }
+        awayScore: { type: integer, minimum: 0 }
+        eventCount: { type: integer, minimum: 0 }
+        currentPeriod: { type: integer, minimum: 1 }
+        startedAt: { type: string, format: date-time }
+        lastActivityAt: { type: string, format: date-time }
+        finishedAt:
+          oneOf:
+            - { type: string, format: date-time }
+            - { type: 'null' }
+
+    LibraryPage:
+      type: object
+      required: [entries, nextCursor]
+      properties:
+        entries:
+          type: array
+          items: { $ref: '#/components/schemas/LibraryEntry' }
+        nextCursor:
+          oneOf:
+            - { type: string, format: date-time }
+            - { type: 'null' }
+
+    PersistedGameRecord:
+      description: |
+        The full game record — same shape stored in localStorage by feature 006.
+        Kept as an open object here; the authoritative schema is Zod-validated at
+        the boundary (packages/web/src/lib/validation/games.ts) and mirrors
+        packages/core/src/types.ts.
+      type: object
+      additionalProperties: true
+
+    SavedGameRecord:
+      allOf:
+        - $ref: '#/components/schemas/LibraryEntry'
+        - type: object
+          required: [ownerId, state]
+          properties:
+            ownerId: { type: string, format: uuid }
+            state: { $ref: '#/components/schemas/PersistedGameRecord' }
+
+    GameEnvelope:
+      type: object
+      required: [game]
+      properties:
+        game: { $ref: '#/components/schemas/SavedGameRecord' }
+
+    PostGameBody:
+      type: object
+      required: [state]
+      properties:
+        state: { $ref: '#/components/schemas/PersistedGameRecord' }
+
+    PatchGameBody:
+      $ref: '#/components/schemas/PostGameBody'
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+
+  responses:
+    BadRequest:
+      description: Validation failure or missing required header.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unauthenticated:
+      description: Missing or invalid session.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: |
+        Row not found — either the row does not exist or RLS filtered it out.
+        Existence is not distinguished from ownership.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    InternalError:
+      description: Unexpected error.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }

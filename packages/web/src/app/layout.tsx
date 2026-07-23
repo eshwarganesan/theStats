@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, Manrope, JetBrains_Mono } from "next/font/google";
 import { Suspense } from "react";
 import { AuthPill } from "@/components/auth/auth-pill";
+import { AppSidebar } from "@/components/shell/AppSidebar";
+import { SidebarProfileIcon } from "@/components/shell/SidebarProfileIcon";
 import { RecoveryFailedBanner } from "@/components/shell/RecoveryFailedBanner";
 import { StorageUnavailableModal } from "@/components/shell/StorageUnavailableModal";
 import { StorageAvailabilityProvider } from "@/lib/storageAvailability";
@@ -48,12 +50,23 @@ export default function RootLayout({
     >
       <body className="font-sans">
         <StorageAvailabilityProvider>
-          <Suspense fallback={null}>
-            <AuthPill className="fixed top-3 right-3 z-50" />
-          </Suspense>
           <RecoveryFailedBanner />
           <StorageUnavailableModal />
-          {children}
+          <div className="flex items-stretch min-h-[100dvh]">
+            <AppSidebar
+              authPill={
+                <Suspense fallback={null}>
+                  <AuthPill />
+                </Suspense>
+              }
+              profileIcon={
+                <Suspense fallback={null}>
+                  <SidebarProfileIcon />
+                </Suspense>
+              }
+            />
+            <main className="flex-1 min-w-0">{children}</main>
+          </div>
         </StorageAvailabilityProvider>
       </body>
     </html>

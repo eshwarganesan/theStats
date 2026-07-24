@@ -21,9 +21,15 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { useGameStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { DeleteGameDialog } from "./DeleteGameDialog";
 
 export interface LibraryEntryProps {
   entry: Entry;
+  /**
+   * US4: called after the row is deleted via the DeleteGameDialog so
+   * the parent list can remove it from local state without a re-fetch.
+   */
+  onDeleted?: (id: string) => void;
 }
 
 function formatStartedAt(iso: string): string {
@@ -38,13 +44,14 @@ function formatStartedAt(iso: string): string {
   });
 }
 
-export function LibraryEntry({ entry }: LibraryEntryProps) {
+export function LibraryEntry({ entry, onDeleted }: LibraryEntryProps) {
   const isFinished = entry.status === "finished";
   const router = useRouter();
   const hydrate = useGameStore((s) => s.hydrateFromLibrary);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmForce, setConfirmForce] = useState<SavedGameRecord | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   async function loadAndHydrate(force = false): Promise<void> {
     setError(null);
@@ -116,7 +123,23 @@ export function LibraryEntry({ entry }: LibraryEntryProps) {
         >
           {pending ? "Loading…" : "Continue"}
         </Button>
-      ) : null}
+      ) : (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => router.push(`/account/games/${entry.id}`)}
+        >
+          Review
+        </Button>
+      )}
+      <Button
+        size="sm"
+        variant="ghost"
+        aria-label="Delete game"
+        onClick={() => setDeleteOpen(true)}
+      >
+        Delete
+      </Button>
 
       <Modal
         open={confirmForce !== null}
@@ -143,6 +166,16 @@ export function LibraryEntry({ entry }: LibraryEntryProps) {
           one from your library will replace it. This can&rsquo;t be undone.
         </p>
       </Modal>
+
+      <DeleteGameDialog
+        entry={entry}
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onDeleted={() => {
+          setDeleteOpen(false);
+          onDeleted?.(entry.id);
+        }}
+      />
     </li>
   );
 }

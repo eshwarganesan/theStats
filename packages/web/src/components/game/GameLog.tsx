@@ -5,7 +5,7 @@ import { useGameStore } from "@/lib/store";
 import { formatClock, formatPeriod } from "@thestats/core";
 import { cn } from "@/lib/utils";
 import { FOUL_LABELS, STAT_LABELS, TEAM_TURNOVER_LABELS } from "@thestats/core";
-import type { EditableEvent, GameEvent } from "@thestats/core";
+import type { EditableEvent, GameEvent, Team } from "@thestats/core";
 import { EditEventModal } from "./EditEventModal";
 import { DeleteEventConfirmModal } from "./DeleteEventConfirmModal";
 
@@ -23,11 +23,38 @@ function isEditable(ev: GameEvent): ev is EditableEvent {
   );
 }
 
-export function GameLog() {
-  const events = useGameStore((s) => s.events);
-  const homeTeam = useGameStore((s) => s.homeTeam);
-  const awayTeam = useGameStore((s) => s.awayTeam);
-  const periods = useGameStore((s) => s.settings.periods);
+export interface GameLogProps {
+  /**
+   * When set, hides the Edit / Delete affordances so the log renders
+   * strictly read-only. Used by the account library's review view
+   * for a finished game (feature 009-account-library US4, FR-020).
+   */
+  readOnly?: boolean;
+  /**
+   * When provided, GameLog renders these events + teams instead of
+   * reading from the Zustand store. Used by the review view to display
+   * a saved game record without disturbing any active in-progress game.
+   * All three fields must be provided together.
+   */
+  source?: {
+    events: GameEvent[];
+    homeTeam: Team;
+    awayTeam: Team;
+    periods: number;
+  };
+}
+
+export function GameLog({ readOnly = false, source }: GameLogProps = {}) {
+  const storeEvents = useGameStore((s) => s.events);
+  const storeHomeTeam = useGameStore((s) => s.homeTeam);
+  const storeAwayTeam = useGameStore((s) => s.awayTeam);
+  const storePeriods = useGameStore((s) => s.settings.periods);
+
+  const events = source?.events ?? storeEvents;
+  const homeTeam = source?.homeTeam ?? storeHomeTeam;
+  const awayTeam = source?.awayTeam ?? storeAwayTeam;
+  const periods = source?.periods ?? storePeriods;
+
   const [editing, setEditing] = useState<EditableEvent | null>(null);
   const [deleting, setDeleting] = useState<EditableEvent | null>(null);
 
@@ -52,18 +79,22 @@ export function GameLog() {
               homeTeam={homeTeam}
               awayTeam={awayTeam}
               periods={periods}
-              onEdit={isEditable(ev) ? () => setEditing(ev) : undefined}
-              onDelete={isEditable(ev) ? () => setDeleting(ev) : undefined}
+              onEdit={!readOnly && isEditable(ev) ? () => setEditing(ev) : undefined}
+              onDelete={!readOnly && isEditable(ev) ? () => setDeleting(ev) : undefined}
             />
           ))}
         </ul>
       )}
 
-      <EditEventModal event={editing} onClose={() => setEditing(null)} />
-      <DeleteEventConfirmModal
-        event={deleting}
-        onClose={() => setDeleting(null)}
-      />
+      {!readOnly ? (
+        <>
+          <EditEventModal event={editing} onClose={() => setEditing(null)} />
+          <DeleteEventConfirmModal
+            event={deleting}
+            onClose={() => setDeleting(null)}
+          />
+        </>
+      ) : null}
     </section>
   );
 }

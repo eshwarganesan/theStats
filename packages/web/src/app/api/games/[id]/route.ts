@@ -195,3 +195,38 @@ export async function PATCH(request: Request, ctx: RouteContext): Promise<Respon
     patchHandler(req, wrapCtx, parsedId.data),
   )(request);
 }
+
+// ─── DELETE /api/games/[id] ────────────────────────────────────────────
+
+async function deleteHandler(
+  request: Request,
+  ctx: { supabase: ServerSupabase },
+  gameId: string,
+): Promise<Response> {
+  void request;
+  // RLS restricts the DELETE to the owner; a row belonging to another
+  // user surfaces as `count: 0` and we map that to 404 so existence
+  // isn't leaked.
+  const { data, error } = await ctx.supabase
+    .from("games")
+    .delete()
+    .eq("id", gameId)
+    .select("id");
+
+  if (error) {
+    return jsonError("internal_error", "Could not delete the game.");
+  }
+  if (!data || data.length === 0) {
+    return jsonError("not_found", "Game not found.");
+  }
+  return new Response(null, { status: 204 });
+}
+
+export async function DELETE(request: Request, ctx: RouteContext): Promise<Response> {
+  const { id } = await ctx.params;
+  const parsedId = IdSchema.safeParse(id);
+  if (!parsedId.success) return jsonError("invalid_id", "Bad game id.");
+  return withAuthenticatedHandler("games:delete", async (req, wrapCtx) =>
+    deleteHandler(req, wrapCtx, parsedId.data),
+  )(request);
+}

@@ -38,7 +38,7 @@ export {
   TEAM_TURNOVER_LABELS,
 } from "./constants";
 
-export { computeStats, isInBonus } from "./stats";
+export { computeStats, computeStatSheet, isInBonus } from "./stats";
 
 export { uid } from "./ids";
 export { formatClock, parseClock, formatPeriod } from "./clock";

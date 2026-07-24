@@ -89,7 +89,17 @@ describe("GameLibrary", () => {
       makeEntry({ id: "c", homeTeamName: "C", awayTeamName: "C-opp" }),
     ];
     render(<GameLibrary initialEntries={entries} initialNextCursor={null} />);
-    const rendered = screen.getAllByText(/-opp/).map((el) => el.textContent);
+    // Scope the assertion to the visible list — each LibraryEntry's
+    // DeleteGameDialog embeds the team names in its (closed) dialog body,
+    // which would otherwise double every hit.
+    const list = screen.getByRole("list");
+    const rows = list.querySelectorAll(":scope > li");
+    expect(rows.length).toBe(3);
+    const rendered = Array.from(rows).map((row) => {
+      const opp = row.querySelectorAll("span");
+      // The 3rd span in each row is the away team name.
+      return opp[2]?.textContent ?? "";
+    });
     expect(rendered).toEqual(["A-opp", "B-opp", "C-opp"]);
   });
 
@@ -129,6 +139,12 @@ describe("GameLibrary", () => {
     expect(call).toBeDefined();
     const first = call![0];
     expect(String(first)).toContain("cursor=");
-    await screen.findByText("B-opp");
+    // Wait for two library rows (initial `A-opp` + fetched `B-opp`) — each
+    // row's DeleteGameDialog markup also contains the team name, so use
+    // findAllByText and check the count grows.
+    await waitFor(() => {
+      const rows = screen.getByRole("list").querySelectorAll(":scope > li");
+      expect(rows.length).toBe(2);
+    });
   });
 });

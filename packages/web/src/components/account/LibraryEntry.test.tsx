@@ -48,8 +48,10 @@ afterEach(() => {
 describe("LibraryEntry — row summary", () => {
   it("renders both team names", () => {
     render(<LibraryEntry entry={makeEntry()} />);
-    expect(screen.getByText("Central High")).toBeInTheDocument();
-    expect(screen.getByText("Eastridge")).toBeInTheDocument();
+    // The DeleteGameDialog also embeds the team names in its (closed) modal
+    // body — assert with getAllByText so both rendered instances count.
+    expect(screen.getAllByText("Central High").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Eastridge").length).toBeGreaterThan(0);
   });
 
   it("renders home and away scores", () => {

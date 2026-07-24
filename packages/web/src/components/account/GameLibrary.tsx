@@ -93,7 +93,13 @@ export function GameLibrary({
       </header>
       <ul className="flex flex-col gap-2">
         {entries.map((e) => (
-          <LibraryEntry key={e.id} entry={e} />
+          <LibraryEntry
+            key={e.id}
+            entry={e}
+            onDeleted={(id) =>
+              setEntries((prev) => prev.filter((x) => x.id !== id))
+            }
+          />
         ))}
       </ul>
       {nextCursor ? (

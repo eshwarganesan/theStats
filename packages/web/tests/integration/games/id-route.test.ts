@@ -36,7 +36,7 @@ vi.mock("next/headers", () => ({
   }),
 }));
 
-const { GET, PATCH } = await import("@/app/api/games/[id]/route");
+const { GET, PATCH, DELETE } = await import("@/app/api/games/[id]/route");
 const { POST: signIn } = await import("@/app/api/auth/sign-in/route");
 
 function uniqueEmail(prefix = "games-id"): string {
@@ -287,6 +287,33 @@ describe.skipIf(!RUN || !SCHEMA_READY)("GET/PATCH /api/games/[id] (integration)"
       const body = await res.json();
       expect(body.game.status).toBe("finished");
       expect(body.game.finishedAt).not.toBeNull();
+    });
+
+    it("DELETE unauthenticated → 401", async () => {
+      const savedJar = new Map(cookieJar);
+      cookieJar.clear();
+      const gameId = await seedGameFor(uidA);
+      const res = await DELETE(new Request(`http://localhost/api/games/${gameId}`, { method: "DELETE" }), idCtx(gameId));
+      expect(res.status).toBe(401);
+      cookieJar.clear();
+      for (const [k, v] of savedJar) cookieJar.set(k, v);
+    });
+
+    it("DELETE own game → 204 and the row disappears", async () => {
+      const gameId = await seedGameFor(uidA);
+      const res = await DELETE(new Request(`http://localhost/api/games/${gameId}`, { method: "DELETE" }), idCtx(gameId));
+      expect(res.status).toBe(204);
+      const check = await admin!.from("games").select("id").eq("id", gameId).maybeSingle();
+      expect(check.data).toBeNull();
+    });
+
+    it("DELETE another user's game → 404 (RLS-filtered)", async () => {
+      const otherId = await seedGameFor(uidB);
+      const res = await DELETE(new Request(`http://localhost/api/games/${otherId}`, { method: "DELETE" }), idCtx(otherId));
+      expect(res.status).toBe(404);
+      // Row still exists in the DB — only user B can delete it.
+      const check = await admin!.from("games").select("id").eq("id", otherId).maybeSingle();
+      expect(check.data).not.toBeNull();
     });
 
     it("PATCH on an already-finished game returns 409 finished_game_locked", async () => {

@@ -62,14 +62,14 @@ describe("PersistedGameRecordSchema", () => {
   });
 
   it("rejects when schemaVersion is missing", () => {
-    const rest = { ...validRecord } as Partial<typeof validRecord>;
+    const rest: Record<string, unknown> = { ...validRecord };
     delete rest.schemaVersion;
     const result = PersistedGameRecordSchema.safeParse(rest);
     expect(result.success).toBe(false);
   });
 
   it("rejects when status is missing", () => {
-    const rest = { ...validRecord } as Partial<typeof validRecord>;
+    const rest: Record<string, unknown> = { ...validRecord };
     delete rest.status;
     const result = PersistedGameRecordSchema.safeParse(rest);
     expect(result.success).toBe(false);

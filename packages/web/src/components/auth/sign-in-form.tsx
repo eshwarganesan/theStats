@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { AnonymousGameOnSignInPrompt } from "./AnonymousGameOnSignInPrompt";
 
 interface SignInFormProps {
   from?: string;
@@ -31,6 +32,10 @@ export function SignInForm({ from }: SignInFormProps) {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [resendStatus, setResendStatus] = useState<"idle" | "sending" | "sent">("idle");
+  // Feature 009: after successful sign-in, defer the redirect until the
+  // anonymous-local-game prompt resolves (FR-024). The target URL is
+  // captured at sign-in time and consumed by the `onResolved` callback.
+  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
 
   // Rate-limit countdown — re-enables submit when window passes.
   useEffect(() => {
@@ -67,7 +72,11 @@ export function SignInForm({ from }: SignInFormProps) {
 
     if (res.ok) {
       const target = from && /^\/(?!\/)/.test(from) ? from : "/";
-      window.location.assign(target);
+      // Defer the redirect — the AnonymousGameOnSignInPrompt mounts once
+      // `pendingRedirect` is set. It resolves synchronously if there is
+      // no local game (making this a no-op in the common case), or
+      // blocks on the user's choice (Save / Keep local / Discard, FR-024).
+      setPendingRedirect(target);
       return;
     }
 
@@ -215,6 +224,12 @@ export function SignInForm({ from }: SignInFormProps) {
       <Button type="submit" variant="primary" size="lg" fullWidth disabled={submitDisabled}>
         {isSubmitting ? "Signing in…" : "Sign in"}
       </Button>
+
+      {pendingRedirect !== null ? (
+        <AnonymousGameOnSignInPrompt
+          onResolved={() => window.location.assign(pendingRedirect)}
+        />
+      ) : null}
     </form>
   );
 }

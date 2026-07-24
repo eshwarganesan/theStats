@@ -6,6 +6,7 @@ import { AppSidebar } from "@/components/shell/AppSidebar";
 import { SidebarProfileIcon } from "@/components/shell/SidebarProfileIcon";
 import { RecoveryFailedBanner } from "@/components/shell/RecoveryFailedBanner";
 import { StorageUnavailableModal } from "@/components/shell/StorageUnavailableModal";
+import { WriteThroughMount } from "@/components/shell/WriteThroughMount";
 import { StorageAvailabilityProvider } from "@/lib/storageAvailability";
 import "./globals.css";
 
@@ -50,6 +51,7 @@ export default function RootLayout({
     >
       <body className="font-sans">
         <StorageAvailabilityProvider>
+          <WriteThroughMount />
           <RecoveryFailedBanner />
           <StorageUnavailableModal />
           <div className="flex items-stretch min-h-[100dvh]">

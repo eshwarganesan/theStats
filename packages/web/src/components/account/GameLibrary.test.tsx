@@ -5,6 +5,18 @@
 import { render, screen, waitFor, act } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LibraryEntry as Entry } from "@/lib/games/types";
+
+// LibraryEntry (rendered inside GameLibrary) uses next/navigation's
+// useRouter + Zustand — mock both so the component tree mounts under
+// vitest without a real Next.js app router.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+vi.mock("@/lib/store", () => ({
+  useGameStore: <T,>(selector: (s: { hydrateFromLibrary: () => { ok: true } }) => T) =>
+    selector({ hydrateFromLibrary: () => ({ ok: true }) }),
+}));
+
 import { GameLibrary } from "./GameLibrary";
 
 function makeEntry(overrides: Partial<Entry> = {}): Entry {

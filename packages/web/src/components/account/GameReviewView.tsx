@@ -52,25 +52,35 @@ export function GameReviewView({ record }: GameReviewViewProps) {
         </Link>
       </header>
 
-      <StatSheet
-        home={sheet.home}
-        away={sheet.away}
-        homeTeam={record.homeTeam}
-        awayTeam={record.awayTeam}
-        settings={record.settings}
-      />
-
-      <div className="min-h-[400px]">
-        <GameLog
-          readOnly
-          source={{
-            events: record.events,
-            homeTeam: record.homeTeam,
-            awayTeam: record.awayTeam,
-            periods: record.settings.periods,
-          }}
+      <section className="flex flex-col gap-3" aria-labelledby="review-statsheet-heading">
+        <h2 id="review-statsheet-heading" className="heading-display text-xl">
+          Statsheet
+        </h2>
+        <StatSheet
+          home={sheet.home}
+          away={sheet.away}
+          homeTeam={record.homeTeam}
+          awayTeam={record.awayTeam}
+          settings={record.settings}
         />
-      </div>
+      </section>
+
+      <section className="flex flex-col gap-3" aria-labelledby="review-log-heading">
+        <h2 id="review-log-heading" className="heading-display text-xl">
+          Play-by-play
+        </h2>
+        <div className="min-h-[400px]">
+          <GameLog
+            readOnly
+            source={{
+              events: record.events,
+              homeTeam: record.homeTeam,
+              awayTeam: record.awayTeam,
+              periods: record.settings.periods,
+            }}
+          />
+        </div>
+      </section>
     </div>
   );
 }

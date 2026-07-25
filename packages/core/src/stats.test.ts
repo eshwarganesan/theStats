@@ -239,6 +239,25 @@ describe("computeStats — fouls", () => {
     expect(stats.home.totalFouls).toBe(3);
     expect(stats.home.fouls).toBe(1);
   });
+
+  it("offensive fouls count as a turnover for the shooter and do not add to team bonus", () => {
+    const offensive = ev("foul", {
+      period: 1,
+      clockAt: 100,
+      side: "home",
+      playerId: "h1",
+      kind: "offensive",
+    });
+    const stats = fold([offensive]);
+    const line = stats.home.players[0]!;
+    expect(line.fouls).toBe(1);
+    expect(line.turnovers).toBe(1);
+    // Offensive fouls contribute to totalFouls but NOT to the team-bonus
+    // counter (`fouls`) for the current period — they don't send the
+    // opponent to the free-throw line.
+    expect(stats.home.totalFouls).toBe(1);
+    expect(stats.home.fouls).toBe(0);
+  });
 });
 
 type StatKind = Extract<GameEvent, { type: "stat" }>["kind"];

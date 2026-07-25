@@ -3,7 +3,7 @@
  * Feature 009-account-library, tasks T034 (US2 slice — row summary) and
  * T049 (US3 slice — Continue behavior).
  */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const routerPush = vi.fn();
@@ -222,5 +222,31 @@ describe("LibraryEntry — Continue (US3)", () => {
       expect(screen.getByText(/couldn.{0,3}t load the game/i)).toBeInTheDocument(),
     );
     expect(routerPush).not.toHaveBeenCalled();
+  });
+});
+
+describe("LibraryEntry — Delete (US4)", () => {
+  it("fires onDeleted after a successful DELETE from the dialog", async () => {
+    // 204 No Content on success.
+    globalThis.fetch = vi.fn(async () => new Response(null, { status: 204 })) as unknown as typeof fetch;
+    const onDeleted = vi.fn();
+
+    render(
+      <LibraryEntry
+        entry={makeEntry({ status: "finished", finishedAt: "2026-07-20T21:00:00Z" })}
+        onDeleted={onDeleted}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /delete game/i }));
+    // The dialog's own Delete button (the danger variant with copy "Delete").
+    // Scope to the dialog to avoid the row-level trigger which is aria-labelled "Delete game".
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+
+    await waitFor(() => expect(onDeleted).toHaveBeenCalledWith("game-1"));
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/api/games/game-1",
+      expect.objectContaining({ method: "DELETE" }),
+    );
   });
 });

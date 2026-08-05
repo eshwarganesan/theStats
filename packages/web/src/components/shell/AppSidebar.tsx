@@ -48,6 +48,10 @@ function readInitialCollapsed(): boolean {
   return false;
 }
 
+/** Width of the always-visible collapsed rail. `<main>` reserves this
+ *  as a permanent left inset so no content sits under it. */
+export const SIDEBAR_RAIL_WIDTH_PX = 56;
+
 export function AppSidebar({ authPill, profileIcon }: AppSidebarProps) {
   const [collapsed, setCollapsed] = useState<boolean>(false);
   const [hydrated, setHydrated] = useState(false);
@@ -59,65 +63,95 @@ export function AppSidebar({ authPill, profileIcon }: AppSidebarProps) {
     setHydrated(true);
   }, []);
 
-  const toggle = useCallback(() => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      try {
-        window.localStorage.setItem(
-          SIDEBAR_STORAGE_KEY,
-          JSON.stringify(next),
-        );
-      } catch {
-        /* localStorage may be unavailable — non-fatal */
-      }
-      return next;
-    });
+  const setCollapsedPersisting = useCallback((next: boolean) => {
+    setCollapsed(next);
+    try {
+      window.localStorage.setItem(
+        SIDEBAR_STORAGE_KEY,
+        JSON.stringify(next),
+      );
+    } catch {
+      /* localStorage may be unavailable — non-fatal */
+    }
   }, []);
 
+  const toggle = useCallback(() => {
+    setCollapsedPersisting(!collapsed);
+  }, [collapsed, setCollapsedPersisting]);
+
+  const close = useCallback(() => {
+    setCollapsedPersisting(true);
+  }, [setCollapsedPersisting]);
+
+  // Escape collapses the expanded overlay — matches modal-like semantics
+  // without stealing focus (this is a nav, not a proper dialog).
+  useEffect(() => {
+    if (collapsed) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [collapsed, close]);
+
   return (
-    <nav
-      role="navigation"
-      aria-label="Primary"
-      data-collapsed={collapsed ? "true" : "false"}
-      data-hydrated={hydrated ? "true" : "false"}
-      className={cn(
-        "flex flex-col shrink-0",
-        "min-h-[100dvh] sticky top-0 z-40",
-        "border-r border-surface-border bg-surface",
-        "transition-[width] duration-200 ease-out",
-        collapsed ? "w-14" : "w-64",
-      )}
-    >
-      <div className="flex items-center justify-between p-3 border-b border-surface-border">
-        <div
-          className={cn(
-            "flex-1 overflow-hidden transition-opacity",
-            collapsed ? "opacity-0 pointer-events-none" : "opacity-100",
-          )}
-        >
-          {authPill}
+    <>
+      {/* Backdrop — dim + click-to-close when the sidebar is expanded.
+          Fades out and becomes non-interactive when collapsed. */}
+      <div
+        aria-hidden="true"
+        onClick={close}
+        className={cn(
+          "fixed inset-0 z-30 bg-black/40 transition-opacity duration-200",
+          collapsed ? "opacity-0 pointer-events-none" : "opacity-100",
+        )}
+      />
+      <nav
+        role="navigation"
+        aria-label="Primary"
+        data-collapsed={collapsed ? "true" : "false"}
+        data-hydrated={hydrated ? "true" : "false"}
+        className={cn(
+          "flex flex-col",
+          // Fixed-position overlay: expanding no longer participates in
+          // page layout, so the content column stops shifting.
+          "fixed inset-y-0 left-0 z-40",
+          "border-r border-surface-border bg-surface",
+          "transition-[width] duration-200 ease-out",
+          collapsed ? "w-14" : "w-64",
+        )}
+      >
+        <div className="flex items-center justify-between p-3 border-b border-surface-border">
+          <div
+            className={cn(
+              "flex-1 overflow-hidden transition-opacity",
+              collapsed ? "opacity-0 pointer-events-none" : "opacity-100",
+            )}
+          >
+            {authPill}
+          </div>
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!collapsed}
+            className={cn(
+              "shrink-0 inline-flex items-center justify-center h-8 w-8",
+              "text-ink hover:text-accent",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
+              "transition-colors",
+            )}
+          >
+            {collapsed ? <IconChevronRight /> : <IconChevronLeft />}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={toggle}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-expanded={!collapsed}
-          className={cn(
-            "shrink-0 inline-flex items-center justify-center h-8 w-8",
-            "text-ink hover:text-accent",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
-            "transition-colors",
-          )}
-        >
-          {collapsed ? <IconChevronRight /> : <IconChevronLeft />}
-        </button>
-      </div>
 
-      <div className="flex-1" />
+        <div className="flex-1" />
 
-      <div className="p-3 border-t border-surface-border flex items-center justify-center">
-        {profileIcon}
-      </div>
-    </nav>
+        <div className="p-3 border-t border-surface-border flex items-center justify-center">
+          {profileIcon}
+        </div>
+      </nav>
+    </>
   );
 }

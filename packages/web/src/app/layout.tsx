@@ -6,7 +6,7 @@ import { AppSidebar } from "@/components/shell/AppSidebar";
 import { SidebarProfileIcon } from "@/components/shell/SidebarProfileIcon";
 import { RecoveryFailedBanner } from "@/components/shell/RecoveryFailedBanner";
 import { StorageUnavailableModal } from "@/components/shell/StorageUnavailableModal";
-import { WriteThroughMount } from "@/components/shell/WriteThroughMount";
+import { WriteThroughProvider } from "@/components/shell/WriteThroughMount";
 import { StorageAvailabilityProvider } from "@/lib/storageAvailability";
 import "./globals.css";
 
@@ -51,10 +51,9 @@ export default function RootLayout({
     >
       <body className="font-sans">
         <StorageAvailabilityProvider>
-          <WriteThroughMount />
-          <RecoveryFailedBanner />
-          <StorageUnavailableModal />
-          <div className="flex items-stretch min-h-[100dvh]">
+          <WriteThroughProvider>
+            <RecoveryFailedBanner />
+            <StorageUnavailableModal />
             <AppSidebar
               authPill={
                 <Suspense fallback={null}>
@@ -67,8 +66,12 @@ export default function RootLayout({
                 </Suspense>
               }
             />
-            <main className="flex-1 min-w-0">{children}</main>
-          </div>
+            {/* Sidebar is fixed-position so it overlays content when
+                expanded. `<main>` keeps a permanent left inset equal to
+                the collapsed rail width (56px = pl-14) so no page content
+                slides under the always-visible rail. */}
+            <main className="min-h-[100dvh] pl-14">{children}</main>
+          </WriteThroughProvider>
         </StorageAvailabilityProvider>
       </body>
     </html>

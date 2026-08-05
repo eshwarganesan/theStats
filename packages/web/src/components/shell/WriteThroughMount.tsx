@@ -2,7 +2,9 @@
 
 /**
  * Mounts the library write-through hook whenever a Supabase session is
- * present (feature 009-account-library, T040).
+ * present (feature 009-account-library, T040) and exposes an imperative
+ * save handle via context so UI (e.g. the game header's manual "Save"
+ * button) can force-flush the current state.
  *
  * Rendered from the root layout so mutations recorded on the live game
  * page — or any other page that reads/writes the Zustand store — get
@@ -11,11 +13,30 @@
  * authoritative).
  */
 
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
-import { useLibraryWriteThrough } from "@/lib/games/writeThrough";
+import {
+  useLibraryWriteThrough,
+  type WriteThroughHandle,
+} from "@/lib/games/writeThrough";
 
-export function WriteThroughMount() {
+interface WriteThroughContextValue extends WriteThroughHandle {
+  /** Whether a Supabase session is active; false ⇒ writes are no-ops. */
+  signedIn: boolean;
+}
+
+const WriteThroughContext = createContext<WriteThroughContextValue | null>(null);
+
+/** Access the write-through save handle. Returns `null` outside the provider. */
+export function useWriteThrough(): WriteThroughContextValue | null {
+  return useContext(WriteThroughContext);
+}
+
+export function WriteThroughProvider({
+  children,
+}: {
+  children?: React.ReactNode;
+}) {
   const [signedIn, setSignedIn] = useState<boolean>(false);
 
   useEffect(() => {
@@ -36,6 +57,11 @@ export function WriteThroughMount() {
     };
   }, []);
 
-  useLibraryWriteThrough({ signedIn });
-  return null;
+  const handle = useLibraryWriteThrough({ signedIn });
+
+  return (
+    <WriteThroughContext.Provider value={{ ...handle, signedIn }}>
+      {children}
+    </WriteThroughContext.Provider>
+  );
 }

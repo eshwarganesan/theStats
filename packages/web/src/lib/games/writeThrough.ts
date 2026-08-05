@@ -15,14 +15,41 @@
  * to the store's subscription lifecycle.
  */
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PersistedGameRecord } from "@/lib/persistence";
 import { useGameStore } from "@/lib/store";
 import { newIdempotencyKey } from "./idempotency";
 
+type StoreState = ReturnType<typeof useGameStore.getState>;
+
+/** Coarse lifecycle of the last write, for surfacing to the UI. */
+export type SaveStatus = "idle" | "saving" | "saved" | "error";
+
+/**
+ * Project the current store into the persisted slice we write through.
+ * Shared by the live subscription and by imperative `saveNow` so both
+ * paths serialize the exact same shape.
+ */
+function projectPersistedRecord(s: StoreState): PersistedGameRecord {
+  return {
+    schemaVersion: 1,
+    homeTeam: s.homeTeam,
+    awayTeam: s.awayTeam,
+    settings: s.settings,
+    status: s.status,
+    currentPeriod: s.currentPeriod,
+    events: s.events,
+    possession: s.possession,
+    possessionArrow: s.possessionArrow,
+    onCourt: s.onCourt,
+  } satisfies PersistedGameRecord;
+}
+
 export interface WriteThroughOptions {
   signedIn: boolean;
   debounceMs?: number;
+  /** Notified whenever the last write's status changes. */
+  onStatus?: (status: SaveStatus) => void;
 }
 
 export interface CommittedResponse {
@@ -32,6 +59,7 @@ export interface CommittedResponse {
 export class WriteThroughController {
   private signedIn: boolean;
   private debounceMs: number;
+  private onStatus?: (status: SaveStatus) => void;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private pending: PersistedGameRecord | null = null;
   private inflight: Promise<void> | null = null;
@@ -40,6 +68,22 @@ export class WriteThroughController {
   constructor(opts: WriteThroughOptions) {
     this.signedIn = opts.signedIn;
     this.debounceMs = opts.debounceMs ?? 250;
+    this.onStatus = opts.onStatus;
+  }
+
+  private setStatus(status: SaveStatus): void {
+    this.onStatus?.(status);
+  }
+
+  /**
+   * Imperatively persist the caller's current store state now, bypassing
+   * the debounce window. Powers the manual "Save" button. Resolves once
+   * the write settles; status is reported via `onStatus`.
+   */
+  async saveNow(record: PersistedGameRecord): Promise<void> {
+    if (!this.signedIn) return;
+    this.pending = record;
+    await this.flush();
   }
 
   /**
@@ -102,57 +146,69 @@ export class WriteThroughController {
     };
     const body = JSON.stringify({ state: record });
 
-    if (this.gameId === null) {
-      const res = await fetch("/api/games", { method: "POST", headers, body });
-      if (!res.ok) {
-        // A failed POST leaves the controller in a state where the next
-        // commit tries POST again (safer than mis-attributing to a random
-        // id). Silent — the app-shell surfaces its own retry affordance.
+    this.setStatus("saving");
+    try {
+      if (this.gameId === null) {
+        const res = await fetch("/api/games", { method: "POST", headers, body });
+        if (!res.ok) {
+          // A failed POST leaves the controller in a state where the next
+          // commit tries POST again (safer than mis-attributing to a random
+          // id). The app-shell surfaces its own retry affordance.
+          this.setStatus("error");
+          return;
+        }
+        const parsed = (await res.json()) as CommittedResponse;
+        this.gameId = parsed.game.id;
+        this.setStatus("saved");
         return;
       }
-      const parsed = (await res.json()) as CommittedResponse;
-      this.gameId = parsed.game.id;
-      return;
-    }
 
-    await fetch(`/api/games/${this.gameId}`, {
-      method: "PATCH",
-      headers,
-      body,
-    });
+      const res = await fetch(`/api/games/${this.gameId}`, {
+        method: "PATCH",
+        headers,
+        body,
+      });
+      this.setStatus(res.ok ? "saved" : "error");
+    } catch {
+      this.setStatus("error");
+    }
   }
+}
+
+export interface WriteThroughHandle {
+  /** Persist the current store state immediately (manual "Save" button). */
+  saveNow: () => Promise<void>;
+  /** Status of the most recent write (manual or automatic). */
+  status: SaveStatus;
 }
 
 /**
  * React hook: subscribe to the Zustand store's committed record and
- * feed each mutation to a `WriteThroughController`. No-op when the
- * caller is not signed in.
+ * feed each mutation to a `WriteThroughController`. No-op writes when the
+ * caller is not signed in. Returns an imperative `saveNow` handle plus the
+ * latest save status for surfacing to the UI.
  */
-export function useLibraryWriteThrough(opts: { signedIn: boolean; initialGameId?: string | null }): void {
+export function useLibraryWriteThrough(opts: {
+  signedIn: boolean;
+  initialGameId?: string | null;
+}): WriteThroughHandle {
   const controllerRef = useRef<WriteThroughController | null>(null);
+  const [status, setStatus] = useState<SaveStatus>("idle");
 
   useEffect(() => {
-    const controller = new WriteThroughController({ signedIn: opts.signedIn });
+    const controller = new WriteThroughController({
+      signedIn: opts.signedIn,
+      onStatus: setStatus,
+    });
     if (opts.initialGameId) controller.setGameId(opts.initialGameId);
     controllerRef.current = controller;
 
     // Subscribe to the persisted slice's fields. `subscribeWithSelector`
     // fires once per shallow-equal change on the projected shape.
     const unsubscribe = useGameStore.subscribe(
-      (s) => ({
-        schemaVersion: 1 as const,
-        homeTeam: s.homeTeam,
-        awayTeam: s.awayTeam,
-        settings: s.settings,
-        status: s.status,
-        currentPeriod: s.currentPeriod,
-        events: s.events,
-        possession: s.possession,
-        possessionArrow: s.possessionArrow,
-        onCourt: s.onCourt,
-      }),
+      projectPersistedRecord,
       (record) => {
-        controller.onCommit(record satisfies PersistedGameRecord);
+        controller.onCommit(record);
       },
       { equalityFn: Object.is },
     );
@@ -167,4 +223,12 @@ export function useLibraryWriteThrough(opts: { signedIn: boolean; initialGameId?
     // toggling `signedIn` re-runs the effect to swap controllers.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opts.signedIn]);
+
+  const saveNow = useCallback(async () => {
+    const controller = controllerRef.current;
+    if (!controller) return;
+    await controller.saveNow(projectPersistedRecord(useGameStore.getState()));
+  }, []);
+
+  return { saveNow, status };
 }

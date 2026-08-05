@@ -1,5 +1,5 @@
 /**
- * WriteThroughMount tests (feature 009-account-library, T074 coverage top-up).
+ * WriteThroughProvider tests (feature 009-account-library, T074 coverage top-up).
  *
  * The mount reads the current Supabase session on first render and forwards
  * `signedIn` into `useLibraryWriteThrough`. It also subscribes to
@@ -32,7 +32,7 @@ vi.mock("@/lib/supabase/client", () => ({
   }),
 }));
 
-import { WriteThroughMount } from "./WriteThroughMount";
+import { WriteThroughProvider } from "./WriteThroughMount";
 
 afterEach(() => {
   useHook.mockReset();
@@ -41,10 +41,10 @@ afterEach(() => {
   authChangeCallback = null;
 });
 
-describe("WriteThroughMount", () => {
+describe("WriteThroughProvider", () => {
   it("renders nothing and starts with signedIn=false before the session resolves", () => {
     getSession.mockResolvedValueOnce({ data: { session: null } });
-    const { container } = render(<WriteThroughMount />);
+    const { container } = render(<WriteThroughProvider />);
     expect(container.firstChild).toBeNull();
     // First hook call, on mount, is with the initial state.
     expect(useHook).toHaveBeenCalledWith({ signedIn: false });
@@ -52,7 +52,7 @@ describe("WriteThroughMount", () => {
 
   it("flips signedIn=true after getSession resolves with a session", async () => {
     getSession.mockResolvedValueOnce({ data: { session: { user: { id: "u" } } } });
-    render(<WriteThroughMount />);
+    render(<WriteThroughProvider />);
     await waitFor(() =>
       expect(useHook).toHaveBeenLastCalledWith({ signedIn: true }),
     );
@@ -62,7 +62,7 @@ describe("WriteThroughMount", () => {
     // Resolve getSession first so its trailing setSignedIn(false) doesn't
     // race with the auth-change callback below.
     getSession.mockResolvedValueOnce({ data: { session: null } });
-    render(<WriteThroughMount />);
+    render(<WriteThroughProvider />);
     await waitFor(() =>
       expect(useHook).toHaveBeenLastCalledWith({ signedIn: false }),
     );
@@ -80,7 +80,7 @@ describe("WriteThroughMount", () => {
 
   it("unsubscribes from onAuthStateChange on unmount", () => {
     getSession.mockResolvedValueOnce({ data: { session: null } });
-    const { unmount } = render(<WriteThroughMount />);
+    const { unmount } = render(<WriteThroughProvider />);
     unmount();
     // Assert `>= 1` because React StrictMode dev-mode mounts twice, which
     // means the effect's cleanup fires an extra time. The invariant we

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useGameStore } from "@/lib/store";
 import { Scoreboard } from "@/components/game/Scoreboard";
+import { SaveGameButton } from "@/components/game/SaveGameButton";
 import { useGameClock } from "@/hooks/useGameClock";
 import { useClockCheckpoint } from "@/hooks/useClockCheckpoint";
 import { cn } from "@/lib/utils";
@@ -81,12 +82,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
           })}
         </nav>
 
-        <Link
-          href="/setup"
-          className="text-xs font-mono uppercase tracking-widest text-ink-muted hover:text-ink"
-        >
-          Setup
-        </Link>
+        <SaveGameButton />
       </header>
 
       {/* Scoreboard, always visible */}

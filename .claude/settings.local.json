@@ -59,7 +59,24 @@
       "Read(//Users/eganesan/Documents/theStatsApp/**)",
       "Read(//tmp/**)",
       "Bash(.specify/extensions/git/scripts/bash/auto-commit.sh after_implement)",
-      "Bash(git reset *)"
+      "Bash(git reset *)",
+      "Bash(.specify/extensions/git/scripts/bash/create-new-feature.sh *)",
+      "Bash(mkdir -p /Users/eganesan/Documents/theStatsApp/theStats/specs/009-account-library/checklists)",
+      "Bash(cp /Users/eganesan/Documents/theStatsApp/theStats/.specify/templates/spec-template.md /Users/eganesan/Documents/theStatsApp/theStats/specs/009-account-library/spec.md)",
+      "Bash(awk '/^- \\\\[[Xx ]\\\\]/{t++} /^- \\\\[[Xx]\\\\]/{c++} END{print \"total=\"t, \"completed=\"c, \"incomplete=\"\\(t-c\\)}' /Users/eganesan/Documents/theStatsApp/theStats/specs/009-account-library/checklists/requirements.md)",
+      "Bash(supabase --version)",
+      "Bash(supabase status *)",
+      "Bash(git check-ignore *)",
+      "Bash(git commit *)",
+      "Bash(awk '/^- \\\\[[Xx ]\\\\]/{t++} /^- \\\\[[Xx]\\\\]/{c++} END{print \"requirements.md total=\"t, \"completed=\"c, \"incomplete=\"\\(t-c\\)}' specs/009-account-library/checklists/requirements.md)",
+      "Bash(git -C /Users/eganesan/Documents/theStatsApp/theStats status --short)",
+      "Bash(git -C /Users/eganesan/Documents/theStatsApp/theStats branch --show-current)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(git -C /Users/eganesan/Documents/theStatsApp/theStats log --oneline packages/core/src/stats.ts)",
+      "Bash(git -C /Users/eganesan/Documents/theStatsApp/theStats show da90fe0 --stat -- packages/core/src/stats.ts packages/core/src/stats.test.ts)",
+      "Bash(git -C /Users/eganesan/Documents/theStatsApp/theStats diff --stat)",
+      "Bash(git *)",
+      "Bash(npx eslint *)"
     ]
   }
 }

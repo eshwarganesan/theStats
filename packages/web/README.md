@@ -103,9 +103,57 @@ Broadcast-console aesthetic appropriate for arena / courtside use:
 
 ---
 
-## Roadmap (out of scope for v0.1)
+## Account library & app shell (feature 009)
 
-- Persistence via Zustand `persist` middleware (localStorage) → server sync.
+Signed-in users get an `/account` page and a saved-game library that syncs live from the local store to Supabase.
+
+### App shell — collapsible sidebar
+
+The root layout renders a persistent left-side [`AppSidebar`](src/components/shell/AppSidebar.tsx) instead of the old top-right AuthPill:
+
+- Sticky flex sibling to `{children}` — page content sits to the right.
+- Toggle button uses `aria-expanded` and a transform-based collapse animation to avoid layout thrash.
+- Collapsed / expanded state is persisted per browser under `localStorage["thestats.sidebar.v1"]`. On first load it defaults to expanded ≥ 1024 px viewports, collapsed below.
+- Slots: `AuthPill` at the top, [`SidebarProfileIcon`](src/components/shell/SidebarProfileIcon.tsx) at the bottom (Server Component; only renders when signed in — clicks navigate to `/account`).
+
+### `/account` — profile + library
+
+[`app/(authenticated)/account/page.tsx`](src/app/(authenticated)/account/page.tsx) is a Server Component behind `requireAuth`. It lazily upserts a `public.profiles` row on first visit and fetches the first library batch server-side.
+
+- [`ProfileSection`](src/components/account/ProfileSection.tsx) — display name form + change-password form. Both submit via Server Actions in [`actions.ts`](src/app/(authenticated)/account/actions.ts). Password change re-auths with `signInWithPassword` before calling `updateUser` and does **not** invalidate the current session.
+- [`GameLibrary`](src/components/account/GameLibrary.tsx) — Client Component. First batch is server-supplied; subsequent pages load via `GET /api/games?cursor=` when an `IntersectionObserver` sentinel scrolls into view.
+- Wrapped in [`LibraryErrorBoundary`](src/components/account/LibraryErrorBoundary.tsx) so a library render failure never blanks out the profile section (FR-014).
+
+### Write-through save
+
+While signed in, edits to the Zustand game store are mirrored to `public.games` by [`WriteThroughController`](src/lib/games/writeThrough.ts):
+
+- Debounced POST-then-PATCH; every write carries a unique `Idempotency-Key` header.
+- Bound to the store via `useLibraryWriteThrough`; mounted from the root layout by `<WriteThroughMount>`, which forwards the current Supabase session so it no-ops for anonymous users.
+- The Route Handler in [`app/api/games/route.ts`](src/app/api/games/route.ts) reserves the idempotency key via the `record_game_write(p_key, p_game_id)` SECURITY DEFINER RPC before inserting, so retries return the same row.
+
+### Continue / Review / Delete
+
+Each [`LibraryEntry`](src/components/account/LibraryEntry.tsx) row shows the score, status pill, and:
+
+- **Continue** (in-progress only) — fetches the full record and calls `store.hydrateFromLibrary(state)`. If a local in-progress game exists, the store rejects with `{ ok: false, reason: "local_game_present" }` and the row surfaces a confirm-force `<Modal>` (FR-017); on confirmation it hydrates with `force: true`.
+- **Review** (finished only) — navigates to `/account/games/[id]`, a Server Component that renders [`GameReviewView`](src/components/account/GameReviewView.tsx) — read-only `<StatSheet>` + `<GameLog readOnly source={...}>`.
+- **Delete** — opens [`DeleteGameDialog`](src/components/account/DeleteGameDialog.tsx). The in-progress variant names the exact event count and current period the user will lose (FR-025).
+
+### Anonymous game on sign-in
+
+After a successful sign-in with an anonymous local game still in `localStorage`, [`AnonymousGameOnSignInPrompt`](src/components/auth/AnonymousGameOnSignInPrompt.tsx) blocks the post-sign-in redirect until the user picks one of three choices: **Save to my account** (POST to `/api/games`, clear local), **Keep local**, or **Discard** (FR-024).
+
+### Persistence
+
+- Supabase Postgres migration [`0002_account_library.sql`](supabase/migrations/0002_account_library.sql) creates `public.profiles`, `public.games`, `public.game_writes` (all RLS-scoped `auth.uid() = owner_id`), the `record_game_write` RPC, and a nightly pg_cron job that prunes `game_writes` older than 24h.
+- Generated types live in [`src/lib/supabase/database.types.ts`](src/lib/supabase/database.types.ts). Regenerate with `supabase gen types typescript --local --schema public` after schema changes.
+- Anonymous users are unchanged — `localStorage["thestats.game.v1"]` (feature 006) remains the only persistence layer for signed-out sessions.
+
+---
+
+## Roadmap
+
 - Shot chart / heatmap.
 - Live sharing (WebSocket broadcast).
 - Export scoresheet as PDF / CSV.

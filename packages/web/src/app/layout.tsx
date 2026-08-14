@@ -2,8 +2,11 @@ import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, Manrope, JetBrains_Mono } from "next/font/google";
 import { Suspense } from "react";
 import { AuthPill } from "@/components/auth/auth-pill";
+import { AppSidebar } from "@/components/shell/AppSidebar";
+import { SidebarProfileIcon } from "@/components/shell/SidebarProfileIcon";
 import { RecoveryFailedBanner } from "@/components/shell/RecoveryFailedBanner";
 import { StorageUnavailableModal } from "@/components/shell/StorageUnavailableModal";
+import { WriteThroughProvider } from "@/components/shell/WriteThroughMount";
 import { StorageAvailabilityProvider } from "@/lib/storageAvailability";
 import "./globals.css";
 
@@ -48,12 +51,27 @@ export default function RootLayout({
     >
       <body className="font-sans">
         <StorageAvailabilityProvider>
-          <Suspense fallback={null}>
-            <AuthPill className="fixed top-3 right-3 z-50" />
-          </Suspense>
-          <RecoveryFailedBanner />
-          <StorageUnavailableModal />
-          {children}
+          <WriteThroughProvider>
+            <RecoveryFailedBanner />
+            <StorageUnavailableModal />
+            <AppSidebar
+              authPill={
+                <Suspense fallback={null}>
+                  <AuthPill />
+                </Suspense>
+              }
+              profileIcon={
+                <Suspense fallback={null}>
+                  <SidebarProfileIcon />
+                </Suspense>
+              }
+            />
+            {/* Sidebar is fixed-position so it overlays content when
+                expanded. `<main>` keeps a permanent left inset equal to
+                the collapsed rail width (56px = pl-14) so no page content
+                slides under the always-visible rail. */}
+            <main className="min-h-[100dvh] pl-14">{children}</main>
+          </WriteThroughProvider>
         </StorageAvailabilityProvider>
       </body>
     </html>

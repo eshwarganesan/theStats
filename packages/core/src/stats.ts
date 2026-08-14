@@ -175,3 +175,27 @@ export function computeStats(
 export function isInBonus(team: TeamStats, settings: GameSettings): boolean {
   return team.fouls >= settings.bonusFoulThreshold;
 }
+
+/**
+ * Full statsheet snapshot for a game — TeamStats for both sides plus a
+ * lookup map keyed by playerId. Used by the review view for a finished
+ * game (feature 009-account-library, US4). Pure; no React dependency.
+ *
+ * `currentPeriod` defaults to the game's `settings.periods` value when
+ * called on a completed game — team-period-fouls are a live concept and
+ * are frozen at the last period played by the time the game is
+ * reviewed.
+ */
+export function computeStatSheet(
+  events: GameEvent[],
+  homeTeam: Team,
+  awayTeam: Team,
+  settings: GameSettings,
+  currentPeriod: number,
+): { home: TeamStats; away: TeamStats; players: Record<string, PlayerStats> } {
+  const teams = computeStats(events, homeTeam, awayTeam, settings, currentPeriod);
+  const players: Record<string, PlayerStats> = {};
+  for (const p of teams.home.players) players[p.playerId] = p;
+  for (const p of teams.away.players) players[p.playerId] = p;
+  return { home: teams.home, away: teams.away, players };
+}

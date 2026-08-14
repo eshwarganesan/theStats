@@ -309,4 +309,29 @@ describe("GameLog", () => {
     expect(screen.getAllByRole("button", { name: /^Edit play$/ }).length).toBe(2);
     expect(screen.getAllByRole("button", { name: /^Delete play$/ }).length).toBe(2);
   });
+
+  describe("readOnly (feature 009 US4, FR-020)", () => {
+    it("suppresses every Edit / Delete affordance when readOnly is set", () => {
+      const players = seedReadyGame();
+      useGameStore.getState().startGame();
+      useGameStore.getState().recordScore("home", players.homePlayer(0).id, "2pt", true);
+      useGameStore.getState().recordScore("away", players.awayPlayer(0).id, "3pt", true);
+      render(<GameLog readOnly />);
+      expect(screen.queryAllByRole("button", { name: /^Edit play$/ }).length).toBe(0);
+      expect(screen.queryAllByRole("button", { name: /^Delete play$/ }).length).toBe(0);
+    });
+
+    it("keyboard focus never lands on an Edit or Delete button when readOnly is set", async () => {
+      const players = seedReadyGame();
+      useGameStore.getState().startGame();
+      useGameStore.getState().recordScore("home", players.homePlayer(0).id, "2pt", true);
+      render(<GameLog readOnly />);
+      const user = userEvent.setup();
+      // Tab through — no focusable button element should appear inside the log.
+      await user.tab();
+      const active = document.activeElement;
+      const label = active?.getAttribute("aria-label") ?? "";
+      expect(label).not.toMatch(/edit play|delete play/i);
+    });
+  });
 });

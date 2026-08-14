@@ -60,6 +60,12 @@ let _publicEnv: PublicEnv | undefined;
 
 export function getServerEnv(): ServerEnv {
   if (!_serverEnv) {
+    // Server-only: `process.env` reads live from the Node process, so
+    // the spread form works without Next's compile-time inlining. Kept
+    // as the whole-record spread to avoid a direct `SUPABASE_SERVICE_ROLE_KEY`
+    // reference here — the ESLint `no-restricted-syntax` rule (Principle VI
+    // defense-in-depth) restricts that member access to `src/lib/supabase/admin.ts`
+    // and the tests. The zod schema still validates every field.
     _serverEnv = parseEnv(process.env as Record<string, string | undefined>);
   }
   return _serverEnv;
@@ -67,7 +73,16 @@ export function getServerEnv(): ServerEnv {
 
 export function getPublicEnv(): PublicEnv {
   if (!_publicEnv) {
-    _publicEnv = parsePublicEnv(process.env as Record<string, string | undefined>);
+    // Next.js only inlines `NEXT_PUBLIC_*` into the client bundle when
+    // it sees a literal `process.env.NEXT_PUBLIC_X` access at compile
+    // time. Passing `process.env` as a record hides these names from the
+    // static analyzer, so the browser bundle ends up with `undefined`
+    // for every key. Build the record from literal member accesses
+    // instead so Next can substitute the values.
+    _publicEnv = parsePublicEnv({
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    });
   }
   return _publicEnv;
 }

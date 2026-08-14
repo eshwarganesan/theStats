@@ -91,6 +91,21 @@ interface GameState {
   removePlayer: (side: Side, playerId: string) => void;
   setSettings: (settings: Partial<GameSettings>) => void;
   resetAll: () => void;
+  /**
+   * Feature 009 US3: replace the persisted-slice fields with a game
+   * record fetched from the account library. Forces the clock and any
+   * active break countdown to paused on load (matches feature 006's
+   * restoration invariant). Refuses to overwrite an in-progress local
+   * game unless `force: true` is passed — the caller is expected to
+   * confirm via the FR-017 warning dialog before setting `force`.
+   *
+   * Returns `{ ok: true }` on success or `{ ok: false, reason }` when
+   * the guard rejects the hydrate.
+   */
+  hydrateFromLibrary: (
+    record: PersistedGameRecord,
+    opts?: { force?: boolean },
+  ) => { ok: true } | { ok: false; reason: "local_game_present" };
 
   // ─── Game lifecycle ────────────────────────────────────────────────────
   /** Lock setup and move to `ready`. Validates line-ups. */
@@ -294,6 +309,41 @@ const storeBody: StateCreator<
         possessionArrow: "unset",
         onCourt: { home: [], away: [] },
       })),
+
+    hydrateFromLibrary: (record, opts) => {
+      const current = get();
+      // FR-017 guard: refuse to clobber an in-progress local game unless
+      // the caller has confirmed. `setup` and `finished` are safe to
+      // overwrite — there's no in-flight work to lose.
+      const overwriteSafe = current.status === "setup" || current.status === "finished";
+      if (!overwriteSafe && !opts?.force) {
+        return { ok: false, reason: "local_game_present" };
+      }
+
+      // Compute the clock value the same way feature 006's `merge` does
+      // — favor the checkpoint if one is present (in case this device
+      // was the one that saved it), otherwise fall back to the settings
+      // period length.
+      const checkpoint = readClockCheckpoint();
+
+      set({
+        homeTeam: record.homeTeam,
+        awayTeam: record.awayTeam,
+        settings: record.settings,
+        status: record.status,
+        currentPeriod: record.currentPeriod,
+        events: record.events,
+        possession: record.possession,
+        possessionArrow: record.possessionArrow ?? "unset",
+        onCourt: record.onCourt,
+        clockSeconds: checkpoint?.clockSeconds ?? record.settings.periodSeconds,
+        breakSeconds: checkpoint?.breakSeconds ?? 0,
+        // Clock and any active break countdown MUST be paused on
+        // restore (FR-016, matches feature 006 behavior).
+        clockRunning: false,
+      });
+      return { ok: true };
+    },
 
     // ── Lifecycle ────────────────────────────────────────────────────────
     prepareGame: () => {

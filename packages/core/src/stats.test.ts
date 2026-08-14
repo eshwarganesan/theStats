@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeStats, isInBonus } from "./stats";
+import { computeStats, computeStatSheet, isInBonus } from "./stats";
 import type {
   GameEvent,
   GameSettings,
@@ -238,6 +238,25 @@ describe("computeStats — fouls", () => {
     const stats = fold([personal(1), personal(1), personal(2)], 2);
     expect(stats.home.totalFouls).toBe(3);
     expect(stats.home.fouls).toBe(1);
+  });
+
+  it("offensive fouls count as a turnover for the shooter and do not add to team bonus", () => {
+    const offensive = ev("foul", {
+      period: 1,
+      clockAt: 100,
+      side: "home",
+      playerId: "h1",
+      kind: "offensive",
+    });
+    const stats = fold([offensive]);
+    const line = stats.home.players[0]!;
+    expect(line.fouls).toBe(1);
+    expect(line.turnovers).toBe(1);
+    // Offensive fouls contribute to totalFouls but NOT to the team-bonus
+    // counter (`fouls`) for the current period — they don't send the
+    // opponent to the free-throw line.
+    expect(stats.home.totalFouls).toBe(1);
+    expect(stats.home.fouls).toBe(0);
   });
 });
 
@@ -494,5 +513,88 @@ describe("isInBonus", () => {
 
   it("returns true above the threshold", () => {
     expect(isInBonus(fakeTeam(7), settings())).toBe(true);
+  });
+});
+
+describe("computeStatSheet — statsheet snapshot for review view (feature 009 US4)", () => {
+  it("returns the same team totals as computeStats", () => {
+    const events: GameEvent[] = [
+      ev("score", {
+        period: 1,
+        clockAt: 599,
+        side: "home",
+        playerId: homePlayer.id,
+        kind: "2pt",
+        made: true,
+      }),
+      ev("score", {
+        period: 1,
+        clockAt: 598,
+        side: "away",
+        playerId: awayPlayer.id,
+        kind: "3pt",
+        made: true,
+      }),
+    ];
+    const sheet = computeStatSheet(events, homeTeam, awayTeam, settings(), 1);
+    const teams = computeStats(events, homeTeam, awayTeam, settings(), 1);
+    expect(sheet.home).toEqual(teams.home);
+    expect(sheet.away).toEqual(teams.away);
+  });
+
+  it("exposes a per-playerId lookup map with every player from both rosters", () => {
+    const bigHome = makeTeam("home", [
+      makePlayer({ id: "h1", number: "10" }),
+      makePlayer({ id: "h2", number: "11" }),
+    ]);
+    const bigAway = makeTeam("away", [
+      makePlayer({ id: "a1", number: "20" }),
+      makePlayer({ id: "a2", number: "21" }),
+    ]);
+    const sheet = computeStatSheet([], bigHome, bigAway, settings(), 1);
+    expect(sheet.players["h1"]).toBeDefined();
+    expect(sheet.players["h2"]).toBeDefined();
+    expect(sheet.players["a1"]).toBeDefined();
+    expect(sheet.players["a2"]).toBeDefined();
+  });
+
+  it("aggregates scoring stats correctly across mixed events", () => {
+    const events: GameEvent[] = [
+      // Home: 2pt made + 3pt made + 1 miss + 1 foul + 2 rebounds + 1 assist.
+      ev("score", { period: 1, clockAt: 590, side: "home", playerId: "h1", kind: "2pt", made: true }),
+      ev("score", { period: 1, clockAt: 585, side: "home", playerId: "h1", kind: "3pt", made: true }),
+      ev("score", { period: 1, clockAt: 580, side: "home", playerId: "h1", kind: "2pt", made: false }),
+      ev("foul", { period: 1, clockAt: 575, side: "home", playerId: "h1", kind: "personal" }),
+      ev("stat", { period: 1, clockAt: 570, side: "home", playerId: "h1", kind: "rebound-def" }),
+      ev("stat", { period: 1, clockAt: 565, side: "home", playerId: "h1", kind: "rebound-off" }),
+      ev("stat", { period: 1, clockAt: 560, side: "home", playerId: "h1", kind: "assist" }),
+    ];
+    const sheet = computeStatSheet(events, homeTeam, awayTeam, settings(), 1);
+    const h1 = sheet.players["h1"]!;
+    expect(h1.points).toBe(5);
+    expect(h1.fgAttempted).toBe(3);
+    expect(h1.fgMade).toBe(2);
+    expect(h1.threePtAttempted).toBe(1);
+    expect(h1.threePtMade).toBe(1);
+    expect(h1.rebounds).toBe(2);
+    expect(h1.reboundsOff).toBe(1);
+    expect(h1.reboundsDef).toBe(1);
+    expect(h1.assists).toBe(1);
+    expect(h1.fouls).toBe(1);
+    expect(sheet.home.points).toBe(5);
+    expect(sheet.home.totalFouls).toBe(1);
+  });
+
+  it("timeout / clock / period / substitution events do NOT affect stats", () => {
+    const events: GameEvent[] = [
+      ev("timeout", { period: 1, clockAt: 500, side: "home" }),
+      ev("clock", { period: 1, clockAt: 500, action: "start" }),
+      ev("period", { period: 1, clockAt: 0, action: "end" }),
+      ev("substitution", { period: 1, clockAt: 480, side: "home", playerInId: "h1", playerOutId: "h2" }),
+    ];
+    const sheet = computeStatSheet(events, homeTeam, awayTeam, settings(), 1);
+    expect(sheet.home.points).toBe(0);
+    expect(sheet.away.points).toBe(0);
+    expect(sheet.home.totalFouls).toBe(0);
   });
 });

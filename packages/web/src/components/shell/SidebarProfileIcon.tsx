@@ -13,7 +13,7 @@ import { IconUser } from "./icons/IconUser";
 export async function SidebarProfileIcon() {
   const supabase = await createServerClient();
   const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return null;
+  // if (error || !data.user) return null;
 
   return (
     <Link

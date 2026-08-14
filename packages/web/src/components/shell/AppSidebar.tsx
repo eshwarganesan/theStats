@@ -121,15 +121,8 @@ export function AppSidebar({ authPill, profileIcon }: AppSidebarProps) {
           collapsed ? "w-14" : "w-64",
         )}
       >
-        <div className="flex items-center justify-between p-3 border-b border-surface-border">
-          <div
-            className={cn(
-              "flex-1 overflow-hidden transition-opacity",
-              collapsed ? "opacity-0 pointer-events-none" : "opacity-100",
-            )}
-          >
-            {authPill}
-          </div>
+        <div className="flex items-center justify-between p-3">
+          
           <button
             type="button"
             onClick={toggle}

@@ -16,6 +16,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { ProfileSection } from "@/components/account/ProfileSection";
 import { GameLibrary } from "@/components/account/GameLibrary";
 import { LibraryErrorBoundary } from "@/components/account/LibraryErrorBoundary";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import type { LibraryEntry as Entry } from "@/lib/games/types";
 
 const INITIAL_BATCH = 20;
@@ -88,6 +89,7 @@ export default async function AccountPage() {
             initialNextCursor={library.nextCursor}
           />
         </LibraryErrorBoundary>
+        <SignOutButton/>
       </div>
     </main>
   );

@@ -128,7 +128,7 @@ describe("LibraryEntry — Continue (US3)", () => {
 
     await waitFor(() => expect(hydrateMock).toHaveBeenCalledTimes(1));
     expect(hydrateMock).toHaveBeenCalledWith(record.game.state, { force: false });
-    await waitFor(() => expect(routerPush).toHaveBeenCalledWith("/"));
+    await waitFor(() => expect(routerPush).toHaveBeenCalledWith("/game"));
   });
 
   it("opens a confirm-force dialog when the store rejects the hydrate", async () => {
@@ -169,7 +169,7 @@ describe("LibraryEntry — Continue (US3)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^replace$/i }));
     expect(hydrateMock).toHaveBeenLastCalledWith(record.game.state, { force: true });
-    await waitFor(() => expect(routerPush).toHaveBeenCalledWith("/"));
+    await waitFor(() => expect(routerPush).toHaveBeenCalledWith("/game"));
   });
 
   it("cancelling the confirm-force dialog does not navigate", async () => {

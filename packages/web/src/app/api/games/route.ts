@@ -172,20 +172,20 @@ export const POST = withAuthenticatedHandler(
 
     if (rpc.data !== true) {
       // Duplicate key — delete the fresh row and return the previously-saved
-      // one associated with this key.
+      // one associated with this key. game_writes is RLS deny-all, so the
+      // key → game_id lookup goes through a SECURITY DEFINER RPC; ownership
+      // is still enforced by the subsequent SELECT on public.games.
       await supabase.from("games").delete().eq("id", inserted.id);
-      const prevKey = await supabase
-        .from("game_writes")
-        .select("game_id")
-        .eq("idempotency_key", idempotencyKey)
-        .single();
+      const prevKey = await supabase.rpc("get_game_write_game_id", {
+        p_key: idempotencyKey,
+      });
       if (prevKey.error || !prevKey.data) {
         return jsonError("internal_error", "Could not resolve idempotency key.");
       }
       const prev = await supabase
         .from("games")
         .select(FULL_COLUMNS)
-        .eq("id", prevKey.data.game_id)
+        .eq("id", prevKey.data)
         .single();
       if (prev.error || !prev.data) {
         return jsonError("internal_error", "Could not resolve idempotent write.");

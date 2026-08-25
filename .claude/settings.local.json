@@ -76,7 +76,20 @@
       "Bash(git -C /Users/eganesan/Documents/theStatsApp/theStats show da90fe0 --stat -- packages/core/src/stats.ts packages/core/src/stats.test.ts)",
       "Bash(git -C /Users/eganesan/Documents/theStatsApp/theStats diff --stat)",
       "Bash(git *)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(ls -la .env*)",
+      "Bash(ls -la ../../.env*)",
+      "Bash(node \"/private/tmp/claude-503/-Users-eganesan-Documents-theStatsApp-theStats/8468c809-0fc8-432c-b1e3-0b7238ae3181/scratchpad/clear-throttle.mjs\")",
+      "Bash(node -e \"console.log\\(require.resolve\\('@supabase/supabase-js'\\)\\)\")",
+      "Bash(node -e \"console.log\\(JSON.stringify\\(require\\('/Users/eganesan/Documents/theStatsApp/theStats/packages/package.json'\\).scripts,null,1\\)\\)\")",
+      "Bash(node -e \"const s=require\\('/Users/eganesan/Documents/theStatsApp/theStats/packages/web/package.json'\\).scripts; console.log\\(JSON.stringify\\({test:s.test,'test:coverage':s['test:coverage'],'test:e2e':s['test:e2e'],dev:s.dev},null,1\\)\\)\")",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{try{const j=JSON.parse\\(d\\);console.log\\('workspaces:',JSON.stringify\\(j.workspaces\\)\\);console.log\\('scripts:',JSON.stringify\\(j.scripts\\)\\);}catch\\(e\\){console.log\\('no file / parse err'\\)}}\\)\")",
+      "Bash(node -e \"const j=require\\('/Users/eganesan/Documents/theStatsApp/theStats/package.json'\\); console.log\\('workspaces:',JSON.stringify\\(j.workspaces\\)\\); console.log\\('scripts:',JSON.stringify\\(j.scripts\\)\\)\")",
+      "Bash(node -e \"console.log\\(require\\('/Users/eganesan/Documents/theStatsApp/theStats/packages/web/package.json'\\).name\\)\")",
+      "Bash(node -e \"const s=require\\('/Users/eganesan/Documents/theStatsApp/theStats/packages/web/package.json'\\).scripts; console.log\\(JSON.stringify\\(s,null,1\\)\\)\")",
+      "Bash(node -e \"const s=require\\('/Users/eganesan/Documents/theStatsApp/theStats/packages/core/package.json'\\).scripts; console.log\\(JSON.stringify\\(s,null,1\\)\\)\")",
+      "Bash(echo \"=== tsc exit: $? ===\")",
+      "Bash(python3 -c \"import yaml,sys; d=yaml.safe_load\\(open\\('.github/workflows/ci.yml'\\)\\); print\\('YAML OK — jobs:', list\\(d['jobs'].keys\\(\\)\\)\\); print\\('env keys:', list\\(d['env'].keys\\(\\)\\)\\)\")"
     ]
   }
 }

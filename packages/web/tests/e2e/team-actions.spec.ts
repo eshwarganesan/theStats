@@ -55,11 +55,11 @@ test("records a violation turnover once the game is live", async ({ page }) => {
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: /24-Second Violation/ }).click();
 
-  // Header team-turnover total increments and the log shows the team TO.
-  await expect(panel.getByText(/Team TO:/)).toContainText("1");
+  // The log shows the team TO (the per-panel "Team TO:" counter was removed
+  // from the team panel; the game log is the surviving surface for it).
   await expect(log(page).getByText(/24-Second Violation \(team TO\)/)).toBeVisible();
 
-  // Undo restores the count to zero.
+  // Undo removes the team TO from the log.
   await page.getByRole("button", { name: /Undo/ }).click();
-  await expect(panel.getByText(/Team TO:/)).toContainText("0");
+  await expect(log(page).getByText(/24-Second Violation \(team TO\)/)).not.toBeVisible();
 });

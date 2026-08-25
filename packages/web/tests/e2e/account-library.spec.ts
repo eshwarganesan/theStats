@@ -242,11 +242,15 @@ test.describe("Anonymous game on sign-in prompt (FR-024)", () => {
       );
       expect(local).toBeNull();
 
-      // The game should now show up in the account library.
+      // The game should now show up in the account library. Scope to the
+      // library list item so the (hidden) sign-in prompt node that lingers
+      // in the DOM with the same team names doesn't cause a strict-mode
+      // conflict.
       await page.getByRole("link", { name: /account/i }).click();
       await page.waitForURL("/account");
-      await expect(page.getByText("E2E Home")).toBeVisible();
-      await expect(page.getByText("E2E Away")).toBeVisible();
+      const entry = page.getByRole("listitem").filter({ hasText: "E2E Home" });
+      await expect(entry).toBeVisible();
+      await expect(entry).toContainText("E2E Away");
     } finally {
       await cleanup(email);
     }

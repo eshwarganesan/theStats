@@ -68,7 +68,7 @@ export function LibraryEntry({ entry, onDeleted }: LibraryEntryProps) {
       setConfirmForce(parsed.game);
       return;
     }
-    router.push("/");
+    router.push("/game");
   }
 
   function handleContinue(): void {
@@ -82,7 +82,7 @@ export function LibraryEntry({ entry, onDeleted }: LibraryEntryProps) {
     const record = confirmForce;
     setConfirmForce(null);
     const result = hydrate(record.state, { force: true });
-    if (result.ok) router.push("/");
+    if (result.ok) router.push("/game");
   }
 
   return (

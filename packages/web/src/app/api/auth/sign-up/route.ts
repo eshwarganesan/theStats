@@ -130,9 +130,13 @@ export async function POST(request: Request): Promise<Response> {
       });
     }
 
-    // Provider-level rate limit (GoTrue's per-IP throttle). Surface as our
-    // standard 429 rather than a 500 so the client gets a meaningful retry.
+    // Provider-level rate limit (GoTrue's per-IP throttle, or the project
+    // email-send quota). Surface as our standard 429 rather than a 500 so
+    // the client gets a meaningful retry. Match on the HTTP status too so a
+    // rate-limit variant we don't spell out here (e.g. a differently-worded
+    // email-quota message) can't fall through to the generic 500 below.
     if (
+      signUpResult.error.status === 429 ||
       /rate.?limit/i.test(msg) ||
       /too many/i.test(msg) ||
       code === "over_email_send_rate_limit" ||

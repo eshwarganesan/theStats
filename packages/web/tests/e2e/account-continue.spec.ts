@@ -167,15 +167,11 @@ test.describe("Continue an interrupted game from the library (US3)", () => {
       await expect(continueBtn).toBeVisible();
       await continueBtn.click();
 
-      // Land on the live game view.
-      await page.waitForURL("/");
-      // The clock must be paused after restore per FR-016.
-      // Existing shell markup exposes clock state via a data attribute or
-      // visible label — we assert on the "Start clock" affordance which
-      // appears only when the clock is not running.
-      await expect(
-        page.getByText(/continue home|continue away/i).first(),
-      ).toBeVisible();
+      // Land on the live game console with the seeded game restored — the
+      // team names from the saved state are shown in the panels.
+      await page.waitForURL("**/game");
+      await expect(page.getByText("Continue Home").first()).toBeVisible();
+      await expect(page.getByText("Continue Away").first()).toBeVisible();
     } finally {
       await cleanup(email);
     }

@@ -55,61 +55,34 @@ beforeEach(() => {
 });
 
 describe("AppSidebar", () => {
-  it("renders the AuthPill slot at the top and the profile slot at the bottom", () => {
+  it("renders the profile slot at the bottom", () => {
     stubMatchMedia(true);
     render(
-      <AppSidebar
-        authPill={<div data-testid="auth-pill">pill</div>}
-        profileIcon={<div data-testid="profile-icon">profile</div>}
-      />,
+      <AppSidebar profileIcon={<div data-testid="profile-icon">profile</div>} />,
     );
-    expect(screen.getByTestId("auth-pill")).toBeInTheDocument();
     expect(screen.getByTestId("profile-icon")).toBeInTheDocument();
   });
 
-  it("defaults to expanded on desktop viewports (matchMedia matches ≥ 1024px)", () => {
+  it("defaults to collapsed (rail-first) on desktop viewports", () => {
     stubMatchMedia(true);
-    render(
-      <AppSidebar
-        authPill={<span>pill</span>}
-        profileIcon={<span>profile</span>}
-      />,
-    );
+    render(<AppSidebar profileIcon={<span>profile</span>} />);
     const nav = screen.getByRole("navigation");
-    expect(nav).toHaveAttribute("data-collapsed", "false");
+    expect(nav).toHaveAttribute("data-collapsed", "true");
   });
 
   it("defaults to collapsed on mobile viewports (matchMedia does not match)", () => {
     stubMatchMedia(false);
-    render(
-      <AppSidebar
-        authPill={<span>pill</span>}
-        profileIcon={<span>profile</span>}
-      />,
-    );
+    render(<AppSidebar profileIcon={<span>profile</span>} />);
     const nav = screen.getByRole("navigation");
     expect(nav).toHaveAttribute("data-collapsed", "true");
   });
 
   it("toggles collapsed state on button click and persists it to localStorage", () => {
     stubMatchMedia(true);
-    render(
-      <AppSidebar
-        authPill={<span>pill</span>}
-        profileIcon={<span>profile</span>}
-      />,
-    );
+    render(<AppSidebar profileIcon={<span>profile</span>} />);
+    // Starts collapsed (rail-first): first click expands.
     const button = screen.getByRole("button", { name: /collapse|expand/i });
     fireEvent.click(button);
-    expect(screen.getByRole("navigation")).toHaveAttribute(
-      "data-collapsed",
-      "true",
-    );
-    expect(window.localStorage.getItem(SIDEBAR_STORAGE_KEY)).toBe(
-      JSON.stringify(true),
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /expand|collapse/i }));
     expect(screen.getByRole("navigation")).toHaveAttribute(
       "data-collapsed",
       "false",
@@ -117,20 +90,25 @@ describe("AppSidebar", () => {
     expect(window.localStorage.getItem(SIDEBAR_STORAGE_KEY)).toBe(
       JSON.stringify(false),
     );
-  });
 
-  it("restores collapsed state from localStorage on mount", () => {
-    stubMatchMedia(true); // desktop default would be expanded
-    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(true));
-    render(
-      <AppSidebar
-        authPill={<span>pill</span>}
-        profileIcon={<span>profile</span>}
-      />,
-    );
+    fireEvent.click(screen.getByRole("button", { name: /expand|collapse/i }));
     expect(screen.getByRole("navigation")).toHaveAttribute(
       "data-collapsed",
       "true",
+    );
+    expect(window.localStorage.getItem(SIDEBAR_STORAGE_KEY)).toBe(
+      JSON.stringify(true),
+    );
+  });
+
+  it("restores persisted expanded state from localStorage on mount", () => {
+    stubMatchMedia(true);
+    // Persisted expanded overrides the rail-first collapsed default.
+    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(false));
+    render(<AppSidebar profileIcon={<span>profile</span>} />);
+    expect(screen.getByRole("navigation")).toHaveAttribute(
+      "data-collapsed",
+      "false",
     );
   });
 });

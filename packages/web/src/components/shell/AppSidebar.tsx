@@ -3,9 +3,9 @@
 /**
  * Collapsible left-side app shell nav (feature 009-account-library, US1).
  *
- * Hosts the AuthPill at the top and — when signed in — the profile icon at
- * the bottom, both supplied as slot props so the sidebar itself can stay a
- * Client Component while the two auth-dependent surfaces render server-side.
+ * Hosts — when signed in — the profile icon at the bottom, supplied as a
+ * slot prop so the sidebar itself can stay a Client Component while the
+ * auth-dependent surface renders server-side.
  *
  * State:
  *   - Collapsed / expanded is persisted in `localStorage` under
@@ -23,15 +23,13 @@ import { IconChevronRight } from "./icons/IconChevronRight";
 export const SIDEBAR_STORAGE_KEY = "thestats.sidebar.v1";
 
 export interface AppSidebarProps {
-  /** Slot for the (server-rendered) AuthPill — rendered inside the sidebar. */
-  authPill: ReactNode;
   /** Slot for the (server-rendered) SidebarProfileIcon — only visible when
    *  signed in; renders null otherwise. */
   profileIcon: ReactNode;
 }
 
 function readInitialCollapsed(): boolean {
-  if (typeof window === "undefined") return false;
+  if (typeof window === "undefined") return true;
   try {
     const raw = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
     if (raw !== null) {
@@ -39,21 +37,21 @@ function readInitialCollapsed(): boolean {
       if (typeof parsed === "boolean") return parsed;
     }
   } catch {
-    /* fall through to viewport default */
+    /* fall through to default */
   }
-  // Default: expanded on desktop, collapsed on mobile / tablet.
-  if (typeof window.matchMedia === "function") {
-    return !window.matchMedia("(min-width: 1024px)").matches;
-  }
-  return false;
+  // Rail-first: pages open on the collapsed 56px rail (which `<main>`
+  // reserves via `pl-14`) so nothing sits under the sidebar and content is
+  // immediately interactive. Expanding is an on-demand overlay drawer,
+  // dismissed by clicking the backdrop or pressing Escape.
+  return true;
 }
 
 /** Width of the always-visible collapsed rail. `<main>` reserves this
  *  as a permanent left inset so no content sits under it. */
 export const SIDEBAR_RAIL_WIDTH_PX = 56;
 
-export function AppSidebar({ authPill, profileIcon }: AppSidebarProps) {
-  const [collapsed, setCollapsed] = useState<boolean>(false);
+export function AppSidebar({ profileIcon }: AppSidebarProps) {
+  const [collapsed, setCollapsed] = useState<boolean>(true);
   const [hydrated, setHydrated] = useState(false);
 
   // Read the persisted state (and viewport-based default) only after mount

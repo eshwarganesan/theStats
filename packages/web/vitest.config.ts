@@ -20,6 +20,13 @@ export default defineConfig({
     globals: false,
     setupFiles: ["./vitest.setup.ts"],
     css: false,
+    // Integration tests (tests/integration/**) hit the hosted Supabase over
+    // the network. The heaviest cases make several sequential round-trips
+    // (e.g. the idempotent-POST duplicate path), and the beforeAll hooks do
+    // remote createUser + sign-in — both can exceed vitest's 5s/10s defaults
+    // on a slow connection. Unit tests finish well under these limits.
+    testTimeout: 20000,
+    hookTimeout: 20000,
     include: [
       "src/**/*.{test,spec}.{ts,tsx}",
       // Integration tests (Route Handlers, SQL math) live under tests/

@@ -105,6 +105,27 @@ describe("WriteThroughController", () => {
     expect(secondInit.method).toBe("PATCH");
   });
 
+  it("PATCHes an adopted game id without POSTing first", async () => {
+    // Mirrors the "Save to my account" flow: the row already exists, so the
+    // controller adopts its id and the next commit PATCHes rather than
+    // creating a duplicate.
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ game: { id: "adopted-1" } }), { status: 200 }),
+    );
+    const ctrl = new WriteThroughController({ signedIn: true, debounceMs: 250 });
+
+    ctrl.setGameId("adopted-1");
+    expect(ctrl.currentGameId()).toBe("adopted-1");
+
+    ctrl.onCommit(makeRecord({ currentPeriod: 2 }));
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const call = fetchMock.mock.calls[0]!;
+    expect(call[0]).toBe("/api/games/adopted-1");
+    expect((call[1] as RequestInit).method).toBe("PATCH");
+  });
+
   it("uses a unique Idempotency-Key per debounced write", async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ game: { id: "game-1" } }), { status: 201 }),

@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, Manrope, JetBrains_Mono } from "next/font/google";
 import { Suspense } from "react";
-import { AuthPill } from "@/components/auth/auth-pill";
 import { AppSidebar } from "@/components/shell/AppSidebar";
 import { SidebarProfileIcon } from "@/components/shell/SidebarProfileIcon";
 import { RecoveryFailedBanner } from "@/components/shell/RecoveryFailedBanner";
@@ -55,11 +54,6 @@ export default function RootLayout({
             <RecoveryFailedBanner />
             <StorageUnavailableModal />
             <AppSidebar
-              authPill={
-                <Suspense fallback={null}>
-                  <AuthPill />
-                </Suspense>
-              }
               profileIcon={
                 <Suspense fallback={null}>
                   <SidebarProfileIcon />

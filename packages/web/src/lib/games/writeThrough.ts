@@ -180,6 +180,13 @@ export interface WriteThroughHandle {
   saveNow: () => Promise<void>;
   /** Status of the most recent write (manual or automatic). */
   status: SaveStatus;
+  /**
+   * Adopt an existing server game id so subsequent commits PATCH that row
+   * instead of POSTing a new one. Used when the game was uploaded outside
+   * the controller (e.g. the "Save to my account" prompt) so the next
+   * write-through mutation doesn't create a duplicate library entry.
+   */
+  adoptGameId: (id: string | null) => void;
 }
 
 /**
@@ -230,5 +237,9 @@ export function useLibraryWriteThrough(opts: {
     await controller.saveNow(projectPersistedRecord(useGameStore.getState()));
   }, []);
 
-  return { saveNow, status };
+  const adoptGameId = useCallback((id: string | null) => {
+    controllerRef.current?.setGameId(id);
+  }, []);
+
+  return { saveNow, status, adoptGameId };
 }

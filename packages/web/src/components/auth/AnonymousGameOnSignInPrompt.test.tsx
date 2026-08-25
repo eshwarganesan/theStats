@@ -13,6 +13,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GAME_STORAGE_KEY } from "@/lib/persistence";
 import { AnonymousGameOnSignInPrompt } from "./AnonymousGameOnSignInPrompt";
 
+// The prompt hands the uploaded game's id to the write-through controller so
+// a later signed-in mutation PATCHes it instead of POSTing a duplicate row.
+const adoptGameId = vi.fn();
+vi.mock("@/components/shell/WriteThroughMount", () => ({
+  useWriteThrough: () => ({
+    adoptGameId,
+    saveNow: vi.fn(),
+    status: "idle",
+    signedIn: true,
+  }),
+}));
+
 const SAMPLE_RECORD = {
   schemaVersion: 1,
   homeTeam: {
@@ -54,6 +66,7 @@ const SAMPLE_RECORD = {
 };
 
 beforeEach(() => {
+  adoptGameId.mockClear();
   localStorage.setItem(
     GAME_STORAGE_KEY,
     JSON.stringify({ state: SAMPLE_RECORD, version: 1 }),
@@ -100,6 +113,27 @@ describe("AnonymousGameOnSignInPrompt", () => {
 
     await waitFor(() => expect(onResolved).toHaveBeenCalledTimes(1));
     expect(localStorage.getItem(GAME_STORAGE_KEY)).toBeNull();
+    // The new row id is handed to the write-through controller so the next
+    // signed-in mutation PATCHes it rather than creating a duplicate.
+    expect(adoptGameId).toHaveBeenCalledWith("game-1");
+  });
+
+  it("Save failure → does not adopt a game id or clear the local key", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response("nope", { status: 500 }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const onResolved = vi.fn();
+    render(<AnonymousGameOnSignInPrompt onResolved={onResolved} />);
+    fireEvent.click(screen.getByRole("button", { name: /save to my account/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/couldn't save your game/i)).toBeInTheDocument(),
+    );
+    expect(adoptGameId).not.toHaveBeenCalled();
+    expect(onResolved).not.toHaveBeenCalled();
+    expect(localStorage.getItem(GAME_STORAGE_KEY)).not.toBeNull();
   });
 
   it("Keep local → local key untouched, resolves immediately", () => {

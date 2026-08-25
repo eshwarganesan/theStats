@@ -185,6 +185,10 @@ export type Database = {
         Args: { p_key: string; p_game_id: string }
         Returns: boolean
       }
+      get_game_write_game_id: {
+        Args: { p_key: string }
+        Returns: string | null
+      }
     }
     Enums: {
       [_ in never]: never

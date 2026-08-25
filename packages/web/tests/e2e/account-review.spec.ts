@@ -171,8 +171,11 @@ test.describe("Review a finished game (US4)", () => {
       await page.getByRole("button", { name: /review/i }).click();
       await page.waitForURL(/\/account\/games\//);
 
-      await expect(page.getByText("Review Home")).toBeVisible();
-      await expect(page.getByText("Review Away")).toBeVisible();
+      // The read-only review renders the team names in several places
+      // (scoreboard + statsheet); scope to the first to avoid a
+      // strict-mode conflict.
+      await expect(page.getByText("Review Home").first()).toBeVisible();
+      await expect(page.getByText("Review Away").first()).toBeVisible();
       // Read-only guarantee: no Edit play / Delete play buttons anywhere.
       await expect(page.getByRole("button", { name: /^edit play$/i })).toHaveCount(0);
       await expect(page.getByRole("button", { name: /^delete play$/i })).toHaveCount(0);

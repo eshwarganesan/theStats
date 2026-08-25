@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [main]
 
+# Supabase credentials for the integration + E2E suites. On same-repo
+# branches these come from repository secrets; on forked-PR runs GitHub
+# withholds secrets, so the vars are empty and the auth/account specs
+# self-skip (they guard on these being set).
+env:
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -14,22 +23,23 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
+          cache: 'npm'
 
+      # Install at the repo root so npm workspaces link `@thestats/core`
+      # into `packages/web` (there is no package.json under `packages/`).
       - name: Install dependencies
-        working-directory: packages/web
-        run: npm install
+        run: npm ci
 
       - name: Typecheck
-        working-directory: packages/web
         run: npm run typecheck
 
       - name: Lint
-        working-directory: packages/web
         run: npm run lint
 
-      - name: Unit tests
-        working-directory: packages/web
+      # Runs vitest coverage across every workspace (web + core), including
+      # the web integration suites under tests/integration.
+      - name: Unit + integration tests
         run: npm run test:coverage
 
       - name: Install Playwright browsers
@@ -40,10 +50,6 @@ jobs:
         working-directory: packages/web
         run: npm run test:e2e
 
-      - name: Core tests
-        working-directory: packages/core
-        run: npm run test:coverage
-
   perf-budget:
     runs-on: ubuntu-latest
     needs: test
@@ -52,14 +58,13 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
-        working-directory: packages/web
-        run: npm install
+        run: npm ci
 
       - name: Build
-        working-directory: packages/web
         run: npm run build
 
       - name: Bundle size budget

@@ -67,7 +67,7 @@ test.beforeEach(async () => {
 });
 
 test.describe("US1: sign up", () => {
-  test("a new visitor signs up and lands on / with the AuthPill showing their email", async ({
+  test("a new visitor signs up and lands on / signed in", async ({
     page,
   }) => {
     const email = uniqueEmail();
@@ -79,8 +79,9 @@ test.describe("US1: sign up", () => {
       await page.getByRole("button", { name: /create account/i }).click();
 
       await page.waitForURL("/");
-      await expect(page.getByText(email)).toBeVisible();
-      await expect(page.getByText(/pending confirmation/i)).toBeVisible();
+      // The shell no longer surfaces an email / pending-confirmation pill;
+      // the signed-in affordance is the account icon in the sidebar.
+      await expect(page.getByRole("link", { name: /account/i })).toBeVisible();
 
       // Confirm the account via the admin API to simulate the user clicking
       // the email link (Mailpit isn't available in cloud-only setups).
@@ -90,8 +91,7 @@ test.describe("US1: sign up", () => {
       await admin().auth.admin.updateUserById(user!.id, { email_confirm: true });
 
       await page.reload();
-      await expect(page.getByText(email)).toBeVisible();
-      await expect(page.getByText(/pending confirmation/i)).toHaveCount(0);
+      await expect(page.getByRole("link", { name: /account/i })).toBeVisible();
     } finally {
       await deleteUserByEmail(email);
     }
@@ -135,12 +135,12 @@ test.describe("US2: sign in", () => {
       await page.getByRole("button", { name: /^sign in$/i }).click();
 
       await page.waitForURL("/");
-      await expect(page.getByText(email)).toBeVisible();
-      await expect(page.getByText(/pending confirmation/i)).toHaveCount(0);
+      // Signed-in affordance is the account icon in the sidebar.
+      await expect(page.getByRole("link", { name: /account/i })).toBeVisible();
 
       // Session survives a hard reload (FR-008).
       await page.reload();
-      await expect(page.getByText(email)).toBeVisible();
+      await expect(page.getByRole("link", { name: /account/i })).toBeVisible();
     } finally {
       await deleteUserByEmail(email);
     }
@@ -200,7 +200,9 @@ test.describe("US3: sign out + account-gate", () => {
       // screen (the page reads `from` from searchParams and redirects).
       await page.waitForURL("/account");
       await expect(page.getByText(/signed in as/i)).toBeVisible();
-      await expect(page.getByRole("main").getByText(email)).toBeVisible();
+      // The email appears in both the header and the profile form on
+      // /account; scope to the first match to avoid a strict-mode conflict.
+      await expect(page.getByRole("main").getByText(email).first()).toBeVisible();
     } finally {
       await deleteUserByEmail(email);
     }
@@ -224,9 +226,14 @@ test.describe("US3: sign out + account-gate", () => {
       await page.getByRole("button", { name: /^sign in$/i }).click();
       await page.waitForURL("/");
 
-      // Sign out from the AuthPill.
+      // Sign out now lives on the account page.
+      await page.getByRole("link", { name: /account/i }).click();
+      await page.waitForURL("/account");
       await page.getByRole("button", { name: /sign out/i }).click();
-      await expect(page.getByRole("link", { name: /sign in/i })).toBeVisible();
+      // SignOutButton returns the user to `/` in anonymous mode; the
+      // account icon (the signed-in affordance) disappears.
+      await page.waitForURL("/");
+      await expect(page.getByRole("link", { name: /account/i })).toHaveCount(0);
 
       // Anonymous screens still load (`/` is anonymous-accessible per the
       // hybrid mode clarification).

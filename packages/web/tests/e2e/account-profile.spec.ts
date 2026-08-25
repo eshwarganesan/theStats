@@ -102,7 +102,9 @@ test.describe("Account page", () => {
       await page.getByRole("link", { name: /account/i }).click();
       await page.waitForURL("/account");
 
-      await expect(page.getByText(email)).toBeVisible();
+      // Email renders in both the header and the profile form; scope to the
+      // first match to avoid a strict-mode conflict.
+      await expect(page.getByText(email).first()).toBeVisible();
 
       const nameInput = page.getByLabel(/display name/i);
       await nameInput.fill("Coach K");
@@ -150,7 +152,7 @@ test.describe("Account page", () => {
 
       // Sanity: still signed in — reload the account page and see the email.
       await page.reload();
-      await expect(page.getByText(email)).toBeVisible();
+      await expect(page.getByText(email).first()).toBeVisible();
     } finally {
       await cleanup(email);
     }

@@ -28,6 +28,7 @@ import {
   type PersistedGameRecord,
 } from "@/lib/persistence";
 import { newIdempotencyKey } from "@/lib/games/idempotency";
+import { useWriteThrough } from "@/components/shell/WriteThroughMount";
 
 export interface AnonymousGameOnSignInPromptProps {
   /**
@@ -63,6 +64,7 @@ export function AnonymousGameOnSignInPrompt({
   onResolved,
 }: AnonymousGameOnSignInPromptProps) {
   const localGame = useMemo(() => readLocalGame(), []);
+  const writeThrough = useWriteThrough();
   const [pending, setPending] = useState<null | "save" | "keep" | "discard">(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -89,6 +91,11 @@ export function AnonymousGameOnSignInPrompt({
         body: JSON.stringify({ state: localGame }),
       });
       if (!res.ok) throw new Error(`save failed: ${res.status}`);
+      // Hand the new row id to the write-through controller so any later
+      // signed-in mutation PATCHes this game instead of POSTing a duplicate
+      // library entry.
+      const body = (await res.json()) as { game?: { id?: string } };
+      if (body.game?.id) writeThrough?.adoptGameId(body.game.id);
       clearPersistedGame();
       setDone(true);
       onResolved();
@@ -96,7 +103,7 @@ export function AnonymousGameOnSignInPrompt({
       setError("Couldn't save your game. Try again or pick another option.");
       setPending(null);
     }
-  }, [localGame, onResolved]);
+  }, [localGame, onResolved, writeThrough]);
 
   const handleKeep = useCallback(() => {
     setPending("keep");

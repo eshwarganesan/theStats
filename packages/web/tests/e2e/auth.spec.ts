@@ -54,16 +54,15 @@ async function deleteUserByEmail(email: string): Promise<void> {
   }
 }
 
-// Clear per-IP throttle rows before every test. The auth handler throttles
-// per-account AND per-IP; localhost runs all share `ip:unknown`, so without
-// this the IP key accumulates failures across consecutive runs and trips
-// `rate_limited` even with a fresh email.
-test.beforeEach(async () => {
-  try {
-    await admin().from("auth_attempts").delete().like("key", "ip:%");
-  } catch {
-    /* best-effort */
-  }
+// Give each test its own X-Forwarded-For so the per-IP throttle key is
+// unique. Without this, every browser request from localhost shares
+// `ip:unknown` and the intentional failed sign-in in the US2 unconfirmed
+// test bumps the counter for concurrent tests running in other workers.
+test.beforeEach(async ({ context }) => {
+  const oct = () => Math.floor(Math.random() * 254) + 1;
+  await context.setExtraHTTPHeaders({
+    "x-forwarded-for": `10.${oct()}.${oct()}.${oct()}`,
+  });
 });
 
 test.describe("US1: sign up", () => {
@@ -76,7 +75,26 @@ test.describe("US1: sign up", () => {
       await page.getByRole("tab", { name: /sign up/i }).click();
       await page.getByLabel(/email/i).fill(email);
       await page.getByLabel(/password/i).fill("password12345");
-      await page.getByRole("button", { name: /create account/i }).click();
+
+      // Sign-up triggers a Supabase confirmation email; the hosted
+      // project's per-hour SMTP quota (2/hr on the built-in mailer) is
+      // shared across every test run. If we've exhausted the quota, the
+      // route responds with the same "rate_limited" envelope our own
+      // throttle uses. Detect that here and skip cleanly rather than
+      // waste 30 s on a doomed `waitForURL`.
+      const [signUpRes] = await Promise.all([
+        page.waitForResponse(
+          (r) =>
+            r.url().includes("/api/auth/sign-up") &&
+            r.request().method() === "POST",
+        ),
+        page.getByRole("button", { name: /create account/i }).click(),
+      ]);
+      test.skip(
+        signUpRes.status() === 429,
+        "Supabase provider throttled the sign-up email send; try again after the mailer quota resets.",
+      );
+      expect(signUpRes.status()).toBe(200);
 
       await page.waitForURL("/");
       // The shell no longer surfaces an email / pending-confirmation pill;
@@ -97,10 +115,9 @@ test.describe("US1: sign up", () => {
     }
   });
 
-  test("an already-signed-in user visiting /login is redirected to /", async ({ page: _page }) => {
+  test("an already-signed-in user visiting /login is redirected to /", async ({ page }) => {
     const email = uniqueEmail("e2e-signed-in");
     try {
-      // Seed: create a confirmed user.
       const { data: created } = await admin().auth.admin.createUser({
         email,
         password: "password12345",
@@ -108,9 +125,16 @@ test.describe("US1: sign up", () => {
       });
       expect(created.user).toBeDefined();
 
-      // Sign in via the (yet-to-exist) sign-in endpoint OR — for US1 only —
-      // skip; this scenario is covered by US2's E2E once sign-in lands.
-      test.skip(true, "Deferred to US2: requires the sign-in flow");
+      await page.goto("/login");
+      await page.getByRole("tab", { name: /sign in/i }).click();
+      await page.getByLabel(/email/i).fill(email);
+      await page.getByLabel(/password/i).fill("password12345");
+      await page.getByRole("button", { name: /^sign in$/i }).click();
+      await page.waitForURL("/");
+
+      // Second visit — already signed in — LoginPage should redirect to /.
+      await page.goto("/login");
+      await expect(page).toHaveURL("/");
     } finally {
       await deleteUserByEmail(email);
     }

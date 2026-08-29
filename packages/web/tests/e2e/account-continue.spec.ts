@@ -143,6 +143,16 @@ async function cleanup(email: string): Promise<void> {
   }
 }
 
+// Give each test its own X-Forwarded-For so the per-IP throttle key is
+// unique. Localhost requests otherwise share `ip:unknown`, letting a
+// sibling test's failed sign-in race-poison this one under parallel workers.
+test.beforeEach(async ({ context }) => {
+  const oct = () => Math.floor(Math.random() * 254) + 1;
+  await context.setExtraHTTPHeaders({
+    "x-forwarded-for": `10.${oct()}.${oct()}.${oct()}`,
+  });
+});
+
 test.describe("Continue an interrupted game from the library (US3)", () => {
   test("Continue navigates from /account into the live game view with matching state", async ({
     page,

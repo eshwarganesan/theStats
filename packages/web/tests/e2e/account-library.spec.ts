@@ -69,12 +69,14 @@ async function cleanup(email: string): Promise<void> {
   }
 }
 
-test.beforeEach(async () => {
-  try {
-    await admin().from("auth_attempts").delete().like("key", "ip:%");
-  } catch {
-    /* best-effort */
-  }
+// Give each test its own X-Forwarded-For so the per-IP throttle key is
+// unique. Localhost requests otherwise share `ip:unknown`, letting a
+// sibling test's failed sign-in race-poison this one under parallel workers.
+test.beforeEach(async ({ context }) => {
+  const oct = () => Math.floor(Math.random() * 254) + 1;
+  await context.setExtraHTTPHeaders({
+    "x-forwarded-for": `10.${oct()}.${oct()}.${oct()}`,
+  });
 });
 
 test.describe("Account library — empty state", () => {

@@ -8,8 +8,10 @@
  * anonymous) without needing a full React render harness.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, renderHook } from "@testing-library/react";
 import type { PersistedGameRecord } from "@/lib/persistence";
-import { WriteThroughController } from "./writeThrough";
+import { useGameStore } from "@/lib/store";
+import { WriteThroughController, useLibraryWriteThrough } from "./writeThrough";
 
 function makeRecord(overrides: Partial<PersistedGameRecord> = {}): PersistedGameRecord {
   return {
@@ -184,5 +186,86 @@ describe("WriteThroughController", () => {
 
     expect(setSpy).not.toHaveBeenCalled();
     expect(removeSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("useLibraryWriteThrough (hook)", () => {
+  const fetchMock = vi.fn();
+  const originalFetch = globalThis.fetch;
+  let originalPeriod: number;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ game: { id: "hook-1" } }), { status: 201 }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    originalPeriod = useGameStore.getState().currentPeriod;
+  });
+
+  afterEach(() => {
+    // Restore the shared store field mutated to trigger a commit so the
+    // change doesn't leak into sibling tests in this file.
+    act(() => {
+      useGameStore.setState({ currentPeriod: originalPeriod });
+    });
+    vi.useRealTimers();
+    globalThis.fetch = originalFetch;
+  });
+
+  it("adopts an initial game id and PATCHes committed store changes", async () => {
+    const { unmount } = renderHook(() =>
+      useLibraryWriteThrough({ signedIn: true, initialGameId: "seed-1" }),
+    );
+
+    // A store commit debounces then flushes as a PATCH on the adopted id.
+    act(() => {
+      useGameStore.setState({ currentPeriod: originalPeriod + 1 });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]![0]).toBe("/api/games/seed-1");
+    expect((fetchMock.mock.calls[0]![1] as RequestInit).method).toBe("PATCH");
+
+    unmount();
+  });
+
+  it("exposes adoptGameId so a later commit PATCHes the adopted row", async () => {
+    const { result } = renderHook(() =>
+      useLibraryWriteThrough({ signedIn: true }),
+    );
+
+    act(() => {
+      result.current.adoptGameId("adopted-9");
+    });
+
+    act(() => {
+      useGameStore.setState({ currentPeriod: originalPeriod + 2 });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]![0]).toBe("/api/games/adopted-9");
+  });
+
+  it("saveNow flushes the current store state immediately as a POST", async () => {
+    const { result } = renderHook(() =>
+      useLibraryWriteThrough({ signedIn: true }),
+    );
+
+    await act(async () => {
+      await result.current.saveNow();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]![0]).toBe("/api/games");
+    expect((fetchMock.mock.calls[0]![1] as RequestInit).method).toBe("POST");
+    expect(result.current.status).toBe("saved");
   });
 });

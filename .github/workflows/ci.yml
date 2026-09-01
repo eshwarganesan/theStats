@@ -42,6 +42,22 @@ jobs:
       - name: Unit + integration tests
         run: npm run test:coverage
 
+      # Fail fast (before the ~minute-long browser download) with an
+      # explicit message when the Supabase secrets are missing. Without them
+      # the app's env validation throws in middleware on every request, so
+      # the dev server 500s and every e2e spec times out instead of pointing
+      # at the real cause. Note: forked-PR runs never receive secrets.
+      - name: Verify Supabase secrets are configured
+        run: |
+          missing=""
+          [ -n "$NEXT_PUBLIC_SUPABASE_URL" ] || missing="$missing NEXT_PUBLIC_SUPABASE_URL"
+          [ -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] || missing="$missing NEXT_PUBLIC_SUPABASE_ANON_KEY"
+          [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] || missing="$missing SUPABASE_SERVICE_ROLE_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required CI secret(s):$missing. Add them under Settings → Secrets and variables → Actions. (Forked-PR runs do not receive secrets.)"
+            exit 1
+          fi
+
       - name: Install Playwright browsers
         working-directory: packages/web
         run: npx playwright install --with-deps

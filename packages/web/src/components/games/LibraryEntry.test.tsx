@@ -225,6 +225,23 @@ describe("LibraryEntry — Continue (US3)", () => {
   });
 });
 
+describe("LibraryEntry — Review target (feature 010 T023)", () => {
+  it("Review button on a finished row navigates to /games/[id] (not /account/games/[id])", () => {
+    render(
+      <LibraryEntry
+        entry={makeEntry({
+          id: "finished-42",
+          status: "finished",
+          finishedAt: "2026-07-20T21:00:00Z",
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /review/i }));
+    expect(routerPush).toHaveBeenCalledWith("/games/finished-42");
+    expect(routerPush).not.toHaveBeenCalledWith("/account/games/finished-42");
+  });
+});
+
 describe("LibraryEntry — Delete (US4)", () => {
   it("fires onDeleted after a successful DELETE from the dialog", async () => {
     // 204 No Content on success.

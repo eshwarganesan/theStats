@@ -26,5 +26,11 @@
     "path": ".next/static/chunks/app/**/account/**/*.js",
     "limit": "20 KB",
     "gzip": true
+  },
+  {
+    "name": "/games route chunk (gzipped)",
+    "path": ".next/static/chunks/app/**/games/**/*.js",
+    "limit": "30 KB",
+    "gzip": true
   }
 ]

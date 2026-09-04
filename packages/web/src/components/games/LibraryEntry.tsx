@@ -127,7 +127,7 @@ export function LibraryEntry({ entry, onDeleted }: LibraryEntryProps) {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => router.push(`/account/games/${entry.id}`)}
+          onClick={() => router.push(`/games/${entry.id}`)}
         >
           Review
         </Button>

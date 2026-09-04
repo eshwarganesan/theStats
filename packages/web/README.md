@@ -118,11 +118,20 @@ The root layout renders a persistent left-side [`AppSidebar`](src/components/she
 
 ### `/account` — profile + library
 
-[`app/(authenticated)/account/page.tsx`](src/app/(authenticated)/account/page.tsx) is a Server Component behind `requireAuth`. It lazily upserts a `public.profiles` row on first visit and fetches the first library batch server-side.
+[`app/(authenticated)/account/page.tsx`](src/app/(authenticated)/account/page.tsx) is a Server Component behind `requireAuth`. It lazily upserts a `public.profiles` row on first visit and renders the profile section.
 
 - [`ProfileSection`](src/components/account/ProfileSection.tsx) — display name form + change-password form. Both submit via Server Actions in [`actions.ts`](src/app/(authenticated)/account/actions.ts). Password change re-auths with `signInWithPassword` before calling `updateUser` and does **not** invalidate the current session.
-- [`GameLibrary`](src/components/account/GameLibrary.tsx) — Client Component. First batch is server-supplied; subsequent pages load via `GET /api/games?cursor=` when an `IntersectionObserver` sentinel scrolls into view.
-- Wrapped in [`LibraryErrorBoundary`](src/components/account/LibraryErrorBoundary.tsx) so a library render failure never blanks out the profile section (FR-014).
+
+The saved-games library used to live on this page (feature 009); feature 010 moved it to a dedicated [`app/(authenticated)/games/page.tsx`](src/app/(authenticated)/games/page.tsx) reachable from a top-level sidebar item. See the "Games page" section below for details.
+
+### Games page (feature 010)
+
+[`app/(authenticated)/games/page.tsx`](src/app/(authenticated)/games/page.tsx) is a Server Component behind `requireAuth`. It fetches the first library batch server-side and mounts the `NewGameCta` + `GameLibrary` composition.
+
+- [`GameLibrary`](src/components/games/GameLibrary.tsx) — Client Component. First batch is server-supplied; subsequent pages load via `GET /api/games?cursor=` when an `IntersectionObserver` sentinel scrolls into view.
+- Wrapped in [`LibraryErrorBoundary`](src/components/games/LibraryErrorBoundary.tsx) so a library render failure never blanks out the page shell (FR-012).
+- [`NewGameCta`](src/components/games/NewGameCta.tsx) — a "use client" button that clears local persistence, resets the Zustand store, and routes to `/setup` (same three-step order as the home page's `NewGameButton`).
+- Sidebar entry point: [`SidebarNavItem`](src/components/shell/SidebarNavItem.tsx) reads `document.body[data-sidebar-collapsed]` to switch between icon-only (rail) and icon+label (overlay) rendering.
 
 ### Write-through save
 
@@ -134,11 +143,11 @@ While signed in, edits to the Zustand game store are mirrored to `public.games` 
 
 ### Continue / Review / Delete
 
-Each [`LibraryEntry`](src/components/account/LibraryEntry.tsx) row shows the score, status pill, and:
+Each [`LibraryEntry`](src/components/games/LibraryEntry.tsx) row shows the score, status pill, and:
 
 - **Continue** (in-progress only) — fetches the full record and calls `store.hydrateFromLibrary(state)`. If a local in-progress game exists, the store rejects with `{ ok: false, reason: "local_game_present" }` and the row surfaces a confirm-force `<Modal>` (FR-017); on confirmation it hydrates with `force: true`.
-- **Review** (finished only) — navigates to `/account/games/[id]`, a Server Component that renders [`GameReviewView`](src/components/account/GameReviewView.tsx) — read-only `<StatSheet>` + `<GameLog readOnly source={...}>`.
-- **Delete** — opens [`DeleteGameDialog`](src/components/account/DeleteGameDialog.tsx). The in-progress variant names the exact event count and current period the user will lose (FR-025).
+- **Review** (finished only) — navigates to `/games/[id]`, a Server Component that renders [`GameReviewView`](src/components/games/GameReviewView.tsx) — read-only `<StatSheet>` + `<GameLog readOnly source={...}>`. (Feature 010 moved the library out of `/account`; the old `/account/games/[id]` URL 301-redirects here for backward compatibility.)
+- **Delete** — opens [`DeleteGameDialog`](src/components/games/DeleteGameDialog.tsx). The in-progress variant names the exact event count and current period the user will lose (FR-025).
 
 ### Anonymous game on sign-in
 

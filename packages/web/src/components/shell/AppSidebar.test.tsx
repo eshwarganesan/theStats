@@ -1,9 +1,17 @@
 /**
  * AppSidebar tests.
  * Feature 009-account-library, task T012.
+ * Feature 010-games-library, task T007 (Games nav item mounted).
  */
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// SidebarNavItem uses next/navigation's usePathname — stub it so the
+// AppSidebar tree renders under jsdom.
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+}));
+
 import { AppSidebar, SIDEBAR_STORAGE_KEY } from "./AppSidebar";
 
 /**
@@ -110,5 +118,24 @@ describe("AppSidebar", () => {
       "data-collapsed",
       "false",
     );
+  });
+
+  it("mounts the Games nav item pointing to /games (feature 010)", () => {
+    stubMatchMedia(true);
+    render(<AppSidebar profileIcon={<span>profile</span>} />);
+    const gamesLink = screen.getByRole("link", { name: "Games" });
+    expect(gamesLink).toHaveAttribute("href", "/games");
+  });
+
+  it("mirrors its collapsed state onto document.body[data-sidebar-collapsed]", async () => {
+    stubMatchMedia(true);
+    render(<AppSidebar profileIcon={<span>profile</span>} />);
+    await waitFor(() => {
+      expect(document.body.getAttribute("data-sidebar-collapsed")).toBe("true");
+    });
+    fireEvent.click(screen.getByRole("button", { name: /collapse|expand/i }));
+    await waitFor(() => {
+      expect(document.body.getAttribute("data-sidebar-collapsed")).toBe("false");
+    });
   });
 });

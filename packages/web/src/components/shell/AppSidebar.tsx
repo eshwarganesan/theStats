@@ -19,6 +19,8 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { IconChevronLeft } from "./icons/IconChevronLeft";
 import { IconChevronRight } from "./icons/IconChevronRight";
+import { IconGames } from "./icons/IconGames";
+import { SidebarNavItem } from "./SidebarNavItem";
 
 export const SIDEBAR_STORAGE_KEY = "thestats.sidebar.v1";
 
@@ -92,6 +94,18 @@ export function AppSidebar({ profileIcon }: AppSidebarProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [collapsed, close]);
 
+  // Mirror the collapsed state onto `document.body` so descendants like
+  // `<SidebarNavItem>` can render icon-only vs. icon-plus-label without
+  // needing the sidebar's internal `useState` handed down to them
+  // (Research R-01).
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.setAttribute(
+      "data-sidebar-collapsed",
+      collapsed ? "true" : "false",
+    );
+  }, [collapsed]);
+
   return (
     <>
       {/* Backdrop — dim + click-to-close when the sidebar is expanded.
@@ -137,7 +151,15 @@ export function AppSidebar({ profileIcon }: AppSidebarProps) {
           </button>
         </div>
 
-        <div className="flex-1" />
+        <ul className="flex-1 flex flex-col" role="list">
+          <li>
+            <SidebarNavItem
+              href="/games"
+              label="Games"
+              icon={<IconGames />}
+            />
+          </li>
+        </ul>
 
         <div className="p-3 border-t border-surface-border flex items-center justify-center">
           {profileIcon}

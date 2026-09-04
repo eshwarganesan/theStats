@@ -82,6 +82,15 @@ describe("GameLibrary", () => {
     ).toBeInTheDocument();
   });
 
+  it("empty state renders without a self-contained New game button — the CTA is a sibling on the surrounding page (feature 010 FR-013)", () => {
+    render(<GameLibrary initialEntries={[]} initialNextCursor={null} />);
+    // The Games page mounts <NewGameCta /> above <GameLibrary />; the
+    // library must not duplicate the CTA inside its own empty state.
+    expect(
+      screen.queryByRole("button", { name: /new game/i }),
+    ).toBeNull();
+  });
+
   it("renders one row per entry, preserving the input order", () => {
     const entries = [
       makeEntry({ id: "a", homeTeamName: "A", awayTeamName: "A-opp" }),

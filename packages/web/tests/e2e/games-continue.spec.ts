@@ -1,10 +1,12 @@
 /**
- * Playwright E2E spec for feature 009-account-library, US3.
+ * Playwright E2E spec for feature 010-games-library, US3.
+ * (Replaces feature 009's account-continue.spec.ts — the library now
+ * lives on /games, so the Continue entry point moved with it.)
  *
- * Verifies that a signed-in user can open an in-progress game from the
- * library and land on the live game view with the game restored and the
- * clock paused. Uses two browser contexts to simulate the "start on
- * device A, resume on device B" flow.
+ * Verifies that a signed-in user can open an in-progress game from
+ * /games and land on the live game view with the game restored and the
+ * clock paused. Also covers the "unavailable" path when a game is
+ * deleted between page load and click (US3 acceptance scenario 4).
  *
  * Skipped when NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are
  * missing and assumes migration 0002_account_library.sql has been
@@ -18,7 +20,7 @@ const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 test.skip(
   !url || !serviceRole,
-  "Hosted Supabase env vars missing — skipping continue E2E flow",
+  "Hosted Supabase env vars missing — skipping games continue E2E flow",
 );
 
 let _admin: SupabaseClient | undefined;
@@ -31,7 +33,7 @@ function admin(): SupabaseClient {
   return _admin;
 }
 
-function uniqueEmail(prefix = "e2e-continue"): string {
+function uniqueEmail(prefix = "e2e-games-continue"): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
 }
 
@@ -143,9 +145,6 @@ async function cleanup(email: string): Promise<void> {
   }
 }
 
-// Give each test its own X-Forwarded-For so the per-IP throttle key is
-// unique. Localhost requests otherwise share `ip:unknown`, letting a
-// sibling test's failed sign-in race-poison this one under parallel workers.
 test.beforeEach(async ({ context }) => {
   const oct = () => Math.floor(Math.random() * 254) + 1;
   await context.setExtraHTTPHeaders({
@@ -153,8 +152,8 @@ test.beforeEach(async ({ context }) => {
   });
 });
 
-test.describe("Continue an interrupted game from the library (US3)", () => {
-  test("Continue navigates from /account into the live game view with matching state", async ({
+test.describe("Continue an interrupted game from /games (US3)", () => {
+  test("Continue navigates from /games into the live game view with matching state", async ({
     page,
   }) => {
     const email = uniqueEmail();
@@ -169,10 +168,9 @@ test.describe("Continue an interrupted game from the library (US3)", () => {
       await page.getByRole("button", { name: /sign in/i }).click();
       await page.waitForURL("/");
 
-      await page.getByRole("link", { name: /account/i }).click();
-      await page.waitForURL("/account");
+      await page.getByRole("link", { name: "Games" }).click();
+      await page.waitForURL("/games");
 
-      // The seeded in-progress game shows a Continue button.
       const continueBtn = page.getByRole("button", { name: /^continue$/i }).first();
       await expect(continueBtn).toBeVisible();
       await continueBtn.click();
@@ -182,6 +180,42 @@ test.describe("Continue an interrupted game from the library (US3)", () => {
       await page.waitForURL("**/game");
       await expect(page.getByText("Continue Home").first()).toBeVisible();
       await expect(page.getByText("Continue Away").first()).toBeVisible();
+    } finally {
+      await cleanup(email);
+    }
+  });
+
+  test("clicking a Continue for a game that was deleted from another session surfaces an error (US3 scenario 4)", async ({
+    page,
+  }) => {
+    const email = uniqueEmail();
+    const password = "password12345";
+    const uid = await createConfirmedUser(email, password);
+    const gameId = await seedGame(uid);
+
+    try {
+      await page.goto("/login");
+      await page.getByLabel(/email/i).fill(email);
+      await page.getByLabel(/password/i).fill(password);
+      await page.getByRole("button", { name: /sign in/i }).click();
+      await page.waitForURL("/");
+
+      await page.getByRole("link", { name: "Games" }).click();
+      await page.waitForURL("/games");
+
+      // Between the page render and the click, another session deletes
+      // the game.
+      await admin().from("games").delete().eq("id", gameId);
+
+      await page.getByRole("button", { name: /^continue$/i }).first().click();
+
+      // The row surfaces an inline "couldn't load" error rather than
+      // crashing the app.
+      await expect(
+        page.getByText(/couldn.{0,3}t load the game/i),
+      ).toBeVisible();
+      // The user stays on /games (no navigation to /game).
+      await expect(page).toHaveURL(/\/games$/);
     } finally {
       await cleanup(email);
     }

@@ -1,19 +1,24 @@
 /**
- * Review page for a saved game (feature 009-account-library, US4).
+ * Review page for a saved game (feature 010-games-library, US3).
  *
  * Server Component. Auth-gated via `requireAuth`. RLS on `public.games`
  * enforces ownership — a game owned by another user surfaces as
  * `notFound()` so we don't leak existence.
  *
- * Only finished games render the review view (FR-019). In-progress
- * games are redirected back to `/account`; those open via the Continue
- * button on `LibraryEntry` instead (US3).
+ * Only finished games render the review view (FR-017). In-progress
+ * games are redirected back to `/games`; those open via the Continue
+ * button on `LibraryEntry` from the Games page (FR-016).
+ *
+ * Byte-for-byte equivalent to the previous `/account/games/[id]` route
+ * (feature 009), with the redirect target and auth-return-target
+ * updated to `/games` per feature 010's FR-005 / FR-006. The old route
+ * is decommissioned by a `next.config.mjs` 301 redirect (FR-021).
  */
 import { notFound, redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { createServerClient } from "@/lib/supabase/server";
 import { fromSavedGameRecord, type GamesRow } from "@/lib/games/serialize";
-import { GameReviewView } from "@/components/account/GameReviewView";
+import { GameReviewView } from "@/components/games/GameReviewView";
 
 interface ReviewPageProps {
   params: Promise<{ id: string }>;
@@ -36,7 +41,7 @@ const FULL_COLUMNS = [
 ].join(", ");
 
 export default async function ReviewPage({ params }: ReviewPageProps) {
-  await requireAuth({ from: "/account" });
+  await requireAuth({ from: "/games" });
   const { id } = await params;
 
   const supabase = await createServerClient();
@@ -52,9 +57,9 @@ export default async function ReviewPage({ params }: ReviewPageProps) {
 
   const record = fromSavedGameRecord(data as unknown as GamesRow);
 
-  // In-progress games open via the Continue flow on /account, not here.
+  // In-progress games open via the Continue flow on /games, not here.
   if (record.status !== "finished") {
-    redirect("/account");
+    redirect("/games");
   }
 
   return (

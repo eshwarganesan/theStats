@@ -92,7 +92,10 @@
       "Bash(python3 -c \"import yaml,sys; d=yaml.safe_load\\(open\\('.github/workflows/ci.yml'\\)\\); print\\('YAML OK — jobs:', list\\(d['jobs'].keys\\(\\)\\)\\); print\\('env keys:', list\\(d['env'].keys\\(\\)\\)\\)\")",
       "Bash(node -e \"console.log\\('RTL', require\\('@testing-library/react/package.json'\\).version\\)\")",
       "Bash(node -e \"console.log\\(Object.keys\\(require\\('@testing-library/react'\\)\\).filter\\(k=>/renderHook|act/.test\\(k\\)\\).join\\(', '\\)\\)\")",
-      "Bash(node /Users/eganesan/Documents/theStatsApp/theStats/packages/web/check_throttle.mjs)"
+      "Bash(node /Users/eganesan/Documents/theStatsApp/theStats/packages/web/check_throttle.mjs)",
+      "Bash(bash *)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \"import json;p=json.load\\(open\\('/Users/eganesan/Documents/theStatsApp/theStats/packages/web/package.json'\\)\\);print\\('has size-limit key?', 'size-limit' in p\\)\")"
     ]
   }
 }

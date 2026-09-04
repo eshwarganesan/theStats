@@ -45,7 +45,7 @@ export function GameReviewView({ record }: GameReviewViewProps) {
           </span>
         </div>
         <Link
-          href="/account"
+          href="/games"
           className="text-xs text-ink-dim hover:text-accent w-fit"
         >
           &larr; Back to your library

@@ -6,7 +6,8 @@
  *   - The score derived from `computeStatSheet` shows in the header.
  *   - The Statsheet + Play-by-play sections both render with h2 headings
  *     (a11y — no h1 → h3 heading level jump).
- *   - A "Back to your library" link points at `/account`.
+ *   - A "Back to your library" link points at `/games` (feature 010 T027 —
+ *     the library moved out of the account page into a dedicated /games route).
  */
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -107,10 +108,10 @@ describe("GameReviewView", () => {
     ).toBeInTheDocument();
   });
 
-  it('exposes a "Back to your library" link pointing at /account', () => {
+  it('exposes a "Back to your library" link pointing at /games', () => {
     render(<GameReviewView record={makeRecord()} />);
     const link = screen.getByRole("link", { name: /back to your library/i });
-    expect(link.getAttribute("href")).toBe("/account");
+    expect(link.getAttribute("href")).toBe("/games");
   });
 
   it("renders the read-only statsheet with both rosters", () => {

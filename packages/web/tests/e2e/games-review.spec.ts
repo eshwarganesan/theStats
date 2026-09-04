@@ -1,9 +1,11 @@
 /**
- * Playwright E2E spec for feature 009-account-library, US4.
+ * Playwright E2E spec for feature 010-games-library, US3 (renamed from
+ * feature 009's account-review.spec.ts; URL targets updated per FR-005 /
+ * FR-021 — the library moved from /account to /games).
  *
- * Covers the review view for a finished game and the Delete flow for
- * both in-progress and finished games. Skipped when Supabase env is
- * missing; assumes migration 0002 has been applied.
+ * Covers the read-only review view for a finished game and the Delete
+ * flow for both in-progress and finished games. Skipped when Supabase
+ * env is missing; assumes migration 0002 has been applied.
  */
 import { test, expect, type Page } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -166,8 +168,8 @@ test.beforeEach(async ({ context }) => {
   });
 });
 
-test.describe("Review a finished game (US4)", () => {
-  test("Review opens the read-only statsheet + game log; back returns to /account", async ({ page }) => {
+test.describe("Review a finished game (US3)", () => {
+  test("Review opens the read-only statsheet + game log; back returns to /games", async ({ page }) => {
     const email = uniqueEmail();
     const password = "password12345";
     const uid = await createConfirmedUser(email, password);
@@ -175,11 +177,11 @@ test.describe("Review a finished game (US4)", () => {
 
     try {
       await signIn(page, email, password);
-      await page.getByRole("link", { name: /account/i }).click();
-      await page.waitForURL("/account");
+      await page.getByRole("link", { name: "Games" }).click();
+      await page.waitForURL("/games");
 
       await page.getByRole("button", { name: /review/i }).click();
-      await page.waitForURL(/\/account\/games\//);
+      await page.waitForURL(/\/games\/[^/]+$/);
 
       // The read-only review renders the team names in several places
       // (scoreboard + statsheet); scope to the first to avoid a
@@ -191,14 +193,14 @@ test.describe("Review a finished game (US4)", () => {
       await expect(page.getByRole("button", { name: /^delete play$/i })).toHaveCount(0);
 
       await page.getByRole("link", { name: /back to your library/i }).click();
-      await page.waitForURL("/account");
+      await page.waitForURL("/games");
     } finally {
       await cleanup(email);
     }
   });
 });
 
-test.describe("Delete a game from the library (US4)", () => {
+test.describe("Delete a game from the library (feature 009 US4 carry-over)", () => {
   test("Deleting a finished game removes it from the library", async ({ page }) => {
     const email = uniqueEmail();
     const password = "password12345";
@@ -207,8 +209,8 @@ test.describe("Delete a game from the library (US4)", () => {
 
     try {
       await signIn(page, email, password);
-      await page.getByRole("link", { name: /account/i }).click();
-      await page.waitForURL("/account");
+      await page.getByRole("link", { name: "Games" }).click();
+      await page.waitForURL("/games");
 
       await page.getByRole("button", { name: /^delete game$/i }).first().click();
       // Confirmation copy for finished games is generic.
@@ -229,8 +231,8 @@ test.describe("Delete a game from the library (US4)", () => {
 
     try {
       await signIn(page, email, password);
-      await page.getByRole("link", { name: /account/i }).click();
-      await page.waitForURL("/account");
+      await page.getByRole("link", { name: "Games" }).click();
+      await page.waitForURL("/games");
 
       await page.getByRole("button", { name: /^delete game$/i }).first().click();
       // Confirmation copy for in-progress: names the event count + period.

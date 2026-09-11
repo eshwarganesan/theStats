@@ -18,6 +18,12 @@
 import { test, expect } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
+// Opt this whole file out of the shared authenticated storage state
+// (feature 011 FOLLOW-UP-1) — the entire point of the auth suite is to
+// observe the unauthenticated → authenticated transition, so it must
+// start with an empty cookie jar.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -66,7 +72,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe("US1: sign up", () => {
-  test("a new visitor signs up and lands on / signed in", async ({
+  test("a new visitor signs up and lands on /games signed in", async ({
     page,
   }) => {
     const email = uniqueEmail();
@@ -96,7 +102,8 @@ test.describe("US1: sign up", () => {
       );
       expect(signUpRes.status()).toBe(200);
 
-      await page.waitForURL("/");
+      // Post-signin lands on /games (feature 011 FR-010).
+      await page.waitForURL("/games");
       // The shell no longer surfaces an email / pending-confirmation pill;
       // the signed-in affordance is the account icon in the sidebar.
       await expect(page.getByRole("link", { name: /account/i })).toBeVisible();
@@ -115,7 +122,7 @@ test.describe("US1: sign up", () => {
     }
   });
 
-  test("an already-signed-in user visiting /login is redirected to /", async ({ page }) => {
+  test("an already-signed-in user visiting /login is redirected to /games", async ({ page }) => {
     const email = uniqueEmail("e2e-signed-in");
     try {
       const { data: created } = await admin().auth.admin.createUser({
@@ -130,11 +137,12 @@ test.describe("US1: sign up", () => {
       await page.getByLabel(/email/i).fill(email);
       await page.getByLabel(/password/i).fill("password12345");
       await page.getByRole("button", { name: /^sign in$/i }).click();
-      await page.waitForURL("/");
+      await page.waitForURL("/games");
 
-      // Second visit — already signed in — LoginPage should redirect to /.
+      // Second visit — already signed in — LoginPage should redirect to
+      // /games (feature 011 FR-012).
       await page.goto("/login");
-      await expect(page).toHaveURL("/");
+      await expect(page).toHaveURL("/games");
     } finally {
       await deleteUserByEmail(email);
     }
@@ -142,7 +150,7 @@ test.describe("US1: sign up", () => {
 });
 
 test.describe("US2: sign in", () => {
-  test("a confirmed user signs in via the panel toggle and lands on /", async ({ page }) => {
+  test("a confirmed user signs in via the panel toggle and lands on /games", async ({ page }) => {
     const email = uniqueEmail("e2e-signin");
     try {
       await admin().auth.admin.createUser({
@@ -158,7 +166,8 @@ test.describe("US2: sign in", () => {
       await page.getByLabel(/password/i).fill("password12345");
       await page.getByRole("button", { name: /^sign in$/i }).click();
 
-      await page.waitForURL("/");
+      // Post-signin lands on /games (feature 011 FR-010).
+      await page.waitForURL("/games");
       // Signed-in affordance is the account icon in the sidebar.
       await expect(page.getByRole("link", { name: /account/i })).toBeVisible();
 
@@ -248,7 +257,7 @@ test.describe("US3: sign out + account-gate", () => {
       await page.getByLabel(/email/i).fill(email);
       await page.getByLabel(/password/i).fill("password12345");
       await page.getByRole("button", { name: /^sign in$/i }).click();
-      await page.waitForURL("/");
+      await page.waitForURL("/games");
 
       // Sign out now lives on the account page.
       await page.getByRole("link", { name: /account/i }).click();

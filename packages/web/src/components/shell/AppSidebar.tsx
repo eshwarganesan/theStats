@@ -1,158 +1,142 @@
 "use client";
 
 /**
- * Collapsible left-side app shell nav (feature 009-account-library, US1).
+ * Authenticated-app navigation drawer.
  *
- * Hosts — when signed in — the profile icon at the bottom, supplied as a
- * slot prop so the sidebar itself can stay a Client Component while the
- * auth-dependent surface renders server-side.
+ * A fully controlled off-canvas panel: `open` and `onClose` are supplied
+ * by the parent shell (`AuthenticatedShell`), which owns the toggle
+ * state and mounts the hamburger button that opens this drawer.
  *
- * State:
- *   - Collapsed / expanded is persisted in `localStorage` under
- *     `SIDEBAR_STORAGE_KEY`. First load defaults to expanded on ≥ 1024 px
- *     viewports and collapsed on smaller ones (Research R-06).
- *   - The transform-based collapse animation avoids layout thrash so page
- *     content stays responsive during the toggle (Principle IV).
+ * Interaction contract:
+ *   - Backdrop click → onClose.
+ *   - Escape while open → onClose.
+ *   - Clicking a nav item → onClose (drawer dismisses after navigation).
+ *   - When the user is on `/game/*`, ANY anchor click inside the drawer
+ *     that would leave the game route (`/games`, `/account`, …) is
+ *     intercepted and gated behind a confirmation dialog so live-
+ *     scorekeeping state isn't discarded by accident.
  */
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { IconChevronLeft } from "./icons/IconChevronLeft";
-import { IconChevronRight } from "./icons/IconChevronRight";
 import { IconGames } from "./icons/IconGames";
 import { SidebarNavItem } from "./SidebarNavItem";
-
-export const SIDEBAR_STORAGE_KEY = "thestats.sidebar.v1";
+import { GameLeaveConfirmDialog } from "@/components/game/GameLeaveConfirmDialog";
 
 export interface AppSidebarProps {
-  /** Slot for the (server-rendered) SidebarProfileIcon — only visible when
-   *  signed in; renders null otherwise. */
+  /** Whether the drawer is on-canvas. */
+  open: boolean;
+  /** Called for every gesture that dismisses the drawer: backdrop
+   *  click, Escape keypress, or nav-item click. */
+  onClose: () => void;
+  /** Slot for the (server-rendered) SidebarProfileIcon — only visible
+   *  when signed in; renders null otherwise. */
   profileIcon: ReactNode;
 }
 
-function readInitialCollapsed(): boolean {
-  if (typeof window === "undefined") return true;
-  try {
-    const raw = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
-    if (raw !== null) {
-      const parsed = JSON.parse(raw);
-      if (typeof parsed === "boolean") return parsed;
-    }
-  } catch {
-    /* fall through to default */
-  }
-  // Rail-first: pages open on the collapsed 56px rail (which `<main>`
-  // reserves via `pl-14`) so nothing sits under the sidebar and content is
-  // immediately interactive. Expanding is an on-demand overlay drawer,
-  // dismissed by clicking the backdrop or pressing Escape.
-  return true;
+/** A same-origin path (`/foo`, `/foo/bar?x=1`) — protocol-relative and
+ *  fully-qualified URLs are ignored by the guard so external links (if
+ *  any are ever added) escape it cleanly. */
+function isInternalPath(href: string | null): href is string {
+  return typeof href === "string" && href.startsWith("/") && !href.startsWith("//");
 }
 
-/** Width of the always-visible collapsed rail. `<main>` reserves this
- *  as a permanent left inset so no content sits under it. */
-export const SIDEBAR_RAIL_WIDTH_PX = 56;
+function isGameRoute(pathname: string): boolean {
+  return pathname === "/game" || pathname.startsWith("/game/");
+}
 
-export function AppSidebar({ profileIcon }: AppSidebarProps) {
-  const [collapsed, setCollapsed] = useState<boolean>(true);
-  const [hydrated, setHydrated] = useState(false);
-
-  // Read the persisted state (and viewport-based default) only after mount
-  // to keep server-rendered output stable.
-  useEffect(() => {
-    setCollapsed(readInitialCollapsed());
-    setHydrated(true);
-  }, []);
-
-  const setCollapsedPersisting = useCallback((next: boolean) => {
-    setCollapsed(next);
-    try {
-      window.localStorage.setItem(
-        SIDEBAR_STORAGE_KEY,
-        JSON.stringify(next),
-      );
-    } catch {
-      /* localStorage may be unavailable — non-fatal */
-    }
-  }, []);
-
-  const toggle = useCallback(() => {
-    setCollapsedPersisting(!collapsed);
-  }, [collapsed, setCollapsedPersisting]);
-
-  const close = useCallback(() => {
-    setCollapsedPersisting(true);
-  }, [setCollapsedPersisting]);
+export function AppSidebar({ open, onClose, profileIcon }: AppSidebarProps) {
+  const router = useRouter();
+  const pathname = usePathname() ?? "";
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   // Escape collapses the expanded overlay — matches modal-like semantics
   // without stealing focus (this is a nav, not a proper dialog).
   useEffect(() => {
-    if (collapsed) return;
+    if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+      if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [collapsed, close]);
+  }, [open, onClose]);
 
-  // Mirror the collapsed state onto `document.body` so descendants like
-  // `<SidebarNavItem>` can render icon-only vs. icon-plus-label without
-  // needing the sidebar's internal `useState` handed down to them
-  // (Research R-01).
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    document.body.setAttribute(
-      "data-sidebar-collapsed",
-      collapsed ? "true" : "false",
-    );
-  }, [collapsed]);
+  const handleNavClick = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
+  // Capture-phase click handler on the drawer's <nav>. Intercepts any
+  // anchor click that would leave `/game/*` and defers navigation until
+  // the user confirms.
+  const handleNavCapture = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      if (!isGameRoute(pathname)) return;
+      const target = event.target as HTMLElement | null;
+      const anchor = target?.closest("a");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!isInternalPath(href)) return;
+      // Internal navigation that stays inside `/game/*` (tabs, etc.) is
+      // safe — no confirmation needed. In practice the drawer does not
+      // host such links, but the check is cheap and future-proof.
+      if (href === "/game" || href.startsWith("/game/")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setPendingHref(href);
+    },
+    [pathname],
+  );
+
+  const cancelPending = useCallback(() => {
+    setPendingHref(null);
+  }, []);
+
+  const confirmPending = useCallback(() => {
+    const target = pendingHref;
+    setPendingHref(null);
+    if (target) {
+      onClose();
+      router.push(target);
+    }
+  }, [pendingHref, onClose, router]);
 
   return (
     <>
-      {/* Backdrop — dim + click-to-close when the sidebar is expanded.
-          Fades out and becomes non-interactive when collapsed. */}
+      {/* Backdrop — dim + click-to-close when the drawer is open. */}
       <div
         aria-hidden="true"
-        onClick={close}
+        data-testid="sidebar-backdrop"
+        onClick={onClose}
         className={cn(
           "fixed inset-0 z-30 bg-black/40 transition-opacity duration-200",
-          collapsed ? "opacity-0 pointer-events-none" : "opacity-100",
+          open ? "opacity-100" : "opacity-0 pointer-events-none",
         )}
       />
       <nav
+        id="primary-navigation"
         role="navigation"
         aria-label="Primary"
-        data-collapsed={collapsed ? "true" : "false"}
-        data-hydrated={hydrated ? "true" : "false"}
+        aria-hidden={!open}
+        data-open={open ? "true" : "false"}
+        onClickCapture={handleNavCapture}
         className={cn(
           "flex flex-col",
-          // Fixed-position overlay: expanding no longer participates in
-          // page layout, so the content column stops shifting.
-          "fixed inset-y-0 left-0 z-40",
+          // Off-canvas by default. Slides in from the left when open.
+          "fixed inset-y-0 left-0 z-40 w-64",
           "border-r border-surface-border bg-surface",
-          "transition-[width] duration-200 ease-out",
-          collapsed ? "w-14" : "w-64",
+          "transition-transform duration-200 ease-out",
+          open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex items-center justify-between p-3">
-          
-          <button
-            type="button"
-            onClick={toggle}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-expanded={!collapsed}
-            className={cn(
-              "shrink-0 inline-flex items-center justify-center h-8 w-8",
-              "text-ink hover:text-accent",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
-              "transition-colors",
-            )}
-          >
-            {collapsed ? <IconChevronRight /> : <IconChevronLeft />}
-          </button>
-        </div>
-
-        <ul className="flex-1 flex flex-col" role="list">
-          <li>
+        <ul className="flex-1 flex flex-col pt-16" role="list">
+          <li onClick={handleNavClick}>
             <SidebarNavItem
               href="/games"
               label="Games"
@@ -165,6 +149,12 @@ export function AppSidebar({ profileIcon }: AppSidebarProps) {
           {profileIcon}
         </div>
       </nav>
+
+      <GameLeaveConfirmDialog
+        open={pendingHref !== null}
+        onCancel={cancelPending}
+        onConfirm={confirmPending}
+      />
     </>
   );
 }

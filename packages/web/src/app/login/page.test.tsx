@@ -35,14 +35,14 @@ describe("<LoginPage />", () => {
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
   });
 
-  it("redirects to / when an authenticated user visits the login page (FR-014)", async () => {
+  it("redirects to /games when an authenticated user visits the login page (feature 011 FR-012)", async () => {
     getUserMock.mockResolvedValueOnce({
       data: { user: { id: "u_1", email: "alice@example.com", email_confirmed_at: null } },
       error: null,
     });
     await expect(
       LoginPage({ searchParams: Promise.resolve({}) }),
-    ).rejects.toThrow("__REDIRECT__/");
+    ).rejects.toThrow("__REDIRECT__/games");
   });
 
   it("redirects to ?from when an authenticated user lands with a deep-link from param", async () => {
@@ -55,14 +55,14 @@ describe("<LoginPage />", () => {
     ).rejects.toThrow("__REDIRECT__/account");
   });
 
-  it("ignores absolute-URL `from` to defeat open-redirect attacks", async () => {
+  it("ignores absolute-URL `from` to defeat open-redirect attacks (falls back to /games)", async () => {
     getUserMock.mockResolvedValueOnce({
       data: { user: { id: "u_1", email: "alice@example.com", email_confirmed_at: null } },
       error: null,
     });
     await expect(
       LoginPage({ searchParams: Promise.resolve({ from: "https://evil.com" }) }),
-    ).rejects.toThrow("__REDIRECT__/");
+    ).rejects.toThrow("__REDIRECT__/games");
   });
 
   it("renders an inline error if ?error=confirmation_failed is present", async () => {

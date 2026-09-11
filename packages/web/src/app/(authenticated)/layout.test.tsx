@@ -28,6 +28,13 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
+// AppSidebar (nested inside the shell inside the layout) consumes
+// usePathname AND useRouter from next/navigation — stub both.
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
+}));
+
 import AuthenticatedLayout from "./layout";
 import { StorageAvailabilityProvider } from "@/lib/storageAvailability";
 

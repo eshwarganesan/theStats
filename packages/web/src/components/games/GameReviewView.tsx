@@ -35,54 +35,59 @@ export function GameReviewView({ record }: GameReviewViewProps) {
   );
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <div className="flex items-center gap-3 flex-wrap">
+    <>
+      <header className="h-14 shrink-0 flex items-center justify-between px-5 md:px-8 border-b border-surface-border">
+        <div className="flex items-center gap-4 min-w-0">
           <HamburgerButton />
-          <h1 className="heading-display text-2xl">
+          <h1 className="heading-display text-xl truncate">
             {record.homeTeam.name} vs {record.awayTeam.name}
           </h1>
-          <span className="text-2xl font-mono text-ink">
-            {formatScore(sheet.home.points, sheet.away.points)}
-          </span>
         </div>
-        <Link
-          href="/games"
-          className="text-xs text-ink-dim hover:text-accent w-fit"
-        >
-          &larr; Back to your library
-        </Link>
+        <span className="text-xl font-mono text-ink shrink-0">
+          {formatScore(sheet.home.points, sheet.away.points)}
+        </span>
       </header>
 
-      <section className="flex flex-col gap-3" aria-labelledby="review-statsheet-heading">
-        <h2 id="review-statsheet-heading" className="heading-display text-xl">
-          Statsheet
-        </h2>
-        <StatSheet
-          home={sheet.home}
-          away={sheet.away}
-          homeTeam={record.homeTeam}
-          awayTeam={record.awayTeam}
-          settings={record.settings}
-        />
-      </section>
+      <div className="flex-1 px-4 py-8 flex justify-center">
+        <div className="w-full max-w-4xl flex flex-col gap-6">
+          <Link
+            href="/games"
+            className="text-xs text-ink-dim hover:text-accent w-fit"
+          >
+            &larr; Back to your library
+          </Link>
 
-      <section className="flex flex-col gap-3" aria-labelledby="review-log-heading">
-        <h2 id="review-log-heading" className="heading-display text-xl">
-          Play-by-play
-        </h2>
-        <div className="min-h-[400px]">
-          <GameLog
-            readOnly
-            source={{
-              events: record.events,
-              homeTeam: record.homeTeam,
-              awayTeam: record.awayTeam,
-              periods: record.settings.periods,
-            }}
-          />
+          <section className="flex flex-col gap-3" aria-labelledby="review-statsheet-heading">
+            <h2 id="review-statsheet-heading" className="heading-display text-xl">
+              Statsheet
+            </h2>
+            <StatSheet
+              home={sheet.home}
+              away={sheet.away}
+              homeTeam={record.homeTeam}
+              awayTeam={record.awayTeam}
+              settings={record.settings}
+            />
+          </section>
+
+          <section className="flex flex-col gap-3" aria-labelledby="review-log-heading">
+            <h2 id="review-log-heading" className="heading-display text-xl">
+              Play-by-play
+            </h2>
+            <div className="min-h-[400px]">
+              <GameLog
+                readOnly
+                source={{
+                  events: record.events,
+                  homeTeam: record.homeTeam,
+                  awayTeam: record.awayTeam,
+                  periods: record.settings.periods,
+                }}
+              />
+            </div>
+          </section>
         </div>
-      </section>
-    </div>
+      </div>
+    </>
   );
 }

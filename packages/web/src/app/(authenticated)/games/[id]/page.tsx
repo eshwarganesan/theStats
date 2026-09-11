@@ -63,10 +63,8 @@ export default async function ReviewPage({ params }: ReviewPageProps) {
   }
 
   return (
-    <main className="min-h-[100dvh] px-4 py-8 flex justify-center">
-      <div className="w-full max-w-4xl">
-        <GameReviewView record={record.state} />
-      </div>
+    <main className="min-h-[100dvh] flex flex-col">
+      <GameReviewView record={record.state} />
     </main>
   );
 }

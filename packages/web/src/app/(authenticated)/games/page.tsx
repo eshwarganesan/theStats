@@ -70,22 +70,24 @@ export default async function GamesPage() {
   const library = await loadInitialLibrary();
 
   return (
-    <main className="min-h-[100dvh] px-4 py-8 flex justify-center">
-      <div className="w-full max-w-2xl flex flex-col gap-6">
-        <header className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <HamburgerButton />
-            <h1 className="heading-display text-3xl">Games</h1>
-          </div>
-          <NewGameCta />
-        </header>
+    <main className="min-h-[100dvh] flex flex-col">
+      <header className="h-14 shrink-0 flex items-center justify-between px-5 md:px-8 border-b border-surface-border">
+        <div className="flex items-center gap-4">
+          <HamburgerButton />
+          <h1 className="heading-display text-xl">Games</h1>
+        </div>
+        <NewGameCta />
+      </header>
 
-        <LibraryErrorBoundary>
-          <GameLibrary
-            initialEntries={library.entries}
-            initialNextCursor={library.nextCursor}
-          />
-        </LibraryErrorBoundary>
+      <div className="flex-1 px-4 py-8 flex justify-center">
+        <div className="w-full max-w-2xl flex flex-col gap-6">
+          <LibraryErrorBoundary>
+            <GameLibrary
+              initialEntries={library.entries}
+              initialNextCursor={library.nextCursor}
+            />
+          </LibraryErrorBoundary>
+        </div>
       </div>
     </main>
   );

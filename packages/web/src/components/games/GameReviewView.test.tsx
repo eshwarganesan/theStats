@@ -115,8 +115,9 @@ describe("GameReviewView", () => {
     // Home = 2pt made → 2; Away = 3pt made → 3.
     render(<GameReviewView record={makeRecord()} />);
     const h1 = screen.getByRole("heading", { level: 1 });
-    const header = h1.parentElement!;
-    expect(within(header).getByText(/2.*3/)).toBeInTheDocument();
+    const header = h1.closest("header");
+    expect(header).not.toBeNull();
+    expect(within(header!).getByText(/2.*3/)).toBeInTheDocument();
   });
 
   it("renders Statsheet and Play-by-play as h2 sections (no heading level jump)", () => {

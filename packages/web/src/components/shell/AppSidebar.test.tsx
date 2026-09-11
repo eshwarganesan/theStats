@@ -12,15 +12,25 @@
  *     `document.body[data-sidebar-collapsed]` mirror.
  */
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // SidebarNavItem uses next/navigation's usePathname — stub it so the
-// AppSidebar tree renders under jsdom.
+// AppSidebar tree renders under jsdom. Pathname is mutable per test so
+// the game-leave-guard block can flip to /game/*.
+let mockPathname = "/";
+const pushMock = vi.fn();
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/",
+  usePathname: () => mockPathname,
+  useRouter: () => ({ push: pushMock, refresh: vi.fn(), replace: vi.fn() }),
 }));
 
 import { AppSidebar } from "./AppSidebar";
+
+beforeEach(() => {
+  mockPathname = "/";
+  pushMock.mockReset();
+});
 
 describe("AppSidebar (controlled hamburger drawer)", () => {
   it("renders the profile slot at the bottom", () => {
@@ -107,5 +117,85 @@ describe("AppSidebar (controlled hamburger drawer)", () => {
     );
     fireEvent.click(screen.getByRole("link", { name: "Games" }));
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("AppSidebar — game-leave confirmation guard", () => {
+  it("does NOT show the confirm dialog when clicking a nav link from outside /game", () => {
+    mockPathname = "/games";
+    render(
+      <AppSidebar open onClose={() => {}} profileIcon={<span>profile</span>} />,
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Games" }));
+    expect(
+      screen.queryByRole("heading", { name: /leave the current game/i }),
+    ).toBeNull();
+  });
+
+  it("shows the confirm dialog when clicking a nav link while on /game", () => {
+    mockPathname = "/game";
+    render(
+      <AppSidebar open onClose={() => {}} profileIcon={<span>profile</span>} />,
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Games" }));
+    expect(
+      screen.getByRole("heading", { name: /leave the current game/i }),
+    ).toBeInTheDocument();
+    // Navigation MUST NOT have happened yet.
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it("shows the confirm dialog when on a /game/* subroute (e.g. /game/stats)", () => {
+    mockPathname = "/game/stats";
+    render(
+      <AppSidebar open onClose={() => {}} profileIcon={<span>profile</span>} />,
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Games" }));
+    expect(
+      screen.getByRole("heading", { name: /leave the current game/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("dismisses the dialog and does NOT navigate when Cancel is pressed", () => {
+    mockPathname = "/game";
+    render(
+      <AppSidebar open onClose={() => {}} profileIcon={<span>profile</span>} />,
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Games" }));
+    fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(
+      screen.queryByRole("heading", { name: /leave the current game/i }),
+    ).toBeNull();
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it("navigates to the pending href and dismisses the dialog when OK is pressed", () => {
+    mockPathname = "/game";
+    render(
+      <AppSidebar open onClose={() => {}} profileIcon={<span>profile</span>} />,
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Games" }));
+    fireEvent.click(screen.getByRole("button", { name: /^ok$/i }));
+    expect(pushMock).toHaveBeenCalledWith("/games");
+    expect(
+      screen.queryByRole("heading", { name: /leave the current game/i }),
+    ).toBeNull();
+  });
+
+  it("intercepts arbitrary anchor clicks in the profile-icon slot too (e.g. /account link)", () => {
+    mockPathname = "/game";
+    render(
+      <AppSidebar
+        open
+        onClose={() => {}}
+        profileIcon={<a href="/account">Account</a>}
+      />,
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Account" }));
+    expect(
+      screen.getByRole("heading", { name: /leave the current game/i }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^ok$/i }));
+    expect(pushMock).toHaveBeenCalledWith("/account");
   });
 });

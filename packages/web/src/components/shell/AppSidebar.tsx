@@ -11,12 +11,24 @@
  *   - Backdrop click → onClose.
  *   - Escape while open → onClose.
  *   - Clicking a nav item → onClose (drawer dismisses after navigation).
+ *   - When the user is on `/game/*`, ANY anchor click inside the drawer
+ *     that would leave the game route (`/games`, `/account`, …) is
+ *     intercepted and gated behind a confirmation dialog so live-
+ *     scorekeeping state isn't discarded by accident.
  */
 
-import { useCallback, useEffect, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { IconGames } from "./icons/IconGames";
 import { SidebarNavItem } from "./SidebarNavItem";
+import { GameLeaveConfirmDialog } from "@/components/game/GameLeaveConfirmDialog";
 
 export interface AppSidebarProps {
   /** Whether the drawer is on-canvas. */
@@ -29,7 +41,22 @@ export interface AppSidebarProps {
   profileIcon: ReactNode;
 }
 
+/** A same-origin path (`/foo`, `/foo/bar?x=1`) — protocol-relative and
+ *  fully-qualified URLs are ignored by the guard so external links (if
+ *  any are ever added) escape it cleanly. */
+function isInternalPath(href: string | null): href is string {
+  return typeof href === "string" && href.startsWith("/") && !href.startsWith("//");
+}
+
+function isGameRoute(pathname: string): boolean {
+  return pathname === "/game" || pathname.startsWith("/game/");
+}
+
 export function AppSidebar({ open, onClose, profileIcon }: AppSidebarProps) {
+  const router = useRouter();
+  const pathname = usePathname() ?? "";
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
   // Escape collapses the expanded overlay — matches modal-like semantics
   // without stealing focus (this is a nav, not a proper dialog).
   useEffect(() => {
@@ -44,6 +71,41 @@ export function AppSidebar({ open, onClose, profileIcon }: AppSidebarProps) {
   const handleNavClick = useCallback(() => {
     onClose();
   }, [onClose]);
+
+  // Capture-phase click handler on the drawer's <nav>. Intercepts any
+  // anchor click that would leave `/game/*` and defers navigation until
+  // the user confirms.
+  const handleNavCapture = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      if (!isGameRoute(pathname)) return;
+      const target = event.target as HTMLElement | null;
+      const anchor = target?.closest("a");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!isInternalPath(href)) return;
+      // Internal navigation that stays inside `/game/*` (tabs, etc.) is
+      // safe — no confirmation needed. In practice the drawer does not
+      // host such links, but the check is cheap and future-proof.
+      if (href === "/game" || href.startsWith("/game/")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setPendingHref(href);
+    },
+    [pathname],
+  );
+
+  const cancelPending = useCallback(() => {
+    setPendingHref(null);
+  }, []);
+
+  const confirmPending = useCallback(() => {
+    const target = pendingHref;
+    setPendingHref(null);
+    if (target) {
+      onClose();
+      router.push(target);
+    }
+  }, [pendingHref, onClose, router]);
 
   return (
     <>
@@ -63,6 +125,7 @@ export function AppSidebar({ open, onClose, profileIcon }: AppSidebarProps) {
         aria-label="Primary"
         aria-hidden={!open}
         data-open={open ? "true" : "false"}
+        onClickCapture={handleNavCapture}
         className={cn(
           "flex flex-col",
           // Off-canvas by default. Slides in from the left when open.
@@ -86,6 +149,12 @@ export function AppSidebar({ open, onClose, profileIcon }: AppSidebarProps) {
           {profileIcon}
         </div>
       </nav>
+
+      <GameLeaveConfirmDialog
+        open={pendingHref !== null}
+        onCancel={cancelPending}
+        onConfirm={confirmPending}
+      />
     </>
   );
 }

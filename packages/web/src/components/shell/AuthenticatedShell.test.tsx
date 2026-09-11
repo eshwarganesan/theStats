@@ -12,10 +12,12 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-// SidebarNavItem uses next/navigation's usePathname — stub it.
+// AppSidebar (via SidebarNavItem + the game-leave guard) uses
+// next/navigation's usePathname AND useRouter — stub both.
 import { vi } from "vitest";
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 }));
 
 import { AuthenticatedShell } from "./AuthenticatedShell";

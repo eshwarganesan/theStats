@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/lib/store";
 import { TeamSetupCard } from "@/components/setup/TeamSetupCard";
@@ -36,12 +35,6 @@ export default function SetupPage() {
       <header className="h-14 shrink-0 flex items-center justify-between px-5 md:px-8 border-b border-surface-border">
         <div className="flex items-center gap-4">
           <HamburgerButton />
-          <Link
-            href="/"
-            className="text-ink-muted hover:text-ink text-sm font-mono uppercase tracking-wider"
-          >
-            ←
-          </Link>
           <h1 className="heading-display text-xl">Game Setup</h1>
         </div>
         <div className="flex items-center gap-2">

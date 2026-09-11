@@ -4,10 +4,11 @@
  * "New game" call-to-action on the Games page (feature 010-games-library,
  * US2, FR-013 / FR-014).
  *
- * Mirrors the three-step click sequence of the home page's
- * `NewGameButton` (clear persisted local game → reset the in-memory store
- * → navigate to `/setup`) so both entry points converge on identical
- * new-game semantics — see the notes on ordering in `NewGameButton.tsx`.
+ * Three-step click sequence: clear persisted local game → reset the
+ * in-memory store → navigate to `/setup`. The order matters — wiping
+ * localStorage BEFORE the in-memory reset means we never have a window
+ * where the persisted record reflects a fresh setup but the running app
+ * still holds the prior game's data.
  *
  * Rendered above the games list on the Games page header (populated
  * state) AND as the primary CTA of the empty state (FR-010).

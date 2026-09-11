@@ -15,6 +15,7 @@ import { computeStatSheet } from "@thestats/core";
 import type { PersistedGameRecord } from "@/lib/persistence";
 import { StatSheet } from "@/components/game/StatSheet";
 import { GameLog } from "@/components/game/GameLog";
+import { HamburgerButton } from "@/components/shell/HamburgerButton";
 
 export interface GameReviewViewProps {
   record: PersistedGameRecord;
@@ -36,7 +37,8 @@ export function GameReviewView({ record }: GameReviewViewProps) {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <div className="flex items-baseline gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
+          <HamburgerButton />
           <h1 className="heading-display text-2xl">
             {record.homeTeam.name} vs {record.awayTeam.name}
           </h1>

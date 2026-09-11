@@ -15,6 +15,7 @@ import { requireAuth } from "@/lib/auth/require-auth";
 import { ensureProfile } from "./actions";
 import { ProfileSection } from "@/components/account/ProfileSection";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { HamburgerButton } from "@/components/shell/HamburgerButton";
 
 export default async function AccountPage() {
   const { user } = await requireAuth({ from: "/account" });
@@ -24,7 +25,10 @@ export default async function AccountPage() {
     <main className="min-h-[100dvh] px-4 py-8 flex justify-center">
       <div className="w-full max-w-2xl flex flex-col gap-8">
         <header className="flex flex-col gap-1">
-          <h1 className="heading-display text-3xl">Account</h1>
+          <div className="flex items-center gap-3">
+            <HamburgerButton />
+            <h1 className="heading-display text-3xl">Account</h1>
+          </div>
           <p className="text-sm text-ink-dim">
             Signed in as{" "}
             <span className="text-ink font-mono">{user.email}</span>.

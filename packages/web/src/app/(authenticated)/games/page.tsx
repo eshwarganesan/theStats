@@ -19,6 +19,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { GameLibrary } from "@/components/games/GameLibrary";
 import { LibraryErrorBoundary } from "@/components/games/LibraryErrorBoundary";
 import { NewGameCta } from "@/components/games/NewGameCta";
+import { HamburgerButton } from "@/components/shell/HamburgerButton";
 import type { LibraryEntry as Entry } from "@/lib/games/types";
 
 const INITIAL_BATCH = 20;
@@ -72,7 +73,10 @@ export default async function GamesPage() {
     <main className="min-h-[100dvh] px-4 py-8 flex justify-center">
       <div className="w-full max-w-2xl flex flex-col gap-6">
         <header className="flex items-center justify-between gap-4">
-          <h1 className="heading-display text-3xl">Games</h1>
+          <div className="flex items-center gap-3">
+            <HamburgerButton />
+            <h1 className="heading-display text-3xl">Games</h1>
+          </div>
           <NewGameCta />
         </header>
 

@@ -1,10 +1,18 @@
 /**
- * AppSidebar tests.
- * Feature 009-account-library, task T012.
- * Feature 010-games-library, task T007 (Games nav item mounted).
+ * AppSidebar tests — rewritten for the hamburger-toggle redesign.
+ *
+ * Under the new design (see feature 011 redesign push):
+ *   - AppSidebar is a fully controlled component. It receives `open` and
+ *     `onClose` from its parent and holds no internal state.
+ *   - There is NO 56 px collapsed rail. The sidebar slides completely
+ *     off-canvas when closed, and slides on-canvas (w-64) when open.
+ *   - The parent `AuthenticatedShell` owns the toggle state and the
+ *     hamburger button.
+ *   - No localStorage persistence, no matchMedia lookup, no
+ *     `document.body[data-sidebar-collapsed]` mirror.
  */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 // SidebarNavItem uses next/navigation's usePathname — stub it so the
 // AppSidebar tree renders under jsdom.
@@ -12,130 +20,92 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
-import { AppSidebar, SIDEBAR_STORAGE_KEY } from "./AppSidebar";
+import { AppSidebar } from "./AppSidebar";
 
-/**
- * Simple in-memory localStorage stub — the test env may already provide
- * one, but we want deterministic behavior per test.
- */
-function stubLocalStorage() {
-  let store: Record<string, string> = {};
-  Object.defineProperty(window, "localStorage", {
-    configurable: true,
-    value: {
-      getItem: (k: string) => store[k] ?? null,
-      setItem: (k: string, v: string) => {
-        store[k] = String(v);
-      },
-      removeItem: (k: string) => {
-        delete store[k];
-      },
-      clear: () => {
-        store = {};
-      },
-      key: (i: number) => Object.keys(store)[i] ?? null,
-      get length() {
-        return Object.keys(store).length;
-      },
-    },
-  });
-}
-
-/** Force matchMedia to a specific result for the collapse-default query. */
-function stubMatchMedia(matches: boolean) {
-  Object.defineProperty(window, "matchMedia", {
-    configurable: true,
-    value: (query: string) => ({
-      matches,
-      media: query,
-      addEventListener: () => {},
-      removeEventListener: () => {},
-      addListener: () => {},
-      removeListener: () => {},
-      onchange: null,
-      dispatchEvent: () => false,
-    }),
-  });
-}
-
-beforeEach(() => {
-  stubLocalStorage();
-});
-
-describe("AppSidebar", () => {
+describe("AppSidebar (controlled hamburger drawer)", () => {
   it("renders the profile slot at the bottom", () => {
-    stubMatchMedia(true);
     render(
-      <AppSidebar profileIcon={<div data-testid="profile-icon">profile</div>} />,
+      <AppSidebar
+        open
+        onClose={() => {}}
+        profileIcon={<div data-testid="profile-icon">profile</div>}
+      />,
     );
     expect(screen.getByTestId("profile-icon")).toBeInTheDocument();
   });
 
-  it("defaults to collapsed (rail-first) on desktop viewports", () => {
-    stubMatchMedia(true);
-    render(<AppSidebar profileIcon={<span>profile</span>} />);
-    const nav = screen.getByRole("navigation");
-    expect(nav).toHaveAttribute("data-collapsed", "true");
+  it("marks itself open when open={true} (data-open + aria-hidden reflect state)", () => {
+    render(
+      <AppSidebar open onClose={() => {}} profileIcon={<span>profile</span>} />,
+    );
+    const nav = screen.getByRole("navigation", { name: /primary/i });
+    expect(nav).toHaveAttribute("data-open", "true");
+    expect(nav).toHaveAttribute("aria-hidden", "false");
   });
 
-  it("defaults to collapsed on mobile viewports (matchMedia does not match)", () => {
-    stubMatchMedia(false);
-    render(<AppSidebar profileIcon={<span>profile</span>} />);
-    const nav = screen.getByRole("navigation");
-    expect(nav).toHaveAttribute("data-collapsed", "true");
+  it("marks itself closed when open={false} (off-canvas + aria-hidden for AT)", () => {
+    const { container } = render(
+      <AppSidebar
+        open={false}
+        onClose={() => {}}
+        profileIcon={<span>profile</span>}
+      />,
+    );
+    // Closed nav is aria-hidden — ARIA queries by name won't find it
+    // because aria-hidden nulls out the accessible name. Query by the
+    // structural aria-label attribute instead.
+    const nav = container.querySelector('nav[aria-label="Primary"]');
+    expect(nav).not.toBeNull();
+    expect(nav).toHaveAttribute("data-open", "false");
+    expect(nav).toHaveAttribute("aria-hidden", "true");
   });
 
-  it("toggles collapsed state on button click and persists it to localStorage", () => {
-    stubMatchMedia(true);
-    render(<AppSidebar profileIcon={<span>profile</span>} />);
-    // Starts collapsed (rail-first): first click expands.
-    const button = screen.getByRole("button", { name: /collapse|expand/i });
-    fireEvent.click(button);
-    expect(screen.getByRole("navigation")).toHaveAttribute(
-      "data-collapsed",
-      "false",
+  it("mounts the Games nav item pointing to /games", () => {
+    render(
+      <AppSidebar open onClose={() => {}} profileIcon={<span>profile</span>} />,
     );
-    expect(window.localStorage.getItem(SIDEBAR_STORAGE_KEY)).toBe(
-      JSON.stringify(false),
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /expand|collapse/i }));
-    expect(screen.getByRole("navigation")).toHaveAttribute(
-      "data-collapsed",
-      "true",
-    );
-    expect(window.localStorage.getItem(SIDEBAR_STORAGE_KEY)).toBe(
-      JSON.stringify(true),
-    );
-  });
-
-  it("restores persisted expanded state from localStorage on mount", () => {
-    stubMatchMedia(true);
-    // Persisted expanded overrides the rail-first collapsed default.
-    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(false));
-    render(<AppSidebar profileIcon={<span>profile</span>} />);
-    expect(screen.getByRole("navigation")).toHaveAttribute(
-      "data-collapsed",
-      "false",
-    );
-  });
-
-  it("mounts the Games nav item pointing to /games (feature 010)", () => {
-    stubMatchMedia(true);
-    render(<AppSidebar profileIcon={<span>profile</span>} />);
     const gamesLink = screen.getByRole("link", { name: "Games" });
     expect(gamesLink).toHaveAttribute("href", "/games");
   });
 
-  it("mirrors its collapsed state onto document.body[data-sidebar-collapsed]", async () => {
-    stubMatchMedia(true);
-    render(<AppSidebar profileIcon={<span>profile</span>} />);
-    await waitFor(() => {
-      expect(document.body.getAttribute("data-sidebar-collapsed")).toBe("true");
-    });
-    fireEvent.click(screen.getByRole("button", { name: /collapse|expand/i }));
-    await waitFor(() => {
-      expect(document.body.getAttribute("data-sidebar-collapsed")).toBe("false");
-    });
+  it("invokes onClose when the backdrop is clicked", () => {
+    const onClose = vi.fn();
+    render(
+      <AppSidebar open onClose={onClose} profileIcon={<span>profile</span>} />,
+    );
+    const backdrop = screen.getByTestId("sidebar-backdrop");
+    fireEvent.click(backdrop);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("invokes onClose when Escape is pressed while open", () => {
+    const onClose = vi.fn();
+    render(
+      <AppSidebar open onClose={onClose} profileIcon={<span>profile</span>} />,
+    );
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT invoke onClose on Escape when closed (listener detached)", () => {
+    const onClose = vi.fn();
+    render(
+      <AppSidebar
+        open={false}
+        onClose={onClose}
+        profileIcon={<span>profile</span>}
+      />,
+    );
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("invokes onClose when a nav item is clicked (drawer dismisses after navigation)", () => {
+    const onClose = vi.fn();
+    render(
+      <AppSidebar open onClose={onClose} profileIcon={<span>profile</span>} />,
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Games" }));
+    expect(onClose).toHaveBeenCalled();
   });
 });

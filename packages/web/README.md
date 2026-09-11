@@ -130,7 +130,7 @@ The saved-games library used to live on this page (feature 009); feature 010 mov
 
 - [`GameLibrary`](src/components/games/GameLibrary.tsx) — Client Component. First batch is server-supplied; subsequent pages load via `GET /api/games?cursor=` when an `IntersectionObserver` sentinel scrolls into view.
 - Wrapped in [`LibraryErrorBoundary`](src/components/games/LibraryErrorBoundary.tsx) so a library render failure never blanks out the page shell (FR-012).
-- [`NewGameCta`](src/components/games/NewGameCta.tsx) — a "use client" button that clears local persistence, resets the Zustand store, and routes to `/setup` (same three-step order as the home page's `NewGameButton`).
+- [`NewGameCta`](src/components/games/NewGameCta.tsx) — a "use client" button that clears local persistence, resets the Zustand store, and routes to `/setup`. This is the only authenticated "start a new game" entry point; the public landing hero's CTAs route to `/login` since the app is auth-gated (feature 011).
 - Sidebar entry point: [`SidebarNavItem`](src/components/shell/SidebarNavItem.tsx) reads `document.body[data-sidebar-collapsed]` to switch between icon-only (rail) and icon+label (overlay) rendering.
 
 ### Write-through save

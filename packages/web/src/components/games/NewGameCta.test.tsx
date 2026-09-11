@@ -1,9 +1,6 @@
 /**
  * NewGameCta tests.
  * Feature 010-games-library, task T019.
- *
- * Mirrors the ordering + interaction assertions used for the home page's
- * `NewGameButton` so both entry points converge on identical semantics.
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

@@ -7,10 +7,13 @@
  * `/login`. To let the 16 downstream specs remain unchanged, we:
  *
  *   1. Provision a dedicated E2E user via the Supabase admin API
- *      (deleted + recreated each run so no state leaks between runs).
- *   2. Sign in through the real UI so the resulting session cookies
- *      match what a production browser would carry.
- *   3. Persist that browser context via `context.storageState()` to
+ *      (delete + recreate each run so no state leaks between runs).
+ *   2. Sign the user in by POSTing directly to the app's own
+ *      `/api/auth/sign-in` route via Playwright's request context.
+ *      This exercises the exact same code path production uses and
+ *      makes the response's `Set-Cookie` headers land in the request
+ *      context's cookie jar — no UI rendering involved.
+ *   3. Persist the resulting cookies via `context.storageState()` to
  *      `tests/e2e/.auth/user.json`. `playwright.config.ts` wires this
  *      file into `use.storageState` so every worker starts already
  *      signed in.
@@ -23,11 +26,18 @@
  * .env.local), this writes an EMPTY storage state so Playwright can
  * still load a config that references the file. Every spec that
  * requires the fixture is guarded by
- * `test.skip(!url || !serviceRole, …)`, so a run without env variables
+ * `test.skip(!url || !serviceRole, …)`, so a run without env vars
  * simply skips everything auth-related instead of failing at config
  * load.
+ *
+ * Rationale (design shift from an earlier iteration): an earlier
+ * version drove sign-in through the UI (`page.goto("/login")` →
+ * `page.fill` → `page.click`). That flow was flaky on CI — Supabase's
+ * per-IP throttle and browser-side race conditions occasionally
+ * produced an empty storage state, silently unauthenticating every
+ * downstream spec. Bypassing the UI removes both classes of flake.
  */
-import { chromium, type FullConfig } from "@playwright/test";
+import { request, type FullConfig } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import fs from "node:fs";
 import path from "node:path";
@@ -97,27 +107,41 @@ async function globalSetup(config: FullConfig): Promise<void> {
     email_confirm: true,
   });
 
-  // Sign in through the UI so the storage state matches what a real
-  // browser would carry (Supabase SSR cookies, not a raw JWT).
+  // Sign in by hitting the app's own sign-in route. The response's
+  // Set-Cookie headers (Supabase SSR session cookies) automatically
+  // land in the request context's cookie jar, and `storageState()`
+  // serializes them to disk.
   const baseURL =
     (config.projects[0]?.use.baseURL as string | undefined) ??
     "http://localhost:3000";
-  const browser = await chromium.launch();
-  try {
-    const context = await browser.newContext({ baseURL });
-    const page = await context.newPage();
-    await page.goto("/login");
-    await page.getByRole("tab", { name: /sign in/i }).click();
-    await page.getByLabel(/email/i).fill(E2E_SHARED_EMAIL);
-    await page.getByLabel(/password/i).fill(E2E_SHARED_PASSWORD);
-    await page.getByRole("button", { name: /^sign in$/i }).click();
-    // Feature 011 lands post-signin on /games.
-    await page.waitForURL(/\/games/);
+  // Fresh-per-run X-Forwarded-For so the per-IP throttle key does not
+  // collide with prior runs on shared CI infra.
+  const oct = () => Math.floor(Math.random() * 254) + 1;
+  const forwardedFor = `10.${oct()}.${oct()}.${oct()}`;
 
+  const ctx = await request.newContext({
+    baseURL,
+    extraHTTPHeaders: { "x-forwarded-for": forwardedFor },
+  });
+
+  try {
+    const res = await ctx.post("/api/auth/sign-in", {
+      data: {
+        email: E2E_SHARED_EMAIL,
+        password: E2E_SHARED_PASSWORD,
+      },
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok()) {
+      const body = await res.text().catch(() => "<unreadable>");
+      throw new Error(
+        `[e2e global-setup] sign-in failed: HTTP ${res.status()} — ${body}`,
+      );
+    }
     ensureDir(E2E_STORAGE_STATE_PATH);
-    await context.storageState({ path: E2E_STORAGE_STATE_PATH });
+    await ctx.storageState({ path: E2E_STORAGE_STATE_PATH });
   } finally {
-    await browser.close();
+    await ctx.dispose();
   }
 }
 

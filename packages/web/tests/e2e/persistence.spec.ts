@@ -165,7 +165,10 @@ test.describe("Game state persistence", () => {
         configurable: true,
       });
     });
-    await page.goto("/");
+    // The StorageUnavailableModal mounts inside the `(authenticated)/`
+    // layout (feature 011 — root layout no longer hosts app chrome).
+    // Any authenticated route triggers it; /setup is the simplest.
+    await page.goto("/setup");
     await expect(page.getByText(/saving is disabled/i)).toBeVisible();
     await page
       .getByRole("button", { name: /continue without saving/i })
@@ -190,9 +193,15 @@ test.describe("Game state persistence", () => {
     expect(before!.state.status).toBe("live");
     expect(before!.state.events.length).toBeGreaterThan(0);
 
-    // Navigate home and click "New Game".
-    await page.goto("/");
-    await page.getByRole("button", { name: /New Game/ }).click();
+    // Feature 011: the authenticated "New game" CTA lives on /games
+    // (the pre-011 landing "New Game" button is now a plain <Link> to
+    // /login for signed-out visitors and no longer exists on the
+    // landing at all). Navigate to /games and click the CTA — the
+    // NewGameCta executes the same three-step wipe
+    // (clearPersistedGame → resetAll → push /setup) that the old
+    // landing button did.
+    await page.goto("/games");
+    await page.getByRole("button", { name: /new game/i }).click();
     await expect(page).toHaveURL(/\/setup$/);
 
     // The persisted record now reflects a fresh empty setup, NOT the
@@ -216,8 +225,9 @@ test.describe("Game state persistence", () => {
   }) => {
     await seedAndEnterGame(page);
     await page.getByRole("button", { name: /Tip Off/ }).click();
-    await page.goto("/");
-    await page.getByRole("button", { name: /New Game/ }).click();
+    // Feature 011: authenticated "New game" CTA lives on /games.
+    await page.goto("/games");
+    await page.getByRole("button", { name: /new game/i }).click();
     await expect(page).toHaveURL(/\/setup$/);
 
     await page.reload();

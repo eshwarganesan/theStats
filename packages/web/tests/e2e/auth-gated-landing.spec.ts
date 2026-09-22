@@ -12,15 +12,22 @@
  *
  * Runs against the dev server (next dev) + hosted Supabase (see
  * playwright.config.ts). Skipped when the required env is absent.
+ *
+ * This file opts out of the shared authenticated storage state
+ * (from `global-setup.ts`) via `test.use({ storageState: {…} })` AND a
+ * defensive `context.clearCookies()` in `beforeEach` — Playwright's
+ * `test.use` override has been observed to leak the shared cookies
+ * through on CI, so belt-and-suspenders.
+ *
+ * Sign-in in test bodies goes through `signInViaAPI` (direct POST to
+ * `/api/auth/sign-in`) instead of driving the login form. The UI
+ * sign-in flow is exercised by `auth.spec.ts`; here we care about the
+ * *routing* behavior around the auth wall, not the form's own UX.
  */
 import { test, expect } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { randomForwardedFor, signInViaAPI } from "./_auth-helpers";
 
-// Opt this whole file out of the shared authenticated storage state
-// (FOLLOW-UP-1). Feature 011's stories are all about the boundary
-// between signed-out and signed-in, so every test in this file starts
-// from an empty cookie jar and either stays anonymous or signs in
-// through a fresh admin-provisioned user.
 test.use({ storageState: { cookies: [], origins: [] } });
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -62,12 +69,10 @@ async function deleteUserByEmail(email: string): Promise<void> {
   }
 }
 
-// Give each test its own X-Forwarded-For so the per-IP throttle key is
-// unique across parallel workers.
 test.beforeEach(async ({ context }) => {
-  const oct = () => Math.floor(Math.random() * 254) + 1;
+  await context.clearCookies();
   await context.setExtraHTTPHeaders({
-    "x-forwarded-for": `10.${oct()}.${oct()}.${oct()}`,
+    "x-forwarded-for": randomForwardedFor(),
   });
 });
 
@@ -78,7 +83,7 @@ test.describe("US1 — public landing for signed-out visitors", () => {
     // signals the landing rendered.
     await expect(page.getByText(/Every Bucket\./i)).toBeVisible();
     // Sidebar's semantic landmark — MUST be absent on the public landing.
-    await expect(page.getByRole("navigation", { name: /primary/i })).toHaveCount(0);
+    await expect(page.locator('nav[aria-label="Primary"]')).toHaveCount(0);
   });
 
   test('the "New Game" CTA routes a signed-out visitor to /login', async ({ page }) => {
@@ -98,7 +103,7 @@ test.describe("US1 — public landing for signed-out visitors", () => {
   test("the login page itself does not render the app sidebar (FR-011)", async ({ page }) => {
     await page.goto("/login");
     await expect(page.getByLabel(/email/i)).toBeVisible();
-    await expect(page.getByRole("navigation", { name: /primary/i })).toHaveCount(0);
+    await expect(page.locator('nav[aria-label="Primary"]')).toHaveCount(0);
   });
 });
 
@@ -112,12 +117,7 @@ test.describe("US2 — signed-in users skip the landing", () => {
         email_confirm: true,
       });
 
-      await page.goto("/login");
-      await page.getByRole("tab", { name: /sign in/i }).click();
-      await page.getByLabel(/email/i).fill(email);
-      await page.getByLabel(/password/i).fill("password12345");
-      await page.getByRole("button", { name: /^sign in$/i }).click();
-      await page.waitForURL("/games");
+      await signInViaAPI(page, email, "password12345");
 
       await page.goto("/");
       await expect(page).toHaveURL("/games");
@@ -137,12 +137,7 @@ test.describe("US2 — signed-in users skip the landing", () => {
         email_confirm: true,
       });
 
-      await page.goto("/login");
-      await page.getByRole("tab", { name: /sign in/i }).click();
-      await page.getByLabel(/email/i).fill(email);
-      await page.getByLabel(/password/i).fill("password12345");
-      await page.getByRole("button", { name: /^sign in$/i }).click();
-      await page.waitForURL("/games");
+      await signInViaAPI(page, email, "password12345");
 
       await page.goto("/login");
       await expect(page).toHaveURL("/games");
@@ -160,15 +155,10 @@ test.describe("US2 — signed-in users skip the landing", () => {
         email_confirm: true,
       });
 
-      await page.goto("/login");
-      await page.getByRole("tab", { name: /sign in/i }).click();
-      await page.getByLabel(/email/i).fill(email);
-      await page.getByLabel(/password/i).fill("password12345");
-      await page.getByRole("button", { name: /^sign in$/i }).click();
-      await page.waitForURL("/games");
+      await signInViaAPI(page, email, "password12345");
+      await page.goto("/account");
+      await expect(page).toHaveURL("/account");
 
-      await page.getByRole("link", { name: /account/i }).click();
-      await page.waitForURL("/account");
       await page.getByRole("button", { name: /sign out/i }).click();
 
       await page.waitForURL("/");
@@ -187,7 +177,7 @@ test.describe("US3 — deep-link protection for signed-out users", () => {
       await page.waitForURL((u) => u.pathname === "/login");
       expect(page.url()).toContain(`from=${encodeURIComponent(path)}`);
       // Login page must NOT show the sidebar (spec FR-011).
-      await expect(page.getByRole("navigation", { name: /primary/i })).toHaveCount(0);
+      await expect(page.locator('nav[aria-label="Primary"]')).toHaveCount(0);
     });
   }
 

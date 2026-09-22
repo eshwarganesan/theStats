@@ -84,7 +84,11 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe("Account page", () => {
-  test("unauthenticated /account redirects to /login", async ({ page }) => {
+  test("unauthenticated /account redirects to /login", async ({ page, context }) => {
+    // Belt-and-suspenders — some CI runs saw shared cookies leaking
+    // through the file-scope `test.use({ storageState: {} })` +
+    // beforeEach clearCookies.
+    await context.clearCookies();
     await page.goto("/account");
     await expect(page).toHaveURL(/\/login/);
   });

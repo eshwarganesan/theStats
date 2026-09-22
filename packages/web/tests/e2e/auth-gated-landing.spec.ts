@@ -172,7 +172,12 @@ test.describe("US2 — signed-in users skip the landing", () => {
 
 test.describe("US3 — deep-link protection for signed-out users", () => {
   for (const path of ["/setup", "/game", "/games", "/account"]) {
-    test(`a signed-out deep link to ${path} bounces to /login?from=${encodeURIComponent(path)}`, async ({ page }) => {
+    test(`a signed-out deep link to ${path} bounces to /login?from=${encodeURIComponent(path)}`, async ({ page, context }) => {
+      // Belt-and-suspenders — the file-scope `test.use({ storageState: {} })`
+      // + beforeEach `clearCookies` occasionally failed to unstick the
+      // shared authenticated cookies for /setup and /game on CI. An
+      // explicit in-body clear is deterministic.
+      await context.clearCookies();
       await page.goto(path);
       await page.waitForURL((u) => u.pathname === "/login");
       expect(page.url()).toContain(`from=${encodeURIComponent(path)}`);
@@ -206,7 +211,7 @@ test.describe("US3 — deep-link protection for signed-out users", () => {
     }
   });
 
-  test("the query string is preserved through the from-round-trip", async ({ page }) => {
+  test("the query string is preserved through the from-round-trip", async ({ page, context }) => {
     const email = uniqueEmail("e2e-011-us3-query");
     try {
       await admin().auth.admin.createUser({
@@ -215,6 +220,9 @@ test.describe("US3 — deep-link protection for signed-out users", () => {
         email_confirm: true,
       });
 
+      // Belt-and-suspenders — must start unauthenticated to observe the
+      // /login redirect. See notes on the /setup test above.
+      await context.clearCookies();
       const deepLink = "/games?filter=in-progress";
       await page.goto(deepLink);
       await page.waitForURL((u) => u.pathname === "/login");

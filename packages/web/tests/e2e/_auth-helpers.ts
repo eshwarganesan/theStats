@@ -27,24 +27,41 @@ export function randomForwardedFor(): string {
 }
 
 /**
- * Sign in via a direct POST to `/api/auth/sign-in` on the given page's
- * request context. Cookies from the response land in the page's cookie
- * jar automatically. Does NOT navigate — caller decides where to go next
- * (typically `await page.goto("/games")` or a deep-link URL).
+ * Sign in via a browser-side `fetch` to `/api/auth/sign-in`.
+ *
+ * We first navigate to `/login` (a same-origin public page) to
+ * establish the origin, then run the sign-in POST inside the page
+ * context via `page.evaluate`. The Set-Cookie headers flow through
+ * the browser's own cookie management — the same path a real user's
+ * form submit would take — which avoids a Chromium quirk observed on
+ * CI where cookies set by `page.request.post` (a Node-side request
+ * context) don't reliably propagate to subsequent `page.goto` calls.
+ *
+ * Does NOT navigate after sign-in — the caller decides where to go
+ * next (typically `page.goto("/games")` or a deep-link URL).
  */
 export async function signInViaAPI(
   page: Page,
   email: string,
   password: string,
 ): Promise<void> {
-  const res = await page.request.post("/api/auth/sign-in", {
-    data: { email, password },
-    headers: { "Content-Type": "application/json" },
-  });
-  if (!res.ok()) {
-    const body = await res.text().catch(() => "<unreadable>");
+  await page.goto("/login");
+  const result = await page.evaluate(
+    async ({ email, password }) => {
+      const res = await fetch("/api/auth/sign-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+        credentials: "include",
+      });
+      const bodyText = await res.text().catch(() => "");
+      return { ok: res.ok, status: res.status, body: bodyText };
+    },
+    { email, password },
+  );
+  if (!result.ok) {
     throw new Error(
-      `[e2e signInViaAPI] sign-in failed: HTTP ${res.status()} — ${body}`,
+      `[e2e signInViaAPI] sign-in failed: HTTP ${result.status} — ${result.body}`,
     );
   }
 }

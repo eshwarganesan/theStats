@@ -164,7 +164,7 @@ test.describe("Games page — list rendering", () => {
     try {
       await signIn(page, email, password);
       await page.goto("/games");
-      await expect(page.getByRole("heading", { name: "Games" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Games" })).toBeVisible();
       await expect(
         page.getByText(/games you play will appear here/i),
       ).toBeVisible();
@@ -259,7 +259,7 @@ test.describe("Games page — list rendering", () => {
       await page.goto("/games");
       // Page shell is still there (header + CTA), the failure is confined
       // to the list section.
-      await expect(page.getByRole("heading", { name: "Games" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Games" })).toBeVisible();
       await expect(page.getByRole("button", { name: /new game/i })).toBeVisible();
     } finally {
       await cleanup(email);

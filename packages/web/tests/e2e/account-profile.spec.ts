@@ -110,7 +110,10 @@ test.describe("Account page", () => {
       const nameInput = page.getByLabel(/display name/i);
       await nameInput.fill("Coach K");
       await page.getByRole("button", { name: /save/i }).click();
-      await expect(page.getByText(/saved/i)).toBeVisible();
+      // Scope to the role="status" span with "Saved." — the plain
+      // `getByText(/saved/i)` also matches the GameLeaveConfirmDialog's
+      // "unsaved progress" copy (rendered in a closed <dialog>).
+      await expect(page.getByRole("status")).toHaveText(/saved/i);
 
       await page.reload();
       await expect(page.getByLabel(/display name/i)).toHaveValue("Coach K");

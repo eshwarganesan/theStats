@@ -13,6 +13,10 @@
  */
 import { test, expect, type Page } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { randomForwardedFor, signInViaAPI } from "./_auth-helpers";
+
+// Belt-and-suspenders against the shared storage state leaking through.
+test.use({ storageState: { cookies: [], origins: [] } });
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -137,18 +141,16 @@ async function cleanup(email: string): Promise<void> {
   }
 }
 
+/** Sign in via the shared direct-POST helper — bypasses the UI form's
+ *  redirect dance which has been flaky on CI. Does not navigate. */
 async function signIn(page: Page, email: string, password: string): Promise<void> {
-  await page.goto("/login");
-  await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/password/i).fill(password);
-  await page.getByRole("button", { name: /sign in/i }).click();
-  await page.waitForURL("/");
+  await signInViaAPI(page, email, password);
 }
 
 test.beforeEach(async ({ context }) => {
-  const oct = () => Math.floor(Math.random() * 254) + 1;
+  await context.clearCookies();
   await context.setExtraHTTPHeaders({
-    "x-forwarded-for": `10.${oct()}.${oct()}.${oct()}`,
+    "x-forwarded-for": randomForwardedFor(),
   });
 });
 
@@ -162,7 +164,7 @@ test.describe("Games page — list rendering", () => {
     try {
       await signIn(page, email, password);
       await page.goto("/games");
-      await expect(page.getByRole("heading", { name: "Games" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Games" })).toBeVisible();
       await expect(
         page.getByText(/games you play will appear here/i),
       ).toBeVisible();
@@ -257,7 +259,7 @@ test.describe("Games page — list rendering", () => {
       await page.goto("/games");
       // Page shell is still there (header + CTA), the failure is confined
       // to the list section.
-      await expect(page.getByRole("heading", { name: "Games" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Games" })).toBeVisible();
       await expect(page.getByRole("button", { name: /new game/i })).toBeVisible();
     } finally {
       await cleanup(email);
@@ -320,9 +322,7 @@ test.describe("Games page — anonymous game on sign-in prompt (FR-024 carry-ove
       await expect(save).toBeVisible();
       await save.click();
 
-      await page.waitForURL("/");
-      // Games list surface has moved from /account → /games.
-      await page.getByRole("link", { name: "Games" }).click();
+      // Post-signin destination is /games (feature 011 FR-010).
       await page.waitForURL("/games");
       const entry = page.getByRole("listitem").filter({ hasText: "E2E Home" });
       await expect(entry).toBeVisible();

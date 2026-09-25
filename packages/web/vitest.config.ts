@@ -33,6 +33,9 @@ export default defineConfig({
       // because they're full-stack. They self-skip via `describe.skipIf`
       // when Supabase env vars are missing, so they're discovery-safe.
       "tests/integration/**/*.test.ts",
+      // Middleware sits at the package root because Next.js requires it
+      // there; its unit test sits alongside it (feature 011).
+      "middleware.test.ts",
     ],
     exclude: ["node_modules", ".next", "tests/e2e/**"],
     coverage: {

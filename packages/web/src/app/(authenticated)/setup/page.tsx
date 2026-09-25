@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/lib/store";
 import { TeamSetupCard } from "@/components/setup/TeamSetupCard";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { HamburgerButton } from "@/components/shell/HamburgerButton";
 import type { GameFormat } from "@thestats/core";
 import { cn } from "@/lib/utils";
 
@@ -34,12 +34,7 @@ export default function SetupPage() {
       {/* Top bar */}
       <header className="h-14 shrink-0 flex items-center justify-between px-5 md:px-8 border-b border-surface-border">
         <div className="flex items-center gap-4">
-          <Link
-            href="/"
-            className="text-ink-muted hover:text-ink text-sm font-mono uppercase tracking-wider"
-          >
-            ←
-          </Link>
+          <HamburgerButton />
           <h1 className="heading-display text-xl">Game Setup</h1>
         </div>
         <div className="flex items-center gap-2">

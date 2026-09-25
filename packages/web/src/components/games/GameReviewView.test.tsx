@@ -9,11 +9,32 @@
  *   - A "Back to your library" link points at `/games` (feature 010 T027 —
  *     the library moved out of the account page into a dedicated /games route).
  */
-import { render, screen, within } from "@testing-library/react";
+import { render as rtlRender, screen, within, type RenderOptions } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, type GameEvent, type Team } from "@thestats/core";
 import type { PersistedGameRecord } from "@/lib/persistence";
 import { GameReviewView } from "./GameReviewView";
+import {
+  SidebarToggleContext,
+  type SidebarToggleContextValue,
+} from "@/components/shell/SidebarToggleContext";
+
+// GameReviewView renders <HamburgerButton /> in its header, which reads
+// SidebarToggleContext. Provide a no-op context so isolated component
+// tests don't need to exercise the drawer flow.
+const noopSidebarCtx: SidebarToggleContextValue = {
+  open: false,
+  toggle: () => {},
+  close: () => {},
+};
+function render(ui: React.ReactElement, options?: RenderOptions) {
+  return rtlRender(
+    <SidebarToggleContext.Provider value={noopSidebarCtx}>
+      {ui}
+    </SidebarToggleContext.Provider>,
+    options,
+  );
+}
 
 // The review view renders <GameLog>, which reads from the Zustand store
 // as its default source. `source={...}` should suppress those reads —
@@ -94,8 +115,9 @@ describe("GameReviewView", () => {
     // Home = 2pt made → 2; Away = 3pt made → 3.
     render(<GameReviewView record={makeRecord()} />);
     const h1 = screen.getByRole("heading", { level: 1 });
-    const header = h1.parentElement!;
-    expect(within(header).getByText(/2.*3/)).toBeInTheDocument();
+    const header = h1.closest("header");
+    expect(header).not.toBeNull();
+    expect(within(header!).getByText(/2.*3/)).toBeInTheDocument();
   });
 
   it("renders Statsheet and Play-by-play as h2 sections (no heading level jump)", () => {

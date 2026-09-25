@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { NewGameButton } from "@/components/home/NewGameButton";
 
 export default function HomePage() {
   return (
@@ -48,10 +47,12 @@ export default function HomePage() {
             </p>
 
             <div className="mt-10 flex flex-wrap gap-3">
-              <NewGameButton size="xl" variant="primary">
-                New Game →
-              </NewGameButton>
-              <Link href="/game">
+              <Link href="/login">
+                <Button size="xl" variant="primary">
+                  New Game →
+                </Button>
+              </Link>
+              <Link href="/login">
                 <Button size="xl" variant="outline">
                   Continue Game
                 </Button>

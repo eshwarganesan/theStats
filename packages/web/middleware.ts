@@ -74,7 +74,20 @@ export function decideRoute(
 }
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  // Forward the current pathname+search on `x-pathname` so
+  // Server-Component layouts (specifically `(authenticated)/layout.tsx`)
+  // can pass it as `from` to their belt-and-suspenders `requireAuth`
+  // call. Without this the layout's redirect drops the query and
+  // strips the deep-link round-trip that middleware itself provides.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(
+    "x-pathname",
+    request.nextUrl.pathname + request.nextUrl.search,
+  );
+
+  let response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
 
   const env = getPublicEnv();
   const supabase = createSSRServerClient<Database>(
@@ -89,7 +102,9 @@ export async function middleware(request: NextRequest) {
           for (const { name, value } of cookiesToSet) {
             request.cookies.set(name, value);
           }
-          response = NextResponse.next({ request });
+          response = NextResponse.next({
+            request: { headers: requestHeaders },
+          });
           for (const { name, value, options } of cookiesToSet) {
             response.cookies.set(name, value, options);
           }

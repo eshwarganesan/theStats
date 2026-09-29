@@ -9,6 +9,11 @@
  */
 import { test, expect } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { randomForwardedFor, signInViaAPI } from "./_auth-helpers";
+
+// Auth-flow file — start every test unauthenticated. Belt-and-suspenders
+// against the shared storage state leaking through on CI.
+test.use({ storageState: { cookies: [], origins: [] } });
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -71,18 +76,19 @@ async function cleanup(email: string): Promise<void> {
   }
 }
 
-// Give each test its own X-Forwarded-For so the per-IP throttle key is
-// unique. Localhost requests otherwise share `ip:unknown`, letting a
-// sibling test's failed sign-in race-poison this one under parallel workers.
 test.beforeEach(async ({ context }) => {
-  const oct = () => Math.floor(Math.random() * 254) + 1;
+  await context.clearCookies();
   await context.setExtraHTTPHeaders({
-    "x-forwarded-for": `10.${oct()}.${oct()}.${oct()}`,
+    "x-forwarded-for": randomForwardedFor(),
   });
 });
 
 test.describe("Account page", () => {
-  test("unauthenticated /account redirects to /login", async ({ page }) => {
+  test("unauthenticated /account redirects to /login", async ({ page, context }) => {
+    // Belt-and-suspenders — some CI runs saw shared cookies leaking
+    // through the file-scope `test.use({ storageState: {} })` +
+    // beforeEach clearCookies.
+    await context.clearCookies();
     await page.goto("/account");
     await expect(page).toHaveURL(/\/login/);
   });
@@ -93,16 +99,9 @@ test.describe("Account page", () => {
     await createConfirmedUser(email, password);
 
     try {
-      await page.goto("/login");
-      await page.getByLabel(/email/i).fill(email);
-      await page.getByLabel(/password/i).fill(password);
-      await page.getByRole("button", { name: /sign in/i }).click();
-      await page.waitForURL("/");
-
-      // Click the profile icon at the bottom of the sidebar (visible only
-      // when signed in) to reach the account page.
-      await page.getByRole("link", { name: /account/i }).click();
-      await page.waitForURL("/account");
+      await signInViaAPI(page, email, password);
+      await page.goto("/account");
+      await expect(page).toHaveURL("/account");
 
       // Email renders in both the header and the profile form; scope to the
       // first match to avoid a strict-mode conflict.
@@ -111,7 +110,10 @@ test.describe("Account page", () => {
       const nameInput = page.getByLabel(/display name/i);
       await nameInput.fill("Coach K");
       await page.getByRole("button", { name: /save/i }).click();
-      await expect(page.getByText(/saved/i)).toBeVisible();
+      // Scope to the role="status" span with "Saved." — the plain
+      // `getByText(/saved/i)` also matches the GameLeaveConfirmDialog's
+      // "unsaved progress" copy (rendered in a closed <dialog>).
+      await expect(page.getByRole("status")).toHaveText(/saved/i);
 
       await page.reload();
       await expect(page.getByLabel(/display name/i)).toHaveValue("Coach K");
@@ -129,14 +131,9 @@ test.describe("Account page", () => {
     await createConfirmedUser(email, password);
 
     try {
-      await page.goto("/login");
-      await page.getByLabel(/email/i).fill(email);
-      await page.getByLabel(/password/i).fill(password);
-      await page.getByRole("button", { name: /sign in/i }).click();
-      await page.waitForURL("/");
-
-      await page.getByRole("link", { name: /account/i }).click();
-      await page.waitForURL("/account");
+      await signInViaAPI(page, email, password);
+      await page.goto("/account");
+      await expect(page).toHaveURL("/account");
 
       // Wrong current password → inline error, no logout.
       await page.getByLabel(/current password/i).fill("nope");

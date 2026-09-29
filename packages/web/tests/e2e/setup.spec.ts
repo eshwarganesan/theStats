@@ -2,11 +2,13 @@ import { test, expect } from "@playwright/test";
 import { seedSetup, DEFAULT_HOME, DEFAULT_AWAY } from "./_helpers";
 
 test.describe("Setup", () => {
-  test("landing → /setup link works", async ({ page }) => {
-    await page.goto("/");
-    // "New Game" is now a button (it wipes localStorage before
-    // navigating); the prior Link variant was replaced in feature 006.
-    await page.getByRole("button", { name: /New Game/ }).click();
+  test("signed-in navigation to /setup renders the Game Setup screen", async ({ page }) => {
+    // Under feature 011 the app is auth-gated; the shared authenticated
+    // storage state from global-setup applies here. Direct navigation
+    // reaches setup because the shared user is signed in. (The pre-011
+    // "landing → New Game button → /setup" flow is gone: the landing
+    // is now a signed-out marketing surface whose CTAs go to /login.)
+    await page.goto("/setup");
     await expect(page).toHaveURL(/\/setup$/);
     await expect(page.getByRole("heading", { name: "Game Setup" })).toBeVisible();
   });

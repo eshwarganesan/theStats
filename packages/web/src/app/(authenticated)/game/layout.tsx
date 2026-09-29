@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useGameStore } from "@/lib/store";
 import { Scoreboard } from "@/components/game/Scoreboard";
 import { SaveGameButton } from "@/components/game/SaveGameButton";
+import { HamburgerButton } from "@/components/shell/HamburgerButton";
 import { useGameClock } from "@/hooks/useGameClock";
 import { useClockCheckpoint } from "@/hooks/useClockCheckpoint";
 import { cn } from "@/lib/utils";
@@ -51,15 +52,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
     <main className="min-h-[100dvh] flex flex-col">
       {/* Top bar */}
       <header className="h-12 shrink-0 flex items-center justify-between px-4 md:px-6 border-b border-surface-border">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="text-ink-muted hover:text-ink text-sm font-mono">
-            ←
-          </Link>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-accent" aria-hidden />
-            <span className="heading-display text-base tracking-wide">CourtLog</span>
-          </div>
-        </div>
+        <HamburgerButton />
 
         <nav className="flex">
           {TABS.map((tab) => {

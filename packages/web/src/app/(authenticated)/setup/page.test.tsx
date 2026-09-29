@@ -1,14 +1,35 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render as rtlRender, screen, type RenderOptions } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useGameStore } from "@/lib/store";
 import { DEFAULT_SETTINGS } from "@thestats/core";
 import SetupPage from "./page";
+import {
+  SidebarToggleContext,
+  type SidebarToggleContextValue,
+} from "@/components/shell/SidebarToggleContext";
 
 // next/navigation is used by SetupPage's Continue button; stub it for tests.
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
+
+// SetupPage renders <HamburgerButton /> in its header, which reads from
+// SidebarToggleContext. Provide a no-op context so tests don't need to
+// exercise the drawer flow.
+const noopSidebarCtx: SidebarToggleContextValue = {
+  open: false,
+  toggle: () => {},
+  close: () => {},
+};
+function render(ui: React.ReactElement, options?: RenderOptions) {
+  return rtlRender(
+    <SidebarToggleContext.Provider value={noopSidebarCtx}>
+      {ui}
+    </SidebarToggleContext.Provider>,
+    options,
+  );
+}
 
 beforeEach(() => {
   useGameStore.getState().resetAll();

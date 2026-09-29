@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface SignOutButtonProps {
@@ -9,12 +9,12 @@ interface SignOutButtonProps {
 
 /**
  * Client Component child of <AuthPill />. Posts to /api/auth/sign-out
- * then refreshes server components and returns the user to the main
- * scorekeeping screen in anonymous mode (FR-009 / US3).
+ * then returns the user to the public landing page (feature 011 FR-013).
+ * Uses a full-document navigation to `/` so middleware re-evaluates the
+ * (now signed-out) session on the next request and serves the landing.
  */
 export function SignOutButton({ className }: SignOutButtonProps) {
   const [pending, setPending] = useState(false);
-  const [, startTransition] = useTransition();
 
   async function onClick() {
     if (pending) return;

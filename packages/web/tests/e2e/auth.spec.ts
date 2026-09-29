@@ -1,22 +1,27 @@
 /**
  * Playwright E2E spec for the User Authentication feature.
  *
- * Runs against the dev server (next dev) + your hosted Supabase. The US1
- * block here is sufficient to exercise the MVP shipped in Phase 3:
- * sign-up via the UI → an unconfirmed session lands on `/` → AuthPill
- * reflects the new identity → confirmation via admin.generateLink (in lieu
- * of clicking a real email) → AuthPill drops the "Pending confirmation"
- * badge.
+ * Runs against the dev server (next dev) + your hosted Supabase. Covers:
+ *   - US1: sign up → account is created and lands on /games
+ *   - US2: sign in / already-signed-in redirect / unconfirmed user flow
+ *   - US3: sign out → landing at /, /account gated again
  *
  * Requires .env.local in packages/web/ to have:
  *   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
  *   SUPABASE_SERVICE_ROLE_KEY.
  *
- * US2 (sign-in) and US3 (sign-out + deep-link redirect) extend this file
- * in their own task phases.
+ * Because this whole file is about the unauthenticated → authenticated
+ * transition, it opts out of the shared authenticated storage state
+ * (from `global-setup.ts`) via `test.use({ storageState: {…} })` AND a
+ * defensive `context.clearCookies()` in `beforeEach` — Playwright's
+ * `test.use` override has been observed to leak the shared cookies
+ * through on CI, so belt-and-suspenders.
  */
 import { test, expect } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { randomForwardedFor } from "./_auth-helpers";
+
+test.use({ storageState: { cookies: [], origins: [] } });
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -54,19 +59,21 @@ async function deleteUserByEmail(email: string): Promise<void> {
   }
 }
 
-// Give each test its own X-Forwarded-For so the per-IP throttle key is
-// unique. Without this, every browser request from localhost shares
-// `ip:unknown` and the intentional failed sign-in in the US2 unconfirmed
-// test bumps the counter for concurrent tests running in other workers.
+// Belt-and-suspenders: even though `test.use({ storageState: {...} })`
+// at file scope should give every test a fresh empty context, the
+// shared cookies from `global-setup.ts` have been observed to bleed
+// through on CI. Explicitly clear them at the top of every test.
+// Also stamp a per-test X-Forwarded-For so the per-IP throttle key is
+// unique across parallel workers.
 test.beforeEach(async ({ context }) => {
-  const oct = () => Math.floor(Math.random() * 254) + 1;
+  await context.clearCookies();
   await context.setExtraHTTPHeaders({
-    "x-forwarded-for": `10.${oct()}.${oct()}.${oct()}`,
+    "x-forwarded-for": randomForwardedFor(),
   });
 });
 
 test.describe("US1: sign up", () => {
-  test("a new visitor signs up and lands on / signed in", async ({
+  test("a new visitor signs up and lands on /games signed in", async ({
     page,
   }) => {
     const email = uniqueEmail();
@@ -96,10 +103,14 @@ test.describe("US1: sign up", () => {
       );
       expect(signUpRes.status()).toBe(200);
 
-      await page.waitForURL("/");
-      // The shell no longer surfaces an email / pending-confirmation pill;
-      // the signed-in affordance is the account icon in the sidebar.
-      await expect(page.getByRole("link", { name: /account/i })).toBeVisible();
+      // Post-signin lands on /games (feature 011 FR-010).
+      await page.waitForURL("/games");
+      // Proof the authenticated shell mounted — the hamburger button is
+      // visible on every authenticated page (the Account link lives
+      // inside the closed drawer, so we don't assert on it directly).
+      await expect(
+        page.getByRole("button", { name: /open navigation menu/i }),
+      ).toBeVisible();
 
       // Confirm the account via the admin API to simulate the user clicking
       // the email link (Mailpit isn't available in cloud-only setups).
@@ -109,13 +120,15 @@ test.describe("US1: sign up", () => {
       await admin().auth.admin.updateUserById(user!.id, { email_confirm: true });
 
       await page.reload();
-      await expect(page.getByRole("link", { name: /account/i })).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: /open navigation menu/i }),
+      ).toBeVisible();
     } finally {
       await deleteUserByEmail(email);
     }
   });
 
-  test("an already-signed-in user visiting /login is redirected to /", async ({ page }) => {
+  test("an already-signed-in user visiting /login is redirected to /games", async ({ page }) => {
     const email = uniqueEmail("e2e-signed-in");
     try {
       const { data: created } = await admin().auth.admin.createUser({
@@ -130,11 +143,12 @@ test.describe("US1: sign up", () => {
       await page.getByLabel(/email/i).fill(email);
       await page.getByLabel(/password/i).fill("password12345");
       await page.getByRole("button", { name: /^sign in$/i }).click();
-      await page.waitForURL("/");
+      await page.waitForURL("/games");
 
-      // Second visit — already signed in — LoginPage should redirect to /.
+      // Second visit — already signed in — LoginPage should redirect to
+      // /games (feature 011 FR-012).
       await page.goto("/login");
-      await expect(page).toHaveURL("/");
+      await expect(page).toHaveURL("/games");
     } finally {
       await deleteUserByEmail(email);
     }
@@ -142,7 +156,7 @@ test.describe("US1: sign up", () => {
 });
 
 test.describe("US2: sign in", () => {
-  test("a confirmed user signs in via the panel toggle and lands on /", async ({ page }) => {
+  test("a confirmed user signs in via the panel toggle and lands on /games", async ({ page }) => {
     const email = uniqueEmail("e2e-signin");
     try {
       await admin().auth.admin.createUser({
@@ -158,13 +172,20 @@ test.describe("US2: sign in", () => {
       await page.getByLabel(/password/i).fill("password12345");
       await page.getByRole("button", { name: /^sign in$/i }).click();
 
-      await page.waitForURL("/");
-      // Signed-in affordance is the account icon in the sidebar.
-      await expect(page.getByRole("link", { name: /account/i })).toBeVisible();
+      // Post-signin lands on /games (feature 011 FR-010).
+      await page.waitForURL("/games");
+      // Proof the authenticated shell mounted (hamburger visible on
+      // every authenticated page). Account link lives inside the closed
+      // drawer under the new hamburger design.
+      await expect(
+        page.getByRole("button", { name: /open navigation menu/i }),
+      ).toBeVisible();
 
       // Session survives a hard reload (FR-008).
       await page.reload();
-      await expect(page.getByRole("link", { name: /account/i })).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: /open navigation menu/i }),
+      ).toBeVisible();
     } finally {
       await deleteUserByEmail(email);
     }
@@ -248,19 +269,24 @@ test.describe("US3: sign out + account-gate", () => {
       await page.getByLabel(/email/i).fill(email);
       await page.getByLabel(/password/i).fill("password12345");
       await page.getByRole("button", { name: /^sign in$/i }).click();
-      await page.waitForURL("/");
+      await page.waitForURL("/games");
 
-      // Sign out now lives on the account page.
-      await page.getByRole("link", { name: /account/i }).click();
-      await page.waitForURL("/account");
+      // Reach the account page directly (Account link now lives inside
+      // the closed hamburger drawer under the redesigned sidebar; direct
+      // navigation is more robust than opening the drawer to click a
+      // link).
+      await page.goto("/account");
+      await expect(page).toHaveURL("/account");
       await page.getByRole("button", { name: /sign out/i }).click();
-      // SignOutButton returns the user to `/` in anonymous mode; the
-      // account icon (the signed-in affordance) disappears.
+      // SignOutButton returns the user to `/` (public landing, feature 011).
       await page.waitForURL("/");
-      await expect(page.getByRole("link", { name: /account/i })).toHaveCount(0);
+      // The hamburger (and thus the authenticated shell) is gone on the
+      // public landing.
+      await expect(
+        page.getByRole("button", { name: /open navigation menu/i }),
+      ).toHaveCount(0);
 
-      // Anonymous screens still load (`/` is anonymous-accessible per the
-      // hybrid mode clarification).
+      // Anonymous visit to `/` stays on `/` (landing).
       await page.goto("/");
       await expect(page).toHaveURL("/");
 

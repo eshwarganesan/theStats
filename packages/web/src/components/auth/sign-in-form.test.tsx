@@ -88,6 +88,18 @@ describe("<SignInForm />", () => {
     await waitFor(() => expect(assignMock).toHaveBeenCalledWith("/account"));
   });
 
+  it("on 200 with no `from`, defaults the redirect to /games (feature 011 FR-010)", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }));
+    const user = userEvent.setup();
+    render(<SignInForm />);
+
+    await user.type(screen.getByLabelText(/email/i), "alice@example.com");
+    await user.type(screen.getByLabelText(/password/i), "hunter22hunter");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => expect(assignMock).toHaveBeenCalledWith("/games"));
+  });
+
   it("on 401 invalid_credentials, surfaces the generic error message", async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(

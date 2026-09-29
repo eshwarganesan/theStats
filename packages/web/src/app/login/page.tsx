@@ -1,17 +1,10 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { LoginPanel } from "@/components/auth/login-panel";
+import { safeFrom } from "@/lib/auth/safe-from";
 
 interface LoginPageProps {
   searchParams: Promise<{ from?: string; error?: string }>;
-}
-
-/** Reject absolute / protocol-relative URLs (open-redirect guard). */
-function safeFrom(raw: string | undefined): string | undefined {
-  if (!raw) return undefined;
-  if (raw.length > 512) return undefined;
-  if (!/^\/(?!\/)/.test(raw)) return undefined;
-  return raw;
 }
 
 function errorMessage(code: string | undefined): string | null {
@@ -34,7 +27,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const inlineError = errorMessage(params.error);
 
   if (!error && data.user) {
-    redirect(from ?? "/");
+    redirect(from ?? "/games");
   }
 
   return (

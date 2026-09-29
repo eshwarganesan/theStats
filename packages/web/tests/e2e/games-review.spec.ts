@@ -9,6 +9,9 @@
  */
 import { test, expect, type Page } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { randomForwardedFor, signInViaAPI } from "./_auth-helpers";
+
+test.use({ storageState: { cookies: [], origins: [] } });
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -151,20 +154,13 @@ async function cleanup(email: string): Promise<void> {
 }
 
 async function signIn(page: Page, email: string, password: string): Promise<void> {
-  await page.goto("/login");
-  await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/password/i).fill(password);
-  await page.getByRole("button", { name: /sign in/i }).click();
-  await page.waitForURL("/");
+  await signInViaAPI(page, email, password);
 }
 
-// Give each test its own X-Forwarded-For so the per-IP throttle key is
-// unique. Localhost requests otherwise share `ip:unknown`, letting a
-// sibling test's failed sign-in race-poison this one under parallel workers.
 test.beforeEach(async ({ context }) => {
-  const oct = () => Math.floor(Math.random() * 254) + 1;
+  await context.clearCookies();
   await context.setExtraHTTPHeaders({
-    "x-forwarded-for": `10.${oct()}.${oct()}.${oct()}`,
+    "x-forwarded-for": randomForwardedFor(),
   });
 });
 
@@ -177,8 +173,7 @@ test.describe("Review a finished game (US3)", () => {
 
     try {
       await signIn(page, email, password);
-      await page.getByRole("link", { name: "Games" }).click();
-      await page.waitForURL("/games");
+      await page.goto("/games");
 
       await page.getByRole("button", { name: /review/i }).click();
       await page.waitForURL(/\/games\/[^/]+$/);
@@ -209,8 +204,7 @@ test.describe("Delete a game from the library (feature 009 US4 carry-over)", () 
 
     try {
       await signIn(page, email, password);
-      await page.getByRole("link", { name: "Games" }).click();
-      await page.waitForURL("/games");
+      await page.goto("/games");
 
       await page.getByRole("button", { name: /^delete game$/i }).first().click();
       // Confirmation copy for finished games is generic.
@@ -231,8 +225,7 @@ test.describe("Delete a game from the library (feature 009 US4 carry-over)", () 
 
     try {
       await signIn(page, email, password);
-      await page.getByRole("link", { name: "Games" }).click();
-      await page.waitForURL("/games");
+      await page.goto("/games");
 
       await page.getByRole("button", { name: /^delete game$/i }).first().click();
       // Confirmation copy for in-progress: names the event count + period.

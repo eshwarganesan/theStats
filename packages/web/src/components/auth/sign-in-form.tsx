@@ -71,7 +71,7 @@ export function SignInForm({ from }: SignInFormProps) {
     }
 
     if (res.ok) {
-      const target = from && /^\/(?!\/)/.test(from) ? from : "/";
+      const target = from && /^\/(?!\/)/.test(from) ? from : "/games";
       // Defer the redirect — the AnonymousGameOnSignInPrompt mounts once
       // `pendingRedirect` is set. It resolves synchronously if there is
       // no local game (making this a no-op in the common case), or

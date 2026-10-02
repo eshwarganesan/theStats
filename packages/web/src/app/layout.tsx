@@ -43,9 +43,7 @@ export default function RootLayout({
       className={`${display.variable} ${body.variable} ${mono.variable}`}
     >
       <body className="font-sans">
-        <StorageAvailabilityProvider>
-          <main className="min-h-[100dvh]">{children}</main>
-        </StorageAvailabilityProvider>
+        <StorageAvailabilityProvider>{children}</StorageAvailabilityProvider>
       </body>
     </html>
   );

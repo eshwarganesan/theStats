@@ -3,7 +3,9 @@ import { render as rtlRender, screen, type RenderOptions } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { useGameStore } from "@/lib/store";
 import { DEFAULT_SETTINGS } from "@thestats/core";
-import SetupPage from "./page";
+// `./page` is now the Server-Component auth wrapper; the client body
+// (previously the default export of `./page`) is in `./SetupPageClient`.
+import SetupPage from "./SetupPageClient";
 import {
   SidebarToggleContext,
   type SidebarToggleContextValue,

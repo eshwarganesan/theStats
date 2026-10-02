@@ -2,7 +2,9 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { useGameStore } from "@/lib/store";
 import { seedReadyGame } from "@/test/seed";
-import StatsPage from "./page";
+// `./page` is now the Server-Component auth wrapper; the client body is
+// in `./StatsPageClient`.
+import StatsPage from "./StatsPageClient";
 
 beforeEach(() => {
   useGameStore.getState().resetAll();

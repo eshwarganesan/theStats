@@ -1,9 +1,11 @@
 /**
  * AuthenticatedShell tests — the client-side wrapper that owns the
  * open/closed state of the navigation drawer for every authenticated
- * page. After the "hamburger in each page's header" refactor, the
- * shell:
- *   - Renders its children inside a <main> (no page inset).
+ * page. The shell:
+ *   - Renders its children directly (no wrapping `<main>`) — each
+ *     page or route-level layout owns its own `<main>`, which keeps
+ *     the authenticated routes to a single `<main>` element and
+ *     prevents the SSR/hydration-time nested-`<main>` mismatch.
  *   - Provides a `SidebarToggleContext` so `<HamburgerButton />` (mounted
  *     by each page) can flip the drawer without any prop plumbing.
  *   - Renders the `<AppSidebar>` drawer itself.
@@ -40,25 +42,18 @@ function ContextProbe() {
 }
 
 describe("AuthenticatedShell", () => {
-  it("renders its children inside a <main>", () => {
+  it("renders its children directly — pages own their own <main>", () => {
     render(
       <AuthenticatedShell profileIcon={<span>p</span>}>
         <div data-testid="page-content" />
       </AuthenticatedShell>,
     );
+    // Children render, but the shell itself does NOT wrap them in a
+    // `<main>` — that is each page/route-layout's responsibility, so
+    // the authenticated routes stay at exactly one `<main>` per page.
     const child = screen.getByTestId("page-content");
-    expect(child.closest("main")).not.toBeNull();
-  });
-
-  it("does NOT apply the pl-14 sidebar rail inset on <main> (no rail anymore)", () => {
-    render(
-      <AuthenticatedShell profileIcon={<span>p</span>}>
-        <div data-testid="page-content" />
-      </AuthenticatedShell>,
-    );
-    const main = screen.getByTestId("page-content").closest("main");
-    expect(main).not.toBeNull();
-    expect(main?.className.split(/\s+/)).not.toContain("pl-14");
+    expect(child).toBeInTheDocument();
+    expect(child.closest("main")).toBeNull();
   });
 
   it("does NOT render a hamburger button itself — pages own placement", () => {

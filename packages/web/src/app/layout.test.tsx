@@ -50,15 +50,17 @@ describe("root app/layout", () => {
     ).toBeNull();
   });
 
-  it("does not apply the pl-14 sidebar inset on <main>", () => {
+  it("does not render its own <main> — pages / route-level layouts own that", () => {
+    // Pages (and route-level layouts under /game) each render their
+    // own `<main>`. Keeping the root layout free of `<main>` keeps the
+    // tree at exactly one `<main>` per page and avoids the SSR /
+    // hydration-time nested-`<main>` mismatch.
     const { container } = render(
       <RootLayout>
         <div data-testid="child" />
       </RootLayout>,
       { container: document.createElement("div") },
     );
-    const main = container.querySelector("main");
-    expect(main).not.toBeNull();
-    expect(main?.className.split(/\s+/)).not.toContain("pl-14");
+    expect(container.querySelector("main")).toBeNull();
   });
 });

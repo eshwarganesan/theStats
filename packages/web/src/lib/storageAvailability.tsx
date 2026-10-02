@@ -39,12 +39,16 @@ export function StorageAvailabilityProvider({
 }: {
   children: ReactNode;
 }) {
-  // Probe once on mount and cache. Re-probing on every render would
-  // re-run the canary write — pointless after the first render.
-  const [localStorageAvailable] = useState<boolean>(() => isStorageAvailable());
+  // Initial render (SSR + hydration) assumes storage works so the
+  // server-rendered tree matches the client's first paint. The real
+  // probe runs in an effect — if storage is actually unavailable we
+  // flip to false after mount and the modal appears then.
+  const [localStorageAvailable, setLocalStorageAvailable] =
+    useState<boolean>(true);
   const [recoveryFailed, setRecoveryFailed] = useState<boolean>(false);
 
   useEffect(() => {
+    setLocalStorageAvailable(isStorageAvailable());
     const unsubscribe = subscribeRecoveryFailed(() => {
       setRecoveryFailed(true);
     });

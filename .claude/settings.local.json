@@ -95,7 +95,19 @@
       "Bash(node /Users/eganesan/Documents/theStatsApp/theStats/packages/web/check_throttle.mjs)",
       "Bash(bash *)",
       "Bash(python3 -c ' *)",
-      "Bash(python3 -c \"import json;p=json.load\\(open\\('/Users/eganesan/Documents/theStatsApp/theStats/packages/web/package.json'\\)\\);print\\('has size-limit key?', 'size-limit' in p\\)\")"
+      "Bash(python3 -c \"import json;p=json.load\\(open\\('/Users/eganesan/Documents/theStatsApp/theStats/packages/web/package.json'\\)\\);print\\('has size-limit key?', 'size-limit' in p\\)\")",
+      "Bash(awk '/^## Phase/{ph=$0; c=0} /^- \\\\[ \\\\] T/{c++} /^## /&&!/Phase/&&NR>1{if\\(ph\\){print ph\": \"c; ph=\"\"}} END{if\\(ph\\)print ph\": \"c}' /Users/eganesan/Documents/theStatsApp/theStats/specs/011-auth-gated-landing/tasks.md)",
+      "Bash(/Users/eganesan/Documents/theStatsApp/theStats/.specify/scripts/bash/update-agent-context.sh claude *)",
+      "Bash(gh pr *)",
+      "Bash(gh run *)",
+      "Bash(gh api *)",
+      "Bash(xargs -I {} sh -c 'gzip -c \"{}\" | wc -c | tr -d \" \\\\n\" && echo \"  {}\"')",
+      "Bash(kill 82912)",
+      "Bash(lsof -ti:3000)",
+      "Bash(rm -rf /Users/eganesan/Documents/theStatsApp/theStats/packages/web/.next && echo \"removed .next\")"
+    ],
+    "additionalDirectories": [
+      "/Users/eganesan/Documents/theStatsApp/theStats/packages/web/.next"
     ]
   }
 }

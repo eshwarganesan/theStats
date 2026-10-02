@@ -5,8 +5,9 @@
  *
  * Owns the open/closed state of the navigation drawer and exposes it
  * to descendants via `SidebarToggleContext`. Pages render their own
- * `<HamburgerButton />` inside their own headers; the shell itself
- * only mounts the `<AppSidebar>` drawer + the `<main>` slot.
+ * `<HamburgerButton />` inside their own headers, and each page (or
+ * its route-level layout) renders its own `<main>` — the shell itself
+ * only mounts the `<AppSidebar>` drawer alongside the page content.
  */
 
 import { useCallback, useMemo, useState, type ReactNode } from "react";
@@ -38,7 +39,7 @@ export function AuthenticatedShell({
   return (
     <SidebarToggleContext.Provider value={value}>
       <AppSidebar open={open} onClose={close} profileIcon={profileIcon} />
-      <main className="min-h-[100dvh]">{children}</main>
+      {children}
     </SidebarToggleContext.Provider>
   );
 }

@@ -67,16 +67,16 @@ describe("(authenticated)/layout", () => {
     ).toBeNull();
   });
 
-  it("wraps children in a <main> with no pl-14 rail inset (sidebar is fully off-canvas)", () => {
+  it("does NOT wrap children in its own <main> — each page owns that", () => {
+    // Keeps the authenticated routes at exactly one `<main>` per page
+    // (the one the page or its route-level layout renders), avoiding
+    // the SSR/hydration-time nested-`<main>` mismatch.
     wrap(
       <AuthenticatedLayout>
         <div data-testid="child" />
       </AuthenticatedLayout>,
     );
     const child = screen.getByTestId("child");
-    const main = child.closest("main");
-    expect(main).not.toBeNull();
-    expect(main?.className.split(/\s+/)).not.toContain("pl-14");
-    expect(main).toHaveClass("min-h-[100dvh]");
+    expect(child.closest("main")).toBeNull();
   });
 });

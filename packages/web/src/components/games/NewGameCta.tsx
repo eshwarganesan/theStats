@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { type ComponentProps } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { useWriteThrough } from "@/components/shell/WriteThroughMount";
 import { clearPersistedGame } from "@/lib/persistence";
 import { useGameStore } from "@/lib/store";
 
@@ -29,9 +30,13 @@ export interface NewGameCtaProps extends Omit<ButtonProps, "onClick" | "children
 
 export function NewGameCta({ label = "New game", ...rest }: NewGameCtaProps) {
   const router = useRouter();
+  const writeThrough = useWriteThrough();
 
   const handleClick: ButtonProps["onClick"] = (event) => {
     if (event.defaultPrevented) return;
+    // Drop any previously-adopted server game id first — otherwise the
+    // first commit from the fresh setup would PATCH the previous row.
+    writeThrough?.adoptGameId(null);
     clearPersistedGame();
     useGameStore.getState().resetAll();
     router.push("/setup");

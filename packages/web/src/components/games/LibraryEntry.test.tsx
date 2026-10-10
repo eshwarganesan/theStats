@@ -17,6 +17,16 @@ vi.mock("@/lib/store", () => ({
     selector({ hydrateFromLibrary: hydrateMock }),
 }));
 
+const adoptGameIdMock = vi.fn();
+vi.mock("@/components/shell/WriteThroughMount", () => ({
+  useWriteThrough: () => ({
+    adoptGameId: adoptGameIdMock,
+    saveNow: vi.fn(),
+    status: "idle",
+    signedIn: true,
+  }),
+}));
+
 import type { LibraryEntry as Entry } from "@/lib/games/types";
 import { LibraryEntry } from "./LibraryEntry";
 
@@ -41,6 +51,7 @@ const originalFetch = globalThis.fetch;
 afterEach(() => {
   routerPush.mockReset();
   hydrateMock.mockReset();
+  adoptGameIdMock.mockReset();
   vi.restoreAllMocks();
   globalThis.fetch = originalFetch;
 });
@@ -128,6 +139,89 @@ describe("LibraryEntry — Continue (US3)", () => {
 
     await waitFor(() => expect(hydrateMock).toHaveBeenCalledTimes(1));
     expect(hydrateMock).toHaveBeenCalledWith(record.game.state, { force: false });
+    await waitFor(() => expect(routerPush).toHaveBeenCalledWith("/game"));
+  });
+
+  it("adopts the row's game id (so subsequent writes PATCH, not POST) before hydrating", async () => {
+    const record = {
+      game: {
+        id: "game-1",
+        ownerId: "u",
+        status: "in-progress",
+        homeTeamName: "Central High",
+        awayTeamName: "Eastridge",
+        homeScore: 0,
+        awayScore: 0,
+        eventCount: 0,
+        currentPeriod: 1,
+        startedAt: "2026-07-20T18:00:00Z",
+        lastActivityAt: "2026-07-20T18:00:00Z",
+        finishedAt: null,
+        state: { some: "record" },
+      },
+    };
+    globalThis.fetch = vi.fn(async () =>
+      new Response(JSON.stringify(record), { status: 200 }),
+    ) as unknown as typeof fetch;
+
+    const order: string[] = [];
+    adoptGameIdMock.mockImplementation((id: string | null) => {
+      order.push(`adopt:${String(id)}`);
+    });
+    hydrateMock.mockImplementation(() => {
+      order.push("hydrate");
+      return { ok: true };
+    });
+
+    render(<LibraryEntry entry={makeEntry({ id: "game-1" })} />);
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+
+    await waitFor(() => expect(routerPush).toHaveBeenCalledWith("/game"));
+    expect(adoptGameIdMock).toHaveBeenCalledWith("game-1");
+    expect(order).toEqual(["adopt:game-1", "hydrate"]);
+  });
+
+  it("adopts the row's game id when the user confirms replacing the local game", async () => {
+    const record = {
+      game: {
+        id: "game-7",
+        ownerId: "u",
+        status: "in-progress",
+        homeTeamName: "Central High",
+        awayTeamName: "Eastridge",
+        homeScore: 0,
+        awayScore: 0,
+        eventCount: 0,
+        currentPeriod: 1,
+        startedAt: "2026-07-20T18:00:00Z",
+        lastActivityAt: "2026-07-20T18:00:00Z",
+        finishedAt: null,
+        state: { some: "record" },
+      },
+    };
+    globalThis.fetch = vi.fn(async () =>
+      new Response(JSON.stringify(record), { status: 200 }),
+    ) as unknown as typeof fetch;
+
+    hydrateMock
+      .mockReturnValueOnce({ ok: false, reason: "local_game_present" })
+      .mockReturnValueOnce({ ok: true });
+
+    render(<LibraryEntry entry={makeEntry({ id: "game-7" })} />);
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /replace/i })).toBeInTheDocument(),
+    );
+    // The first (rejected) hydrate path already adopted the id.
+    expect(adoptGameIdMock).toHaveBeenCalledWith("game-7");
+    adoptGameIdMock.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: /^replace$/i }));
+
+    // The force path must re-adopt the id before the second hydrate call so
+    // the next write-through commit PATCHes this row rather than POSTing.
+    expect(adoptGameIdMock).toHaveBeenCalledWith("game-7");
     await waitFor(() => expect(routerPush).toHaveBeenCalledWith("/game"));
   });
 

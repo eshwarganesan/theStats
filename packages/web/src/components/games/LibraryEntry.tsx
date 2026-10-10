@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import type { LibraryEntry as Entry, SavedGameRecord } from "@/lib/games/types";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { useWriteThrough } from "@/components/shell/WriteThroughMount";
 import { useGameStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { DeleteGameDialog } from "./DeleteGameDialog";
@@ -48,6 +49,7 @@ export function LibraryEntry({ entry, onDeleted }: LibraryEntryProps) {
   const isFinished = entry.status === "finished";
   const router = useRouter();
   const hydrate = useGameStore((s) => s.hydrateFromLibrary);
+  const writeThrough = useWriteThrough();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmForce, setConfirmForce] = useState<SavedGameRecord | null>(null);
@@ -61,6 +63,11 @@ export function LibraryEntry({ entry, onDeleted }: LibraryEntryProps) {
       return;
     }
     const parsed = (await res.json()) as { game: SavedGameRecord };
+    // Adopt before hydrating: `hydrate` writes to the store, which fires the
+    // write-through subscription. If the controller still has a null (or
+    // stale) `gameId` at commit time, the next debounce flush would POST a
+    // duplicate instead of PATCHing this row.
+    writeThrough?.adoptGameId(entry.id);
     const result = hydrate(parsed.game.state, { force });
     if (!result.ok) {
       // FR-017: the store refused because there is an in-progress local
@@ -81,6 +88,7 @@ export function LibraryEntry({ entry, onDeleted }: LibraryEntryProps) {
     if (!confirmForce) return;
     const record = confirmForce;
     setConfirmForce(null);
+    writeThrough?.adoptGameId(entry.id);
     const result = hydrate(record.state, { force: true });
     if (result.ok) router.push("/game");
   }

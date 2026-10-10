@@ -16,8 +16,19 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
 }));
 
+const adoptGameIdMock = vi.fn();
+vi.mock("@/components/shell/WriteThroughMount", () => ({
+  useWriteThrough: () => ({
+    adoptGameId: adoptGameIdMock,
+    saveNow: vi.fn(),
+    status: "idle",
+    signedIn: true,
+  }),
+}));
+
 beforeEach(() => {
   pushMock.mockReset();
+  adoptGameIdMock.mockReset();
   localStorage.clear();
   useGameStore.getState().resetAll();
 });
@@ -39,8 +50,11 @@ describe("NewGameCta", () => {
     ).toBeVisible();
   });
 
-  it("wipes persistence, then resets the store, then navigates to /setup (in that order)", async () => {
+  it("clears the write-through game id, wipes persistence, resets the store, then navigates to /setup (in that order)", async () => {
     const callOrder: string[] = [];
+    adoptGameIdMock.mockImplementation((id: string | null) => {
+      callOrder.push(`adopt:${String(id)}`);
+    });
     const clearSpy = vi
       .spyOn(persistence, "clearPersistedGame")
       .mockImplementation(() => {
@@ -59,10 +73,13 @@ describe("NewGameCta", () => {
     render(<NewGameCta />);
     await user.click(screen.getByRole("button", { name: "New game" }));
 
+    expect(adoptGameIdMock).toHaveBeenCalledWith(null);
     expect(clearSpy).toHaveBeenCalledTimes(1);
     expect(resetSpy).toHaveBeenCalledTimes(1);
     expect(pushMock).toHaveBeenCalledWith("/setup");
-    expect(callOrder).toEqual(["clear", "reset", "push:/setup"]);
+    // adopt(null) must come before reset so a prior Continue's gameId can't
+    // cause the fresh setup's first commit to PATCH the previous row.
+    expect(callOrder).toEqual(["adopt:null", "clear", "reset", "push:/setup"]);
   });
 
   it("forwards extra Button props (variant/size)", () => {

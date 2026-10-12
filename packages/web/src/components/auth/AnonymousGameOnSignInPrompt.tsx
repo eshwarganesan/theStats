@@ -27,7 +27,7 @@ import {
   parseGameRecord,
   type PersistedGameRecord,
 } from "@/lib/persistence";
-import { newIdempotencyKey } from "@/lib/games/idempotency";
+import { newIdempotencyKey } from "@thestats/app";
 import { useWriteThrough } from "@/components/shell/WriteThroughMount";
 
 export interface AnonymousGameOnSignInPromptProps {

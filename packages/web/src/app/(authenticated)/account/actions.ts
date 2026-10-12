@@ -14,8 +14,8 @@ import { createServerClient } from "@/lib/supabase/server";
 import {
   ChangePasswordSchema,
   UpdateDisplayNameSchema,
-} from "@/lib/validation/profile";
-import type { ProfileRow } from "@/lib/games/types";
+  type ProfileRow,
+} from "@thestats/app";
 
 export type ActionResult<T> =
   | { ok: true; value: T }

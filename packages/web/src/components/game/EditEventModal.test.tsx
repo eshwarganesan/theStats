@@ -295,3 +295,52 @@ describe("EditEventModal — closed state", () => {
     expect(container.firstChild).toBeNull();
   });
 });
+
+describe("EditEventModal — kind pickers", () => {
+  async function pickAndSave(groupName: RegExp, tileLabel: string) {
+    const user = userEvent.setup();
+    const group = screen.getByRole("group", { name: groupName });
+    const tile = Array.from(group.querySelectorAll("button")).find(
+      (b) => b.textContent === tileLabel,
+    );
+    if (!tile) throw new Error(`expected a ${tileLabel} tile`);
+    await user.click(tile);
+    await user.click(screen.getByRole("button", { name: /Save/ }));
+  }
+
+  it("edits a score's shot kind", async () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordScore("home", players.homePlayer(0).id, "2pt", true);
+    const ev = lastEvent("score");
+
+    render(<EditEventModal event={ev} onClose={() => {}} />);
+    await pickAndSave(/Shot kind/i, "3 PT");
+
+    expect(lastEvent("score").kind).toBe("3pt");
+  });
+
+  it("edits a foul's kind", async () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordFoul("home", players.homePlayer(0).id, "personal");
+    const ev = lastEvent("foul");
+
+    render(<EditEventModal event={ev} onClose={() => {}} />);
+    await pickAndSave(/Foul kind/i, "Technical");
+
+    expect(lastEvent("foul").kind).toBe("technical");
+  });
+
+  it("edits a stat's kind", async () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordStat("home", players.homePlayer(0).id, "assist");
+    const ev = lastEvent("stat");
+
+    render(<EditEventModal event={ev} onClose={() => {}} />);
+    await pickAndSave(/Stat kind/i, "Steal");
+
+    expect(lastEvent("stat").kind).toBe("steal");
+  });
+});

@@ -4,7 +4,7 @@
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { LibraryEntry as Entry } from "@/lib/games/types";
+import type { LibraryEntry as Entry } from "@thestats/app";
 import { DeleteGameDialog } from "./DeleteGameDialog";
 
 const originalFetch = globalThis.fetch;

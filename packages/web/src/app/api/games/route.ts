@@ -12,14 +12,16 @@
  */
 import { NextResponse } from "next/server";
 import { withAuthenticatedHandler, jsonError } from "@/lib/api/handler";
-import { LibraryQuerySchema, PostGameBodySchema } from "@/lib/validation/games";
-import { readIdempotencyKey } from "@/lib/games/idempotency";
 import {
+  LibraryQuerySchema,
+  PostGameBodySchema,
   deriveSummaryColumns,
   fromSavedGameRecord,
+  readIdempotencyKey,
   type GamesRow,
-} from "@/lib/games/serialize";
-import type { LibraryEntry, LibraryPage } from "@/lib/games/types";
+  type LibraryEntry,
+  type LibraryPage,
+} from "@thestats/app";
 
 const LIBRARY_COLUMNS = [
   "id",

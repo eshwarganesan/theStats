@@ -20,7 +20,7 @@ import { GameLibrary } from "@/components/games/GameLibrary";
 import { LibraryErrorBoundary } from "@/components/games/LibraryErrorBoundary";
 import { NewGameCta } from "@/components/games/NewGameCta";
 import { HamburgerButton } from "@/components/shell/HamburgerButton";
-import type { LibraryEntry as Entry } from "@/lib/games/types";
+import type { LibraryEntry as Entry } from "@thestats/app";
 
 const INITIAL_BATCH = 20;
 

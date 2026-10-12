@@ -77,3 +77,42 @@ describe("DeleteEventConfirmModal", () => {
     expect(useGameStore.getState().events.find((e) => e.id === ev.id)).toBeUndefined();
   });
 });
+
+describe("DeleteEventConfirmModal — play summary wording", () => {
+  it("summarizes a missed shot", () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordScore("away", players.awayPlayer(0).id, "3pt", false);
+
+    render(<DeleteEventConfirmModal event={lastEvent("score")} onClose={() => {}} />);
+    expect(screen.getByText(/missed 3 PT/)).toBeInTheDocument();
+  });
+
+  it("summarizes a foul", () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordFoul("home", players.homePlayer(0).id, "technical");
+
+    render(<DeleteEventConfirmModal event={lastEvent("foul")} onClose={() => {}} />);
+    expect(screen.getByText(/Technical foul/)).toBeInTheDocument();
+  });
+
+  it("summarizes a stat", () => {
+    const players = seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordStat("home", players.homePlayer(0).id, "block");
+
+    render(<DeleteEventConfirmModal event={lastEvent("stat")} onClose={() => {}} />);
+    expect(screen.getByText(/— Block$/)).toBeInTheDocument();
+  });
+
+  it("summarizes a team timeout", () => {
+    seedReadyGame();
+    useGameStore.getState().startGame();
+    useGameStore.getState().recordTimeout("away");
+
+    render(<DeleteEventConfirmModal event={lastEvent("timeout")} onClose={() => {}} />);
+    const awayTag = useGameStore.getState().awayTeam.tag;
+    expect(screen.getByText(new RegExp(`${awayTag} timeout`))).toBeInTheDocument();
+  });
+});

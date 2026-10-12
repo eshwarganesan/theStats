@@ -17,7 +17,7 @@
 import { notFound, redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { createServerClient } from "@/lib/supabase/server";
-import { fromSavedGameRecord, type GamesRow } from "@/lib/games/serialize";
+import { fromSavedGameRecord, type GamesRow } from "@thestats/app";
 import { GameReviewView } from "@/components/games/GameReviewView";
 
 interface ReviewPageProps {

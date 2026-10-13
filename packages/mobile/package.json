@@ -1,0 +1,73 @@
+{
+  "name": "@thestats/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "theStats iOS app (iPad + iPhone) — Expo / React Native client built on @thestats/app.",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo start --ios",
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "doctor": "expo-doctor"
+  },
+  "dependencies": {
+    "@thestats/app": "*",
+    "@thestats/core": "*",
+    "expo": "~57.0.27",
+    "expo-constants": "~57.0.21",
+    "expo-linking": "~57.0.12",
+    "expo-router": "~57.0.25",
+    "expo-splash-screen": "~57.0.9",
+    "expo-sqlite": "~57.0.4",
+    "expo-status-bar": "~57.0.1",
+    "nativewind": "^4.2.7",
+    "react": "19.2.6",
+    "react-native": "0.86.3",
+    "react-native-reanimated": "4.5.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-worklets": "0.10.1",
+    "zustand": "^5.0.1"
+  },
+  "devDependencies": {
+    "@testing-library/react-native": "^14.1.0",
+    "@types/jest": "29.5.14",
+    "eslint": "^9.39.4",
+    "eslint-config-expo": "~57.0.2",
+    "jest": "~29.7.0",
+    "jest-expo": "~57.0.5",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.9.3"
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "react",
+        "typescript"
+      ]
+    }
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "collectCoverageFrom": [
+      "src/**/*.{ts,tsx}",
+      "!src/**/*.test.{ts,tsx}",
+      "!src/test/**",
+      "!src/app/_layout.tsx"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "lines": 90,
+        "functions": 90,
+        "branches": 90,
+        "statements": 90
+      }
+    },
+    "moduleNameMapper": {
+      "^expo-sqlite/kv-store$": "<rootDir>/src/test/kvStoreMock.ts"
+    }
+  }
+}

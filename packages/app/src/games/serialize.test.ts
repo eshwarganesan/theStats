@@ -3,7 +3,7 @@
  * Feature 009-account-library, task T031.
  */
 import { describe, expect, it } from "vitest";
-import type { PersistedGameRecord } from "@/lib/persistence";
+import type { PersistedGameRecord } from "../persistence";
 import type { LibraryEntry } from "./types";
 import {
   deriveSummaryColumns,
@@ -102,6 +102,27 @@ describe("deriveSummaryColumns", () => {
     const s = deriveSummaryColumns(record);
     expect(s.homeScore).toBe(5); // 2 + 3
     expect(s.awayScore).toBe(2);
+  });
+
+  it("adds team-score-adjust points to the awarded side", () => {
+    const s = deriveSummaryColumns({
+      ...record,
+      events: [
+        ...record.events,
+        {
+          type: "team-score-adjust",
+          id: "e5",
+          timestamp: 5,
+          period: 1,
+          clockAt: 575,
+          side: "away",
+          points: 2,
+          reason: "technical foul",
+        },
+      ],
+    });
+    expect(s.homeScore).toBe(5);
+    expect(s.awayScore).toBe(4);
   });
 
   it("counts events for the event_count column", () => {

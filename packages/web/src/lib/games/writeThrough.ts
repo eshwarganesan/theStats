@@ -18,7 +18,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PersistedGameRecord } from "@/lib/persistence";
 import { useGameStore } from "@/lib/store";
-import { newIdempotencyKey } from "./idempotency";
+import { newIdempotencyKey } from "@thestats/app";
 
 type StoreState = ReturnType<typeof useGameStore.getState>;
 

@@ -3,11 +3,11 @@
  *
  * These types are consumed by both the client (LibraryEntry / GameLibrary /
  * write-through hook) and the server (Route Handlers, Server Components).
- * They deliberately live in `packages/web` — not in `@thestats/core` — because
- * `SavedGameRecord.state` references `PersistedGameRecord`, which is web-only
- * (see `packages/web/src/lib/persistence.ts`).
+ * They live in `@thestats/app` — not in `@thestats/core` — because
+ * `SavedGameRecord.state` references `PersistedGameRecord`, which belongs to
+ * the client persistence layer (see `../persistence.ts`).
  */
-import type { PersistedGameRecord } from "@/lib/persistence";
+import type { PersistedGameRecord } from "../persistence";
 
 /** Editable per-user profile row. Mirrors `public.profiles`. */
 export interface ProfileRow {

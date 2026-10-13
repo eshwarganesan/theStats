@@ -27,7 +27,7 @@ vi.mock("@/components/shell/WriteThroughMount", () => ({
   }),
 }));
 
-import type { LibraryEntry as Entry } from "@/lib/games/types";
+import type { LibraryEntry as Entry } from "@thestats/app";
 import { LibraryEntry } from "./LibraryEntry";
 
 function makeEntry(overrides: Partial<Entry> = {}): Entry {

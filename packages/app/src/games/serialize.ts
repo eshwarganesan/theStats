@@ -10,7 +10,7 @@
  */
 import { POINTS_BY_KIND } from "@thestats/core";
 import type { ScoreKind, Side } from "@thestats/core";
-import type { PersistedGameRecord } from "@/lib/persistence";
+import type { PersistedGameRecord } from "../persistence";
 import type { SavedGameRecord } from "./types";
 
 /**

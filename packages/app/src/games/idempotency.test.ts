@@ -2,7 +2,7 @@
  * Tests for idempotency-key helpers.
  * Feature 009-account-library, task T011.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { newIdempotencyKey, readIdempotencyKey } from "./idempotency";
 
 describe("newIdempotencyKey", () => {
@@ -11,6 +11,15 @@ describe("newIdempotencyKey", () => {
     expect(key).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
     );
+  });
+
+  it("falls back to a non-UUID key when crypto.randomUUID is missing (e.g. Hermes)", () => {
+    vi.stubGlobal("crypto", undefined);
+    try {
+      expect(newIdempotencyKey()).toMatch(/^key_\d+_/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("produces a fresh key each call", () => {

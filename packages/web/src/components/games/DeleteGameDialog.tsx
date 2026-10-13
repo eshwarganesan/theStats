@@ -17,7 +17,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
-import type { LibraryEntry } from "@/lib/games/types";
+import type { LibraryEntry } from "@thestats/app";
 
 export interface DeleteGameDialogProps {
   entry: LibraryEntry;

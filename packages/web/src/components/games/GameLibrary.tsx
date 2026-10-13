@@ -14,7 +14,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { LibraryEntry as Entry, LibraryPage } from "@/lib/games/types";
+import type { LibraryEntry as Entry, LibraryPage } from "@thestats/app";
 import { Button } from "@/components/ui/Button";
 import { LibraryEntry } from "./LibraryEntry";
 

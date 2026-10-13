@@ -107,6 +107,54 @@ describe("WriteThroughController", () => {
     expect(secondInit.method).toBe("PATCH");
   });
 
+  it("reports an error and retries POST on the next commit when the POST fails", async () => {
+    fetchMock.mockImplementationOnce(async () => new Response(null, { status: 500 }));
+    fetchMock.mockImplementationOnce(async () =>
+      new Response(JSON.stringify({ game: { id: "game-1" } }), { status: 201 }),
+    );
+    const onStatus = vi.fn();
+    const ctrl = new WriteThroughController({ signedIn: true, debounceMs: 250, onStatus });
+
+    ctrl.onCommit(makeRecord());
+    await vi.advanceTimersByTimeAsync(250);
+    expect(onStatus).toHaveBeenLastCalledWith("error");
+    expect(ctrl.currentGameId()).toBeNull();
+
+    ctrl.onCommit(makeRecord({ currentPeriod: 2 }));
+    await vi.advanceTimersByTimeAsync(250);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect((fetchMock.mock.calls[1]![1] as RequestInit).method).toBe("POST");
+    expect(onStatus).toHaveBeenLastCalledWith("saved");
+  });
+
+  it("reports an error when the request throws", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("network down"));
+    const onStatus = vi.fn();
+    const ctrl = new WriteThroughController({ signedIn: true, debounceMs: 250, onStatus });
+
+    await ctrl.saveNow(makeRecord());
+    expect(onStatus).toHaveBeenLastCalledWith("error");
+  });
+
+  it("chains a manual save behind an in-flight write instead of racing it", async () => {
+    let resolveFirst: (res: Response) => void = () => {};
+    fetchMock.mockImplementationOnce(
+      () => new Promise<Response>((resolve) => { resolveFirst = resolve; }),
+    );
+    fetchMock.mockImplementationOnce(async () => new Response("{}", { status: 200 }));
+    const ctrl = new WriteThroughController({ signedIn: true, debounceMs: 250 });
+
+    const first = ctrl.saveNow(makeRecord());
+    const second = ctrl.saveNow(makeRecord({ currentPeriod: 2 }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    resolveFirst(new Response(JSON.stringify({ game: { id: "game-1" } }), { status: 201 }));
+    await Promise.all([first, second]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]![0]).toBe("/api/games/game-1");
+  });
+
   it("PATCHes an adopted game id without POSTing first", async () => {
     // Mirrors the "Save to my account" flow: the row already exists, so the
     // controller adopts its id and the next commit PATCHes rather than

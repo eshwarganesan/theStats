@@ -17,13 +17,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAuthenticatedHandler, jsonError, type ServerSupabase } from "@/lib/api/handler";
-import { PatchGameBodySchema } from "@/lib/validation/games";
-import { readIdempotencyKey } from "@/lib/games/idempotency";
 import {
+  PatchGameBodySchema,
   deriveSummaryColumns,
   fromSavedGameRecord,
+  readIdempotencyKey,
   type GamesRow,
-} from "@/lib/games/serialize";
+} from "@thestats/app";
 import type { TablesUpdate } from "@/lib/supabase/database.types";
 
 const FULL_COLUMNS = [

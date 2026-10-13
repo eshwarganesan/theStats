@@ -119,6 +119,78 @@ describe("<SignInForm />", () => {
     );
   });
 
+  async function submitWith(response: Response | Error) {
+    if (response instanceof Error) fetchMock.mockRejectedValueOnce(response);
+    else fetchMock.mockResolvedValueOnce(response);
+    const user = userEvent.setup();
+    render(<SignInForm />);
+    await user.type(screen.getByLabelText(/email/i), "alice@example.com");
+    await user.type(screen.getByLabelText(/password/i), "pw");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+  }
+
+  it("on a network failure, shows a retryable banner", async () => {
+    await submitWith(new TypeError("Failed to fetch"));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/network error/i),
+    );
+  });
+
+  it("on a non-JSON error body, shows the generic banner", async () => {
+    await submitWith(new Response("<html>502</html>", { status: 502 }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/something went wrong/i),
+    );
+  });
+
+  it("on 400 invalid_input for a known field, shows the reason inline", async () => {
+    await submitWith(
+      jsonResponse(
+        {
+          error: {
+            code: "invalid_input",
+            message: "Invalid input.",
+            details: { field: "email", reason: "Enter a valid email." },
+          },
+        },
+        { status: 400 },
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByText("Enter a valid email.")).toBeInTheDocument(),
+    );
+  });
+
+  it("on 400 invalid_input for an unknown field, falls back to a banner", async () => {
+    await submitWith(
+      jsonResponse(
+        {
+          error: {
+            code: "invalid_input",
+            message: "Invalid input.",
+            details: { field: "captcha" },
+          },
+        },
+        { status: 400 },
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("Invalid input."),
+    );
+  });
+
+  it("on an unrecognized error code, shows the server message as a banner", async () => {
+    await submitWith(
+      jsonResponse(
+        { error: { code: "internal_error", message: "Service unavailable." } },
+        { status: 500 },
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("Service unavailable."),
+    );
+  });
+
   it("on 403 email_unconfirmed, surfaces a Resend confirmation CTA that POSTs to the resend endpoint", async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(

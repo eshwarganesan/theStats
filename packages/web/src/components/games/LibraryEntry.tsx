@@ -16,7 +16,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { LibraryEntry as Entry, SavedGameRecord } from "@/lib/games/types";
+import type { LibraryEntry as Entry, SavedGameRecord } from "@thestats/app";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { useWriteThrough } from "@/components/shell/WriteThroughMount";

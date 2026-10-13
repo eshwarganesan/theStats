@@ -4,7 +4,7 @@
  */
 import { render, screen, waitFor, act } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { LibraryEntry as Entry } from "@/lib/games/types";
+import type { LibraryEntry as Entry } from "@thestats/app";
 
 // LibraryEntry (rendered inside GameLibrary) uses next/navigation's
 // useRouter + Zustand — mock both so the component tree mounts under

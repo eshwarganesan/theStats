@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  transpilePackages: ["@thestats/core"],
+  transpilePackages: ["@thestats/core", "@thestats/app"],
   async redirects() {
     return [
       // Feature 010-games-library, FR-021: the games library moved from

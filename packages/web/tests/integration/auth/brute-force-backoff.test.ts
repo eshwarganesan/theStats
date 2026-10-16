@@ -16,6 +16,7 @@ import type { Database } from "@/lib/supabase/database.types";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const RUN = Boolean(url && serviceRole);
 
 const TEST_EMAIL_KEY = `e:bf-backoff-${Date.now()}@example.com`;
@@ -69,5 +70,32 @@ describe.skipIf(!RUN)("brute-force-backoff (integration)", () => {
 
     const { data } = await admin!.rpc("is_auth_attempt_allowed", { p_keys: KEYS });
     expect(data).toEqual({ allowed: true, retry_after_seconds: 0 });
+  });
+});
+
+// Migration 0004: the anon key is public, so if it could execute these
+// RPCs anyone could reset their own backoff or lock out other accounts.
+describe.skipIf(!RUN || !anonKey)("brute-force-backoff RPC privileges (integration)", () => {
+  const anon = RUN && anonKey
+    ? createClient<Database>(url!, anonKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      })
+    : null;
+
+  beforeEach(async () => {
+    await admin!.from("auth_attempts").delete().in("key", KEYS);
+  });
+
+  it("denies record_auth_attempt to the anon role and writes nothing", async () => {
+    const { error } = await anon!.rpc("record_auth_attempt", { p_keys: KEYS, p_success: false });
+    expect(error?.code).toBe("42501"); // insufficient_privilege
+
+    const { data } = await admin!.from("auth_attempts").select("key").in("key", KEYS);
+    expect(data).toEqual([]);
+  });
+
+  it("denies is_auth_attempt_allowed to the anon role", async () => {
+    const { error } = await anon!.rpc("is_auth_attempt_allowed", { p_keys: KEYS });
+    expect(error?.code).toBe("42501");
   });
 });

@@ -1,8 +1,9 @@
 /**
  * Playwright E2E spec for the User Authentication feature.
  *
- * Runs against the dev server (next dev) + your hosted Supabase. Covers:
- *   - US1: sign up → account is created and lands on /games
+ * Runs against the dev server (next dev) + the Supabase in .env.local (CI
+ * points it at a throwaway local stack). Covers:
+ *   - US1: sign up → confirm email → sign in → lands on /games
  *   - US2: sign in / already-signed-in redirect / unconfirmed user flow
  *   - US3: sign out → landing at /, /account gated again
  *
@@ -73,7 +74,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe("US1: sign up", () => {
-  test("a new visitor signs up and lands on /games signed in", async ({
+  test("a new visitor signs up, confirms their email, then signs in and lands on /games", async ({
     page,
   }) => {
     const email = uniqueEmail();
@@ -83,12 +84,11 @@ test.describe("US1: sign up", () => {
       await page.getByLabel(/email/i).fill(email);
       await page.getByLabel(/password/i).fill("password12345");
 
-      // Sign-up triggers a Supabase confirmation email; the hosted
-      // project's per-hour SMTP quota (2/hr on the built-in mailer) is
-      // shared across every test run. If we've exhausted the quota, the
-      // route responds with the same "rate_limited" envelope our own
-      // throttle uses. Detect that here and skip cleanly rather than
-      // waste 30 s on a doomed `waitForURL`.
+      // Sign-up sends a confirmation email. Against the hosted project
+      // the built-in mailer's small hourly quota is shared by every run;
+      // when it's exhausted the route answers 429 with the same envelope
+      // our own throttle uses, so skip rather than fail. (CI runs against
+      // a local Supabase whose mail catcher has no such quota.)
       const [signUpRes] = await Promise.all([
         page.waitForResponse(
           (r) =>
@@ -103,23 +103,28 @@ test.describe("US1: sign up", () => {
       );
       expect(signUpRes.status()).toBe(200);
 
-      // Post-signin lands on /games (feature 011 FR-010).
-      await page.waitForURL("/games");
-      // Proof the authenticated shell mounted — the hamburger button is
-      // visible on every authenticated page (the Account link lives
-      // inside the closed drawer, so we don't assert on it directly).
-      await expect(
-        page.getByRole("button", { name: /open navigation menu/i }),
-      ).toBeVisible();
+      // Email confirmation is required, so there is no session yet: the
+      // form asks the user to confirm and stays on /login.
+      await expect(page.getByRole("status")).toContainText(
+        `Check your email at ${email}`,
+      );
+      await expect(page).toHaveURL(/\/login/);
 
-      // Confirm the account via the admin API to simulate the user clicking
-      // the email link (Mailpit isn't available in cloud-only setups).
+      // Confirm the account via the admin API to simulate the user
+      // clicking the email link (no mail catcher on the hosted project).
       const { data } = await admin().auth.admin.listUsers({ page: 1, perPage: 200 });
       const user = data.users.find((u) => u.email === email);
       expect(user).toBeDefined();
+      expect(user!.email_confirmed_at).toBeFalsy();
       await admin().auth.admin.updateUserById(user!.id, { email_confirm: true });
 
+      // Now the new account can sign in and lands on /games (FR-010).
       await page.reload();
+      await page.getByRole("tab", { name: /sign in/i }).click();
+      await page.getByLabel(/email/i).fill(email);
+      await page.getByLabel(/password/i).fill("password12345");
+      await page.getByRole("button", { name: /^sign in$/i }).click();
+      await page.waitForURL("/games");
       await expect(
         page.getByRole("button", { name: /open navigation menu/i }),
       ).toBeVisible();

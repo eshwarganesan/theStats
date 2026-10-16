@@ -43,6 +43,26 @@ additional_redirect_urls = ["http://localhost:3000/auth/callback"]
 jwt_expiry = 3600
 enable_signup = true
 
+# Supabase Auth's built-in per-IP rate limits — LOCAL / CI ONLY.
+#
+# This file configures the throwaway Supabase that `supabase start` runs
+# for local dev and CI (.github/workflows/ci.yml). Every request from the
+# Next dev server and the test suites arrives from one IP, so production-
+# sized limits would throttle the suites themselves. They are raised
+# here; the FR-011 backoff (public.auth_attempts) is unaffected.
+#
+# Production values live on the hosted project, under Authentication →
+# Rate Limits in the dashboard. "Sign-ups and sign-ins" (default 30 per
+# 5 min per IP) is the only limit on someone calling Auth directly with
+# the public anon key. Requests from our Route Handlers all reach Auth
+# from the server's IP and share that bucket, so don't set it so low that
+# normal traffic through /api/auth/* trips it.
+[auth.rate_limit]
+email_sent = 1000
+sign_in_sign_ups = 1000
+token_refresh = 1000
+token_verifications = 1000
+
 [auth.email]
 enable_signup = true
 double_confirm_changes = true

@@ -1,11 +1,19 @@
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 
+import { signOut } from "@/lib/auth";
 import { useGameStore } from "@/lib/store";
 
 import HomeScreen from "@/app/index";
 
+jest.mock("@/lib/auth", () => ({ signOut: jest.fn() }));
+jest.mock("@/lib/session", () => ({
+  useSession: () => ({ session: { user: { email: "coach@example.com" } }, isLoading: false }),
+}));
+const signOutMock = jest.mocked(signOut);
+
 beforeEach(() => {
   useGameStore.getState().resetAll();
+  signOutMock.mockReset();
 });
 
 describe("<HomeScreen />", () => {
@@ -30,5 +38,16 @@ describe("<HomeScreen />", () => {
     await render(<HomeScreen />);
 
     expect(screen.getByText("3")).toBeOnTheScreen();
+  });
+
+  it("shows the signed-in email and signs out", async () => {
+    signOutMock.mockResolvedValue();
+    await render(<HomeScreen />);
+    expect(screen.getByText("coach@example.com")).toBeOnTheScreen();
+
+    const button = screen.getByRole("button", { name: "Sign out" });
+    await fireEvent.press(button);
+    expect(signOutMock).toHaveBeenCalledTimes(1);
+    expect(button).toBeEnabled();
   });
 });

@@ -1,8 +1,10 @@
-import { useMemo } from "react";
-import { Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { computeStats, type GameStatus } from "@thestats/core";
 
+import { signOut } from "@/lib/auth";
+import { useSession } from "@/lib/session";
 import { useGameStore } from "@/lib/store";
 
 const STATUS_LABELS: Record<GameStatus, string> = {
@@ -20,6 +22,7 @@ const STATUS_LABELS: Record<GameStatus, string> = {
  * screens replace it in later migration steps.
  */
 export default function HomeScreen() {
+  const { session } = useSession();
   const homeTeam = useGameStore((s) => s.homeTeam);
   const awayTeam = useGameStore((s) => s.awayTeam);
   const settings = useGameStore((s) => s.settings);
@@ -34,6 +37,12 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface">
+      <View className="flex-row items-center justify-end gap-4 px-6 pt-2">
+        <Text className="text-sm text-ink-muted" numberOfLines={1}>
+          {session?.user.email}
+        </Text>
+        <SignOutButton />
+      </View>
       <View className="flex-1 items-center justify-center gap-8 px-6">
         <Text className="text-4xl font-bold text-ink md:text-6xl">
           theStats
@@ -74,5 +83,30 @@ function TeamScore({
         {name}
       </Text>
     </View>
+  );
+}
+
+function SignOutButton() {
+  const [pending, setPending] = useState(false);
+
+  async function onPress() {
+    setPending(true);
+    try {
+      await signOut();
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Sign out"
+      disabled={pending}
+      onPress={onPress}
+      className="disabled:opacity-50"
+    >
+      <Text className="text-sm uppercase tracking-wider text-ink-dim">Sign out</Text>
+    </Pressable>
   );
 }

@@ -44,13 +44,17 @@ address used.
 1. **Given** the user is on the login page with no account, **When** they switch to
    the "Sign up" mode, enter a valid, unused email and a password accepted by the
    auth provider's policy, and submit, **Then** the system creates a new account,
-   signs them in for the current session, and navigates them to the main
-   scorekeeping screen (or back to whichever screen they were redirected from, if
-   any).
-2. **Given** the user submits a sign-up form, **When** a confirmation email is
-   required, **Then** the system sends a verification email to the submitted address
-   and surfaces an in-app banner telling the user to confirm before their next
-   sign-in.
+   sends a verification email, and tells the user on the sign-up panel to confirm
+   their email to finish signing in. No session exists until the email is
+   confirmed (consistent with FR-005).
+2. **Given** the user has signed up, **When** they open the confirmation link,
+   **Then** they are signed in and navigated to the main scorekeeping screen (or
+   back to whichever screen they were redirected from, if any). They can also
+   sign in with their password once confirmed.
+
+   *Amended 2026-10-16:* the original scenario signed new users in before
+   confirmation, which the auth provider does not allow while confirmation is
+   required and which contradicted FR-005.
 3. **Given** the user submits a sign-up form using an email that already has an
    account, **When** they submit, **Then** the system rejects the attempt with a
    clear message ("An account already exists for this email — sign in instead") and
@@ -295,9 +299,10 @@ signing in.
 - **Login route**: The login page lives at a single dedicated route (e.g.
   `/login`). Both sign-up and sign-in are presented on this same page, with the
   user able to toggle between the two modes.
-- **Post-sign-in landing**: After a successful sign-in or sign-up, users land on
-  the existing main scorekeeping entry screen unless they were redirected from a
-  deep link, in which case they land on that originally requested screen.
+- **Post-sign-in landing**: After a successful sign-in, or after confirming their
+  email following sign-up, users land on the existing main scorekeeping entry
+  screen unless they were redirected from a deep link, in which case they land on
+  that originally requested screen.
 - **Password reset out of scope**: "Forgot password" / password reset flows are
   out of scope for this feature and will be addressed in a separate follow-up
   feature. The spec still requires (FR-015) that whatever reset mechanism ships

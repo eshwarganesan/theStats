@@ -49,10 +49,11 @@ export function SignUpForm({ from }: SignUpFormProps) {
       return;
     }
 
+    // Email confirmation is required, so sign-up returns no session.
+    // The confirmation link (/auth/callback) signs the user in and
+    // returns them to `from`, which the route passes as `next`.
     if (res.ok) {
       setStatus({ kind: "ok", email });
-      const target = from && /^\/(?!\/)/.test(from) ? from : "/";
-      window.location.assign(target);
       return;
     }
 
@@ -83,8 +84,8 @@ export function SignUpForm({ from }: SignUpFormProps) {
   if (status.kind === "ok") {
     return (
       <div data-testid="sign-up-form" data-from={from ?? ""} role="status" className="panel p-5 text-sm">
-        Check your email at <strong>{status.email}</strong> for a confirmation link.
-        You&apos;re signed in for this session.
+        Check your email at <strong>{status.email}</strong> and open the confirmation
+        link to finish signing in.
       </div>
     );
   }

@@ -6,22 +6,13 @@ on:
   pull_request:
     branches: [main]
 
-# Supabase credentials for the integration + E2E suites. On same-repo
-# branches these come from repository secrets; on forked-PR runs GitHub
-# withholds secrets, so the vars are empty and the auth/account specs
-# self-skip (they guard on these being set).
-env:
-  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: 'npm'
@@ -37,26 +28,38 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # Runs vitest coverage across every workspace (web + core), including
-      # the web integration suites under tests/integration.
+      # The integration + E2E suites run against a throwaway Supabase
+      # built from THIS branch's supabase/migrations and config.toml, so
+      # the schema always matches the code under test. (Running against
+      # the shared hosted project broke every branch whose code didn't
+      # match whatever migrations had last been pushed there, and sent
+      # real sign-up emails through the hosted mailer.) Only the services
+      # the app uses are started: Postgres, Auth, PostgREST, the API
+      # gateway, and the local mail catcher for confirmation emails.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+
+      - name: Start local Supabase
+        working-directory: packages/web
+        run: |
+          supabase start -x studio,storage-api,imgproxy,realtime,edge-runtime,logflare,vector,postgres-meta,supavisor
+          # Map the local stack's URL + keys onto the names the app and
+          # tests read. These are the CLI's fixed local-dev keys, not secrets.
+          eval "$(supabase status -o env)"
+          for v in API_URL ANON_KEY SERVICE_ROLE_KEY; do
+            [ -n "${!v:-}" ] || { echo "::error::supabase status did not report $v"; exit 1; }
+          done
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+
+      # Runs every workspace's tests with coverage (core, app, web, mobile),
+      # including the web integration suites under tests/integration.
       - name: Unit + integration tests
         run: npm run test:coverage
-
-      # Fail fast (before the ~minute-long browser download) with an
-      # explicit message when the Supabase secrets are missing. Without them
-      # the app's env validation throws in middleware on every request, so
-      # the dev server 500s and every e2e spec times out instead of pointing
-      # at the real cause. Note: forked-PR runs never receive secrets.
-      - name: Verify Supabase secrets are configured
-        run: |
-          missing=""
-          [ -n "$NEXT_PUBLIC_SUPABASE_URL" ] || missing="$missing NEXT_PUBLIC_SUPABASE_URL"
-          [ -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] || missing="$missing NEXT_PUBLIC_SUPABASE_ANON_KEY"
-          [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] || missing="$missing SUPABASE_SERVICE_ROLE_KEY"
-          if [ -n "$missing" ]; then
-            echo "::error::Missing required CI secret(s):$missing. Add them under Settings → Secrets and variables → Actions. (Forked-PR runs do not receive secrets.)"
-            exit 1
-          fi
 
       - name: Install Playwright browsers
         working-directory: packages/web
@@ -66,13 +69,31 @@ jobs:
         working-directory: packages/web
         run: npm run test:e2e
 
+      - name: Supabase logs on failure
+        if: failure()
+        working-directory: packages/web
+        run: |
+          for c in $(docker ps --format '{{.Names}}' | grep -E '^supabase_(auth|db|rest|kong)_'); do
+            echo "::group::$c"
+            docker logs --tail 200 "$c" 2>&1
+            echo "::endgroup::"
+          done
+
   perf-budget:
     runs-on: ubuntu-latest
     needs: test
+    # Build + Lighthouse only render public pages; the middleware still
+    # validates the Supabase env and calls Auth, which needs no schema,
+    # so the hosted project's credentials are fine here. Forked-PR runs
+    # don't receive secrets.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: 'npm'

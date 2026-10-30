@@ -7,25 +7,12 @@
  * provider error to the project's typed error model, record the attempt
  * outcome, emit a structured log line.
  */
-import { z } from "zod";
 import { signUpInput } from "@/lib/auth/schemas";
+import { checkAuthAttempt, recordAuthAttempt, throttleKeys } from "@/lib/auth/attempt-throttle";
 import { toJsonError } from "@/lib/auth/errors";
 import { logAuthEvent } from "@/lib/auth/log-auth-event";
 import { createServerClient } from "@/lib/supabase/server";
 
-const allowedSchema = z.object({
-  allowed: z.boolean(),
-  retry_after_seconds: z.number().int().nonnegative(),
-});
-
-function emailKey(email: string): string {
-  return `e:${email}`;
-}
-function ipKey(req: Request): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  const ip = fwd ? (fwd.split(",")[0] ?? "").trim() : "unknown";
-  return `ip:${ip || "unknown"}`;
-}
 function requestId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `req_${Date.now()}_${Math.random()}`;
 }
@@ -58,11 +45,11 @@ export async function POST(request: Request): Promise<Response> {
 
   const { email, password, next } = parsed.data;
   const supabase = await createServerClient();
-  const keys = [emailKey(email), ipKey(request)];
+  const keys = throttleKeys(email, request);
 
   // Throttle check (per-account + per-IP, atomic in Postgres).
-  const allowedResult = await supabase.rpc("is_auth_attempt_allowed", { p_keys: keys });
-  if (allowedResult.error) {
+  const allowed = await checkAuthAttempt(keys);
+  if (!allowed) {
     logAuthEvent({
       handler: "sign-up",
       userId: null,
@@ -71,7 +58,6 @@ export async function POST(request: Request): Promise<Response> {
     });
     return toJsonError("internal_error", "Something went wrong.");
   }
-  const allowed = allowedSchema.parse(allowedResult.data);
   if (!allowed.allowed) {
     logAuthEvent({
       handler: "sign-up",
@@ -80,7 +66,7 @@ export async function POST(request: Request): Promise<Response> {
       requestId: reqId,
     });
     return toJsonError("rate_limited", "Too many attempts. Please try again shortly.", {
-      retryAfterSeconds: allowed.retry_after_seconds,
+      retryAfterSeconds: allowed.retryAfterSeconds,
     });
   }
 
@@ -96,7 +82,7 @@ export async function POST(request: Request): Promise<Response> {
   });
 
   if (signUpResult.error) {
-    await supabase.rpc("record_auth_attempt", { p_keys: keys, p_success: false });
+    await recordAuthAttempt(keys, false);
     const msg = signUpResult.error.message ?? "";
     const code = signUpResult.error.code ?? "";
 
@@ -171,7 +157,7 @@ export async function POST(request: Request): Promise<Response> {
   // exists when a duplicate sign-up is attempted").
   const identities = signUpResult.data.user?.identities;
   if (signUpResult.data.user && Array.isArray(identities) && identities.length === 0) {
-    await supabase.rpc("record_auth_attempt", { p_keys: keys, p_success: false });
+    await recordAuthAttempt(keys, false);
     logAuthEvent({
       handler: "sign-up",
       userId: null,
@@ -184,7 +170,7 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  await supabase.rpc("record_auth_attempt", { p_keys: keys, p_success: true });
+  await recordAuthAttempt(keys, true);
   logAuthEvent({
     handler: "sign-up",
     userId: signUpResult.data.user?.id ?? null,

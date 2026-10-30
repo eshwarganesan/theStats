@@ -9,25 +9,12 @@
  * We therefore ALWAYS return 200 { ok: true } once the request is
  * structurally valid and within the throttle window.
  */
-import { z } from "zod";
 import { resendInput } from "@/lib/auth/schemas";
+import { checkAuthAttempt, recordAuthAttempt, throttleKeys } from "@/lib/auth/attempt-throttle";
 import { toJsonError } from "@/lib/auth/errors";
 import { logAuthEvent } from "@/lib/auth/log-auth-event";
 import { createServerClient } from "@/lib/supabase/server";
 
-const allowedSchema = z.object({
-  allowed: z.boolean(),
-  retry_after_seconds: z.number().int().nonnegative(),
-});
-
-function emailKey(email: string): string {
-  return `e:${email}`;
-}
-function ipKey(req: Request): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  const ip = fwd ? (fwd.split(",")[0] ?? "").trim() : "unknown";
-  return `ip:${ip || "unknown"}`;
-}
 function requestId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `req_${Date.now()}_${Math.random()}`;
 }
@@ -65,10 +52,10 @@ export async function POST(request: Request): Promise<Response> {
 
   const { email } = parsed.data;
   const supabase = await createServerClient();
-  const keys = [emailKey(email), ipKey(request)];
+  const keys = throttleKeys(email, request);
 
-  const allowedResult = await supabase.rpc("is_auth_attempt_allowed", { p_keys: keys });
-  if (allowedResult.error) {
+  const allowed = await checkAuthAttempt(keys);
+  if (!allowed) {
     logAuthEvent({
       handler: "resend-confirmation",
       userId: null,
@@ -77,7 +64,6 @@ export async function POST(request: Request): Promise<Response> {
     });
     return toJsonError("internal_error", "Something went wrong.");
   }
-  const allowed = allowedSchema.parse(allowedResult.data);
   if (!allowed.allowed) {
     logAuthEvent({
       handler: "resend-confirmation",
@@ -86,7 +72,7 @@ export async function POST(request: Request): Promise<Response> {
       requestId: reqId,
     });
     return toJsonError("rate_limited", "Too many attempts. Please try again shortly.", {
-      retryAfterSeconds: allowed.retry_after_seconds,
+      retryAfterSeconds: allowed.retryAfterSeconds,
     });
   }
 
@@ -95,7 +81,7 @@ export async function POST(request: Request): Promise<Response> {
   // outcome in our internal log + throttle table only.
   const providerResult = await supabase.auth.resend({ type: "signup", email });
   const providerOk = !providerResult.error;
-  await supabase.rpc("record_auth_attempt", { p_keys: keys, p_success: providerOk });
+  await recordAuthAttempt(keys, providerOk);
   logAuthEvent({
     handler: "resend-confirmation",
     userId: null,

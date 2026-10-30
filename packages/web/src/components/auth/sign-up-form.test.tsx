@@ -89,7 +89,7 @@ describe("<SignUpForm />", () => {
     );
   });
 
-  it("on 200, redirects to `from` (or /) via a full document navigation", async () => {
+  it("on 200, asks the user to confirm their email and stays on the page", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }));
     const user = userEvent.setup();
     render(<SignUpForm from="/account" />);
@@ -98,7 +98,13 @@ describe("<SignUpForm />", () => {
     await user.type(screen.getByLabelText(/password/i), "hunter22hunter");
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
-    await waitFor(() => expect(assignMock).toHaveBeenCalledWith("/account"));
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent(
+      "Check your email at alice@example.com and open the confirmation link to finish signing in.",
+    );
+    expect(status).not.toHaveTextContent(/signed in for this session/i);
+    // No session exists until the email is confirmed, so don't navigate.
+    expect(assignMock).not.toHaveBeenCalled();
   });
 
   it("surfaces a 400 invalid_input error inline next to the right field", async () => {

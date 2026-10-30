@@ -15,6 +15,12 @@
     "test": "npm run test --workspaces --if-present",
     "test:coverage": "npm run test:coverage --workspaces --if-present",
     "test:e2e": "npm run test:e2e --workspace=scorekeeping-app",
-    "test:all": "npm run typecheck && npm run lint && npm run test:coverage && npm run test:e2e"
+    "test:all": "npm run typecheck && npm run lint && npm run test:coverage && npm run test:e2e",
+    "mobile": "npm run start --workspace=@thestats/mobile"
+  },
+  "devDependencies": {
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "test-renderer": "~1.2.0"
   }
 }

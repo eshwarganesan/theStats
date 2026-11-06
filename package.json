@@ -19,8 +19,9 @@
     "mobile": "npm run start --workspace=@thestats/mobile"
   },
   "devDependencies": {
-    "react": "19.2.6",
-    "react-dom": "19.2.6",
+    "expo-router": "~58.0.29",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
     "test-renderer": "~1.2.0"
   }
 }

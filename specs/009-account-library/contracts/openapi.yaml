@@ -4,8 +4,9 @@ info:
   version: "0.1.0"
   description: |
     Route Handler surface added by feature 009-account-library. Every endpoint
-    requires a Supabase session cookie; owner_id is derived from the verified
-    session, never from the request. Error responses use a single shape
+    requires a Supabase session (cookie, or a Bearer access token from the iOS
+    app); owner_id is derived from the verified session, never from the
+    request. Error responses use a single shape
     { error: { code, message } }.
 
 servers:
@@ -16,6 +17,7 @@ servers:
 
 security:
   - supabaseSessionCookie: []
+  - supabaseBearer: []
 
 paths:
   /games:
@@ -132,6 +134,13 @@ components:
       in: cookie
       name: sb-<project>-auth-token
       description: Supabase session cookie set at sign-in by @supabase/ssr.
+    supabaseBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Supabase access token from POST /api/auth/token (iOS app). Takes
+        precedence over the cookie when present.
 
   schemas:
     LibraryEntry:

@@ -1,5 +1,14 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { seedAndEnterGame, tapPlayerByNumber } from "./_helpers";
+
+/**
+ * The edit dialog's Save button. Scoped to the dialog because the game
+ * header has its own "Save" button (manual write-through save) that
+ * also reads "Save" until the first write of the game.
+ */
+function editSave(page: Page) {
+  return page.getByRole("dialog").getByRole("button", { name: /^Save$/ });
+}
 
 /**
  * Feature 004 — edit and delete play-by-play events.
@@ -28,7 +37,7 @@ test.describe("Feature 004 — US1: correct a mis-attributed play", () => {
     await log.getByRole("button", { name: /Edit play/ }).first().click();
 
     // The edit modal is visible
-    await expect(page.getByRole("button", { name: /^Save$/ })).toBeVisible();
+    await expect(editSave(page)).toBeVisible();
 
     // Change side to away via the segmented tile in the Side group
     const sideGroup = page.getByRole("group", { name: "Side" });
@@ -39,10 +48,10 @@ test.describe("Feature 004 — US1: correct a mis-attributed play", () => {
     await playerGroup.getByRole("button", { name: /Away One/ }).click();
 
     // Save
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    await editSave(page).click();
 
     // Modal closed
-    await expect(page.getByRole("button", { name: /^Save$/ })).not.toBeVisible();
+    await expect(editSave(page)).not.toBeVisible();
 
     // The log row now describes the away player as the scorer
     await expect(log.getByText(/Away One.*scored 2/)).toBeVisible();
@@ -135,7 +144,7 @@ test.describe("Feature 004 — US3: correct the game-clock time of a past play",
 
     // Open the edit modal on the foul row
     await log.getByRole("button", { name: /Edit play/ }).first().click();
-    await expect(page.getByRole("button", { name: /^Save$/ })).toBeVisible();
+    await expect(editSave(page)).toBeVisible();
 
     // Change clockAt from "10:00" to "04:23" — scope to the modal dialog
     // so we don't collide with the live ClockEditor's "Adjust clock time"
@@ -143,8 +152,8 @@ test.describe("Feature 004 — US3: correct the game-clock time of a past play",
     const modal = page.getByRole("dialog");
     const clockInput = modal.getByLabel("Clock time");
     await clockInput.fill("04:23");
-    await page.getByRole("button", { name: /^Save$/ }).click();
-    await expect(page.getByRole("button", { name: /^Save$/ })).not.toBeVisible();
+    await editSave(page).click();
+    await expect(editSave(page)).not.toBeVisible();
 
     // The log row now shows the new clock value
     await expect(log.getByText("04:23")).toBeVisible();
@@ -169,7 +178,7 @@ test.describe("Feature 004 — US3: correct the game-clock time of a past play",
     await clockInput.fill("25:00");
 
     // Save should be disabled and an error should appear
-    await expect(page.getByRole("button", { name: /^Save$/ })).toBeDisabled();
+    await expect(editSave(page)).toBeDisabled();
     await expect(page.getByText(/out of range/i)).toBeVisible();
 
     // Cancel discards the change — the log clock is unchanged

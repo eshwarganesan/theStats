@@ -3,7 +3,9 @@
  * Feature 009-account-library, task T004.
  */
 import { describe, expect, it } from "vitest";
+import type { LibraryPage } from "../games/types";
 import {
+  LibraryPageSchema,
   LibraryQuerySchema,
   PatchGameBodySchema,
   PersistedGameRecordSchema,
@@ -152,5 +154,42 @@ describe("LibraryQuerySchema", () => {
   it("rejects a non-ISO cursor", () => {
     const result = LibraryQuerySchema.safeParse({ cursor: "not-a-date" });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("LibraryPageSchema", () => {
+  const entry = {
+    id: "8f9b",
+    status: "finished",
+    homeTeamName: "Central",
+    awayTeamName: "Eastridge",
+    homeScore: 42,
+    awayScore: 39,
+    eventCount: 128,
+    currentPeriod: 4,
+    startedAt: "2026-07-20T18:00:00Z",
+    lastActivityAt: "2026-07-20T20:14:03Z",
+    finishedAt: "2026-07-20T20:14:03Z",
+  };
+
+  it("accepts a page as GET /api/games returns it, ignoring extra fields", () => {
+    const parsed = LibraryPageSchema.parse({
+      entries: [{ ...entry, addedLater: true }],
+      nextCursor: null,
+    });
+    const page: LibraryPage = parsed;
+    expect(page.entries[0]).toEqual(entry);
+  });
+
+  it("rejects entries that don't match the contract", () => {
+    for (const bad of [
+      { ...entry, status: "live" },
+      { ...entry, homeScore: "42" },
+      { ...entry, id: "" },
+      { ...entry, finishedAt: undefined },
+    ]) {
+      expect(LibraryPageSchema.safeParse({ entries: [bad], nextCursor: null }).success).toBe(false);
+    }
+    expect(LibraryPageSchema.safeParse({ entries: [] }).success).toBe(false);
   });
 });

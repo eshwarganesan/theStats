@@ -6,6 +6,29 @@ import { useGameStore } from "@/lib/store";
 import HomeScreen from "@/app/index";
 
 jest.mock("@/lib/auth", () => ({ signOut: jest.fn() }));
+jest.mock("@/lib/games", () => ({
+  listGames: jest.fn(async () => ({
+    ok: true,
+    page: {
+      entries: [
+        {
+          id: "g1",
+          status: "finished",
+          homeTeamName: "Saved Home",
+          awayTeamName: "Saved Away",
+          homeScore: 51,
+          awayScore: 47,
+          eventCount: 90,
+          currentPeriod: 4,
+          startedAt: "2026-10-01T18:00:00Z",
+          lastActivityAt: "2026-10-01T19:30:00Z",
+          finishedAt: "2026-10-01T19:30:00Z",
+        },
+      ],
+      nextCursor: null,
+    },
+  })),
+}));
 jest.mock("@/lib/session", () => ({
   useSession: () => ({ session: { user: { email: "coach@example.com" } }, isLoading: false }),
 }));
@@ -38,6 +61,13 @@ describe("<HomeScreen />", () => {
     await render(<HomeScreen />);
 
     expect(screen.getByText("3")).toBeOnTheScreen();
+  });
+
+  it("lists the account's saved games under the device's game", async () => {
+    await render(<HomeScreen />);
+    expect(screen.getByText("Not started")).toBeOnTheScreen();
+    expect(await screen.findByText("Saved Home")).toBeOnTheScreen();
+    expect(screen.getByRole("header", { name: "Games" })).toBeOnTheScreen();
   });
 
   it("shows the signed-in email and signs out", async () => {

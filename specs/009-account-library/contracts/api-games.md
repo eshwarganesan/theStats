@@ -2,7 +2,7 @@
 
 **Feature**: `009-account-library`
 **Base path**: `/api/games`
-**Auth**: Every endpoint requires a Supabase session cookie. The handler calls `createServerClient()` and `getUser()` first; on missing/invalid session it returns `401 { error: { code: "unauthenticated" } }`. Owner ID is derived from the verified session — the client MUST NOT send it in the body or query.
+**Auth**: Every endpoint requires a Supabase session, sent either as the session cookie (web) or as `Authorization: Bearer <access token>` (iOS app; added 2026-10-30). A Bearer header takes precedence over cookies, and a malformed one (`Bearer` without exactly one token) is rejected rather than ignored; other schemes are ignored. The handler verifies the session with `getUser()` first, which also rejects a token whose session was signed out. On a missing/invalid session it returns `401 { error: { code: "unauthenticated" } }`. Owner ID is derived from the verified session — the client MUST NOT send it in the body or query.
 
 All responses use the error shape `{ error: { code: string, message: string } }` on any non-2xx status. Success responses use the shapes documented per endpoint.
 

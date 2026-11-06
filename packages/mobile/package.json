@@ -57,6 +57,7 @@
   },
   "jest": {
     "preset": "jest-expo",
+    "testTimeout": 20000,
     "collectCoverageFrom": [
       "src/**/*.{ts,tsx}",
       "!src/**/*.test.{ts,tsx}",

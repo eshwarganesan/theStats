@@ -117,3 +117,29 @@ export const LibraryQuerySchema = z
   .strict();
 
 export type LibraryQueryInput = z.infer<typeof LibraryQuerySchema>;
+
+// ─── GET /api/games response ───────────────────────────────────────────
+
+/**
+ * The library page as the API returns it (`LibraryPage`). Clients that
+ * read the API over the network (the iOS app) validate it before use.
+ * Not `.strict()`: the server may add fields without breaking them.
+ */
+export const LibraryEntrySchema = z.object({
+  id: z.string().min(1),
+  status: z.enum(["in-progress", "finished"]),
+  homeTeamName: z.string(),
+  awayTeamName: z.string(),
+  homeScore: z.number(),
+  awayScore: z.number(),
+  eventCount: z.number(),
+  currentPeriod: z.number(),
+  startedAt: z.string(),
+  lastActivityAt: z.string(),
+  finishedAt: z.string().nullable(),
+});
+
+export const LibraryPageSchema = z.object({
+  entries: z.array(LibraryEntrySchema),
+  nextCursor: z.string().nullable(),
+});

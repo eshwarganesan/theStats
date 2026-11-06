@@ -37,5 +37,19 @@ describe("createStatelessClient", () => {
         },
       }),
     );
+    const options = createClientMock.mock.calls[0]?.[2] as Record<string, unknown>;
+    expect(options).not.toHaveProperty("global");
+  });
+
+  it("sends a caller's access token on every request when given one", () => {
+    createStatelessClient("user-jwt");
+    expect(createClientMock).toHaveBeenCalledWith(
+      "http://localhost:54321",
+      "anon-key",
+      expect.objectContaining({
+        auth: expect.objectContaining({ persistSession: false }),
+        global: { headers: { Authorization: "Bearer user-jwt" } },
+      }),
+    );
   });
 });

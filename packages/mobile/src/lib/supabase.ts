@@ -1,7 +1,7 @@
 import "react-native-url-polyfill/auto";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { AppState, type AppStateStatus } from "react-native";
+import { AppState } from "react-native";
 
 import { getEnv } from "@/env";
 import { secureSessionStorage } from "@/lib/secureSessionStorage";
@@ -39,7 +39,7 @@ export function getSupabase(): SupabaseClient {
  * and a resumed one refreshes straight away. Returns an unsubscribe.
  */
 export function bindAutoRefreshToAppState(supabase: SupabaseClient): () => void {
-  const apply = (state: AppStateStatus) => {
+  const apply = (state: typeof AppState.currentState) => {
     if (state === "active") void supabase.auth.startAutoRefresh();
     else void supabase.auth.stopAutoRefresh();
   };

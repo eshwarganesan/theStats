@@ -1,12 +1,17 @@
+import { flushGameSync } from "@/lib/gameSync";
+
 import { signIn, signOut } from "./auth";
 
 const mockSetSession = jest.fn();
 const mockSignOut = jest.fn();
+const order: string[] = [];
 
 jest.mock("@/lib/supabase", () => ({
   getSupabase: () => ({ auth: { setSession: mockSetSession, signOut: mockSignOut } }),
 }));
 jest.mock("@/env", () => ({ getEnv: () => ({ apiUrl: "http://api.test" }) }));
+jest.mock("@/lib/gameSync", () => ({ flushGameSync: jest.fn() }));
+const flushGameSyncMock = jest.mocked(flushGameSync);
 
 const fetchMock = jest.fn();
 globalThis.fetch = fetchMock;
@@ -21,8 +26,15 @@ function respond(status: number, body: unknown) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  order.length = 0;
   mockSetSession.mockResolvedValue({ error: null });
-  mockSignOut.mockResolvedValue({ error: null });
+  mockSignOut.mockImplementation(async () => {
+    order.push("signOut");
+    return { error: null };
+  });
+  flushGameSyncMock.mockImplementation(async () => {
+    order.push("flushGameSync");
+  });
 });
 
 describe("signIn", () => {
@@ -97,10 +109,11 @@ describe("signIn", () => {
 });
 
 describe("signOut", () => {
-  it("revokes the session server-side", async () => {
+  it("saves pending game changes, then revokes the session server-side", async () => {
     await signOut();
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(mockSignOut).toHaveBeenCalledWith();
+    expect(order).toEqual(["flushGameSync", "signOut"]);
   });
 
   it("falls back to a local sign-out when the server call fails", async () => {

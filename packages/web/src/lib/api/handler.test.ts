@@ -2,18 +2,28 @@
  * Tests for the shared authenticated-handler wrapper.
  * Feature 009-account-library, task T005.
  */
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// The Supabase server client factory reads env at startup; stub it out
+// The Supabase client factories read env at startup; stub them out
 // per-test rather than shipping real credentials.
 vi.mock("@/lib/supabase/server", () => ({
   createServerClient: vi.fn(),
 }));
+vi.mock("@/lib/supabase/stateless", () => ({
+  createStatelessClient: vi.fn(),
+}));
 
 import { createServerClient } from "@/lib/supabase/server";
-import { jsonError, withAuthenticatedHandler } from "./handler";
+import { createStatelessClient } from "@/lib/supabase/stateless";
+import { jsonError, readCredential, withAuthenticatedHandler } from "./handler";
 
 const mockedCreateClient = vi.mocked(createServerClient);
+const mockedCreateStateless = vi.mocked(createStatelessClient);
+
+beforeEach(() => {
+  mockedCreateClient.mockReset();
+  mockedCreateStateless.mockReset();
+});
 
 function fakeSupabase(user: { id: string; email: string } | null) {
   return {
@@ -85,6 +95,109 @@ describe("withAuthenticatedHandler", () => {
     // Handler must NOT leak the error message ("boom") to the client per
     // Constitution Principle VI.
     expect(body.error?.message).not.toContain("boom");
+  });
+});
+
+describe("withAuthenticatedHandler with a bearer token", () => {
+  function bearerRequest(authorization: string): Request {
+    return new Request("http://localhost/api/games", {
+      method: "GET",
+      headers: { Authorization: authorization },
+    });
+  }
+
+  let seen: { userId: string; supabase: unknown } | null = null;
+  const echoUser = withAuthenticatedHandler("games:list", async (_request, ctx) => {
+    seen = { userId: ctx.userId, supabase: ctx.supabase };
+    return new Response(null, { status: 204 });
+  });
+  beforeEach(() => {
+    seen = null;
+  });
+
+  it("verifies the token and queries as that user, ignoring cookies", async () => {
+    const client = fakeSupabase({ id: "ios-user", email: "i@example.com" });
+    mockedCreateStateless.mockReturnValue(
+      client as unknown as ReturnType<typeof createStatelessClient>,
+    );
+
+    const res = await echoUser(bearerRequest("Bearer header.payload.sig"));
+
+    expect(res.status).toBe(204);
+    expect(seen).toEqual({ userId: "ios-user", supabase: client });
+    expect(seen!.supabase).toBe(client);
+    expect(mockedCreateStateless).toHaveBeenCalledWith("header.payload.sig");
+    expect(client.auth.getUser).toHaveBeenCalledWith("header.payload.sig");
+    expect(mockedCreateClient).not.toHaveBeenCalled();
+  });
+
+  it("returns 401 for a rejected token without falling back to the cookie", async () => {
+    mockedCreateStateless.mockReturnValue(
+      fakeSupabase(null) as unknown as ReturnType<typeof createStatelessClient>,
+    );
+    mockedCreateClient.mockResolvedValue(fakeSupabase({ id: "cookie-user", email: "c@example.com" }));
+
+    const res = await echoUser(bearerRequest("Bearer expired"));
+
+    expect(res.status).toBe(401);
+    expect((await res.json()).error.code).toBe("unauthenticated");
+    expect(seen).toBeNull();
+    expect(mockedCreateClient).not.toHaveBeenCalled();
+  });
+
+  it("returns 401 for a malformed Bearer header without verifying anything", async () => {
+    const res = await echoUser(bearerRequest("Bearer"));
+    expect(res.status).toBe(401);
+    expect(mockedCreateStateless).not.toHaveBeenCalled();
+    expect(mockedCreateClient).not.toHaveBeenCalled();
+  });
+
+  it("logs which credential the request used", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    mockedCreateStateless.mockReturnValue(
+      fakeSupabase({ id: "ios-user", email: "i@example.com" }) as unknown as ReturnType<
+        typeof createStatelessClient
+      >,
+    );
+
+    await echoUser(bearerRequest("Bearer t"));
+
+    const lines = log.mock.calls.map((call) => JSON.parse(String(call[0])));
+    expect(lines.map((l) => [l.auth, l.outcome])).toEqual([
+      ["bearer", "entry"],
+      ["bearer", "ok"],
+    ]);
+    log.mockRestore();
+  });
+});
+
+describe("readCredential", () => {
+  function withHeader(value?: string): Request {
+    return new Request("http://localhost/api/games", {
+      headers: value === undefined ? {} : { Authorization: value },
+    });
+  }
+
+  it("uses the cookie when there is no Authorization header", () => {
+    expect(readCredential(withHeader())).toEqual({ kind: "cookie" });
+  });
+
+  it("reads a Bearer token, case-insensitively and ignoring extra spaces", () => {
+    expect(readCredential(withHeader("Bearer abc.def"))).toEqual({ kind: "bearer", token: "abc.def" });
+    expect(readCredential(withHeader("bearer   abc.def  "))).toEqual({
+      kind: "bearer",
+      token: "abc.def",
+    });
+  });
+
+  it("flags a Bearer header without exactly one token as malformed", () => {
+    expect(readCredential(withHeader("Bearer"))).toEqual({ kind: "malformed" });
+    expect(readCredential(withHeader("Bearer a b"))).toEqual({ kind: "malformed" });
+  });
+
+  it("leaves other schemes to the cookie", () => {
+    expect(readCredential(withHeader("Basic dXNlcjpwYXNz"))).toEqual({ kind: "cookie" });
+    expect(readCredential(withHeader("BearerToken x"))).toEqual({ kind: "cookie" });
   });
 });
 

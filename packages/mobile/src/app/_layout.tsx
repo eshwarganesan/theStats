@@ -5,8 +5,11 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 
+import { installCryptoPolyfill } from "@/lib/cryptoPolyfill";
+import { useGameSync } from "@/lib/gameSync";
 import { SessionProvider, useSession } from "@/lib/session";
 
+installCryptoPolyfill(globalThis);
 void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -34,18 +37,27 @@ function RootStack() {
   if (isLoading) return null;
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: "#0B0B0D" },
-      }}
-    >
-      <Stack.Protected guard={session !== null}>
-        <Stack.Screen name="index" />
-      </Stack.Protected>
-      <Stack.Protected guard={session === null}>
-        <Stack.Screen name="sign-in" />
-      </Stack.Protected>
-    </Stack>
+    <>
+      {session ? <GameSync userId={session.user.id} /> : null}
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: "#0B0B0D" },
+        }}
+      >
+        <Stack.Protected guard={session !== null}>
+          <Stack.Screen name="index" />
+        </Stack.Protected>
+        <Stack.Protected guard={session === null}>
+          <Stack.Screen name="sign-in" />
+        </Stack.Protected>
+      </Stack>
+    </>
   );
+}
+
+/** Saves the device's game to the signed-in user's library. */
+function GameSync({ userId }: { userId: string }) {
+  useGameSync(userId);
+  return null;
 }

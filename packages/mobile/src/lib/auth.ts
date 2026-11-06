@@ -1,4 +1,5 @@
 import { getEnv } from "@/env";
+import { flushGameSync } from "@/lib/gameSync";
 import { getSupabase } from "@/lib/supabase";
 
 /**
@@ -97,11 +98,13 @@ export async function signIn(email: string, password: string): Promise<SignInRes
 }
 
 /**
- * Revokes the refresh token server-side and clears the keychain. If the
- * network call fails, the local session is still removed, so the device
- * is signed out either way.
+ * Saves any unsaved game changes while the session can still write them,
+ * then revokes the refresh token server-side and clears the keychain. If
+ * the network call fails, the local session is still removed, so the
+ * device is signed out either way.
  */
 export async function signOut(): Promise<void> {
+  await flushGameSync();
   const supabase = getSupabase();
   const { error } = await supabase.auth.signOut();
   if (error) await supabase.auth.signOut({ scope: "local" });

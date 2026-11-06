@@ -3,6 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { computeStats, type GameStatus } from "@thestats/core";
 
+import { GameLibrary } from "@/components/GameLibrary";
 import { signOut } from "@/lib/auth";
 import { useSession } from "@/lib/session";
 import { useGameStore } from "@/lib/store";
@@ -17,12 +18,28 @@ const STATUS_LABELS: Record<GameStatus, string> = {
 };
 
 /**
- * Placeholder home screen. Proves the shared store, persistence, and
- * stats pipeline run on iOS; the real setup / scoreboard / library
- * screens replace it in later migration steps.
+ * Home: the signed-in user's game library, under a card for the game on
+ * this device. The card is a placeholder proving the shared store,
+ * persistence and stats run on iOS; the setup / scoreboard screens
+ * replace it in the next migration step.
  */
 export default function HomeScreen() {
   const { session } = useSession();
+
+  return (
+    <SafeAreaView className="flex-1 bg-surface" edges={["top", "left", "right"]}>
+      <View className="flex-row items-center justify-end gap-4 px-6 pt-2">
+        <Text className="text-sm text-ink-muted" numberOfLines={1}>
+          {session?.user.email}
+        </Text>
+        <SignOutButton />
+      </View>
+      <GameLibrary header={<DeviceGame />} />
+    </SafeAreaView>
+  );
+}
+
+function DeviceGame() {
   const homeTeam = useGameStore((s) => s.homeTeam);
   const awayTeam = useGameStore((s) => s.awayTeam);
   const settings = useGameStore((s) => s.settings);
@@ -36,34 +53,24 @@ export default function HomeScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-surface">
-      <View className="flex-row items-center justify-end gap-4 px-6 pt-2">
-        <Text className="text-sm text-ink-muted" numberOfLines={1}>
-          {session?.user.email}
-        </Text>
-        <SignOutButton />
-      </View>
-      <View className="flex-1 items-center justify-center gap-8 px-6">
-        <Text className="text-4xl font-bold text-ink md:text-6xl">
-          theStats
-        </Text>
+    <View className="items-center gap-6 pb-8 pt-6">
+      <Text className="text-4xl font-bold text-ink md:text-6xl">theStats</Text>
 
-        <View className="w-full max-w-xl rounded-xl border border-surface-border bg-surface-elevated p-6">
-          <Text className="mb-4 text-center text-sm uppercase tracking-widest text-ink-muted">
-            {STATUS_LABELS[status]}
-          </Text>
-          <View className="flex-row items-center justify-between">
-            <TeamScore name={homeTeam.name} points={stats.home.points} accent="text-home" />
-            <Text className="text-2xl text-ink-dim">vs</Text>
-            <TeamScore name={awayTeam.name} points={stats.away.points} accent="text-away" />
-          </View>
+      <View className="w-full rounded-xl border border-surface-border bg-surface-elevated p-6">
+        <Text className="mb-4 text-center text-sm uppercase tracking-widest text-ink-muted">
+          {STATUS_LABELS[status]}
+        </Text>
+        <View className="flex-row items-center justify-between">
+          <TeamScore name={homeTeam.name} points={stats.home.points} accent="text-home" />
+          <Text className="text-2xl text-ink-dim">vs</Text>
+          <TeamScore name={awayTeam.name} points={stats.away.points} accent="text-away" />
         </View>
-
-        <Text className="text-center text-ink-dim">
-          iPad & iPhone app — scoring screens coming next.
-        </Text>
       </View>
-    </SafeAreaView>
+
+      <Text className="text-center text-ink-dim">
+        iPad & iPhone app — scoring screens coming next.
+      </Text>
+    </View>
   );
 }
 

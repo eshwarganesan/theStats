@@ -1,6 +1,7 @@
 import type { Session } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
+import { claimDeviceGame } from "@/lib/gameSync";
 import { bindAutoRefreshToAppState, getSupabase } from "@/lib/supabase";
 
 interface SessionState {
@@ -14,7 +15,9 @@ const SessionContext = createContext<SessionState>({ session: null, isLoading: t
 /**
  * Tracks the Supabase session for the whole app. Reads the stored
  * session once on launch, then follows sign-in, refresh and sign-out
- * through `onAuthStateChange`.
+ * through `onAuthStateChange`. Each session claims the device's game for
+ * its user before any signed-in screen renders, so one account never
+ * sees, or syncs, a game another account left on the device.
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<SessionState>({ session: null, isLoading: true });
@@ -23,18 +26,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabase();
     let active = true;
 
+    const apply = (session: Session | null) => {
+      if (!active) return;
+      if (session) claimDeviceGame(session.user.id);
+      setState({ session, isLoading: false });
+    };
+
     supabase.auth
       .getSession()
-      .then(({ data }) => {
-        if (active) setState({ session: data.session, isLoading: false });
-      })
-      .catch(() => {
-        if (active) setState({ session: null, isLoading: false });
-      });
+      .then(({ data }) => apply(data.session))
+      .catch(() => apply(null));
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) setState({ session, isLoading: false });
-    });
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => apply(session));
     const unbindRefresh = bindAutoRefreshToAppState(supabase);
 
     return () => {

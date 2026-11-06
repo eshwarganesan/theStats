@@ -929,6 +929,27 @@ const makeStoreBody = (
 });
 
 /**
+ * The slice of the game that is persisted on the device and saved to the
+ * account library: everything except the clock, which is restored from
+ * its own checkpoint. Shared by `persist` and write-through so both
+ * serialize the same shape.
+ */
+export function toPersistedGameRecord(state: GameState): PersistedGameRecord {
+  return {
+    schemaVersion: 1,
+    homeTeam: state.homeTeam,
+    awayTeam: state.awayTeam,
+    settings: state.settings,
+    status: state.status,
+    currentPeriod: state.currentPeriod,
+    events: state.events,
+    possession: state.possession,
+    possessionArrow: state.possessionArrow,
+    onCourt: state.onCourt,
+  };
+}
+
+/**
  * Unwrapped store factory — used by unit tests that need to exercise
  * the reducer without touching platform storage. `createPersistedGameStore`
  * wraps the same body with `persist`.
@@ -964,18 +985,7 @@ export function createPersistedGameStore({
       storage: createJSONStorage<PersistedGameRecord>(() =>
         createGuardedStorage(storage),
       ),
-      partialize: (state): PersistedGameRecord => ({
-        schemaVersion: 1,
-        homeTeam: state.homeTeam,
-        awayTeam: state.awayTeam,
-        settings: state.settings,
-        status: state.status,
-        currentPeriod: state.currentPeriod,
-        events: state.events,
-        possession: state.possession,
-        possessionArrow: state.possessionArrow,
-        onCourt: state.onCourt,
-      }),
+      partialize: toPersistedGameRecord,
       merge: (persisted, current) => {
         const parsed = parseGameRecord(persisted);
         if (!parsed) {

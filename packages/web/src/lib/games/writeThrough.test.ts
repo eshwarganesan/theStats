@@ -1,241 +1,16 @@
 /**
- * Tests for the library write-through hook logic.
+ * Tests for the web binding of library write-through.
  * Feature 009-account-library, task T032.
  *
- * These tests exercise `WriteThroughController` — the pure, framework-free
- * class the hook wraps. Splitting the logic out keeps the tests focused on
- * behavior (POST-then-PATCH, idempotency, debouncing, no-op when
- * anonymous) without needing a full React render harness.
+ * The controller itself (POST-then-PATCH, idempotency, debouncing,
+ * retries) is shared and tested in @thestats/app
+ * (packages/app/src/games/writeThrough.test.ts). These tests cover the
+ * hook: which store changes reach the controller, and its handle.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import type { PersistedGameRecord } from "@/lib/persistence";
 import { useGameStore } from "@/lib/store";
-import { WriteThroughController, useLibraryWriteThrough } from "./writeThrough";
-
-function makeRecord(overrides: Partial<PersistedGameRecord> = {}): PersistedGameRecord {
-  return {
-    schemaVersion: 1,
-    homeTeam: {
-      id: "home",
-      name: "Home",
-      tag: "HOM",
-      color: "#ff0000",
-      coach: "",
-      roster: [],
-    },
-    awayTeam: {
-      id: "away",
-      name: "Away",
-      tag: "AWY",
-      color: "#0000ff",
-      coach: "",
-      roster: [],
-    },
-    settings: {
-      format: "5v5",
-      periods: 4,
-      periodSeconds: 600,
-      overtimeSeconds: 300,
-      overtimeEnabled: true,
-      possessionArrowEnabled: true,
-      bonusFoulThreshold: 5,
-      timeoutsPerGame: 4,
-      timeoutSeconds: 60,
-      quarterBreakSeconds: 60,
-      halftimeBreakSeconds: 900,
-      venue: "",
-      competition: "",
-    },
-    status: "live",
-    currentPeriod: 1,
-    events: [],
-    possession: "home",
-    onCourt: { home: [], away: [] },
-    ...overrides,
-  };
-}
-
-describe("WriteThroughController", () => {
-  const fetchMock = vi.fn();
-  const originalFetch = globalThis.fetch;
-
-  beforeEach(() => {
-    vi.useFakeTimers();
-    fetchMock.mockReset();
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-    globalThis.fetch = originalFetch;
-  });
-
-  it("does nothing when the session is anonymous", async () => {
-    const ctrl = new WriteThroughController({ signedIn: false, debounceMs: 250 });
-    ctrl.onCommit(makeRecord());
-    await vi.runAllTimersAsync();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("POSTs on the first commit, then PATCHes on subsequent commits", async () => {
-    fetchMock.mockImplementationOnce(async () =>
-      new Response(JSON.stringify({ game: { id: "game-1" } }), { status: 201 }),
-    );
-    fetchMock.mockImplementationOnce(async () =>
-      new Response(JSON.stringify({ game: { id: "game-1" } }), { status: 200 }),
-    );
-
-    const ctrl = new WriteThroughController({ signedIn: true, debounceMs: 250 });
-
-    ctrl.onCommit(makeRecord());
-    await vi.advanceTimersByTimeAsync(250);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const firstCall = fetchMock.mock.calls[0]!;
-    expect(firstCall[0]).toBe("/api/games");
-    const firstInit = firstCall[1] as RequestInit;
-    expect(firstInit.method).toBe("POST");
-    const firstHeaders = firstInit.headers as Record<string, string>;
-    expect(firstHeaders["Idempotency-Key"]).toBeDefined();
-
-    ctrl.onCommit(makeRecord({ currentPeriod: 2 }));
-    await vi.advanceTimersByTimeAsync(250);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    const secondCall = fetchMock.mock.calls[1]!;
-    expect(secondCall[0]).toBe("/api/games/game-1");
-    const secondInit = secondCall[1] as RequestInit;
-    expect(secondInit.method).toBe("PATCH");
-  });
-
-  it("reports an error and retries POST on the next commit when the POST fails", async () => {
-    fetchMock.mockImplementationOnce(async () => new Response(null, { status: 500 }));
-    fetchMock.mockImplementationOnce(async () =>
-      new Response(JSON.stringify({ game: { id: "game-1" } }), { status: 201 }),
-    );
-    const onStatus = vi.fn();
-    const ctrl = new WriteThroughController({ signedIn: true, debounceMs: 250, onStatus });
-
-    ctrl.onCommit(makeRecord());
-    await vi.advanceTimersByTimeAsync(250);
-    expect(onStatus).toHaveBeenLastCalledWith("error");
-    expect(ctrl.currentGameId()).toBeNull();
-
-    ctrl.onCommit(makeRecord({ currentPeriod: 2 }));
-    await vi.advanceTimersByTimeAsync(250);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect((fetchMock.mock.calls[1]![1] as RequestInit).method).toBe("POST");
-    expect(onStatus).toHaveBeenLastCalledWith("saved");
-  });
-
-  it("reports an error when the request throws", async () => {
-    fetchMock.mockRejectedValueOnce(new TypeError("network down"));
-    const onStatus = vi.fn();
-    const ctrl = new WriteThroughController({ signedIn: true, debounceMs: 250, onStatus });
-
-    await ctrl.saveNow(makeRecord());
-    expect(onStatus).toHaveBeenLastCalledWith("error");
-  });
-
-  it("chains a manual save behind an in-flight write instead of racing it", async () => {
-    let resolveFirst: (res: Response) => void = () => {};
-    fetchMock.mockImplementationOnce(
-      () => new Promise<Response>((resolve) => { resolveFirst = resolve; }),
-    );
-    fetchMock.mockImplementationOnce(async () => new Response("{}", { status: 200 }));
-    const ctrl = new WriteThroughController({ signedIn: true, debounceMs: 250 });
-
-    const first = ctrl.saveNow(makeRecord());
-    const second = ctrl.saveNow(makeRecord({ currentPeriod: 2 }));
-    await vi.advanceTimersByTimeAsync(0);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-
-    resolveFirst(new Response(JSON.stringify({ game: { id: "game-1" } }), { status: 201 }));
-    await Promise.all([first, second]);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[1]![0]).toBe("/api/games/game-1");
-  });
-
-  it("PATCHes an adopted game id without POSTing first", async () => {
-    // Mirrors the "Save to my account" flow: the row already exists, so the
-    // controller adopts its id and the next commit PATCHes rather than
-    // creating a duplicate.
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ game: { id: "adopted-1" } }), { status: 200 }),
-    );
-    const ctrl = new WriteThroughController({ signedIn: true, debounceMs: 250 });
-
-    ctrl.setGameId("adopted-1");
-    expect(ctrl.currentGameId()).toBe("adopted-1");
-
-    ctrl.onCommit(makeRecord({ currentPeriod: 2 }));
-    await vi.advanceTimersByTimeAsync(250);
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const call = fetchMock.mock.calls[0]!;
-    expect(call[0]).toBe("/api/games/adopted-1");
-    expect((call[1] as RequestInit).method).toBe("PATCH");
-  });
-
-  it("uses a unique Idempotency-Key per debounced write", async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ game: { id: "game-1" } }), { status: 201 }),
-    );
-
-    const ctrl = new WriteThroughController({ signedIn: true, debounceMs: 250 });
-
-    ctrl.onCommit(makeRecord({ currentPeriod: 1 }));
-    await vi.advanceTimersByTimeAsync(250);
-
-    ctrl.onCommit(makeRecord({ currentPeriod: 2 }));
-    await vi.advanceTimersByTimeAsync(250);
-
-    ctrl.onCommit(makeRecord({ currentPeriod: 3 }));
-    await vi.advanceTimersByTimeAsync(250);
-
-    const keys = fetchMock.mock.calls.map(
-      (c) => ((c[1] as RequestInit).headers as Record<string, string>)["Idempotency-Key"],
-    );
-    expect(new Set(keys).size).toBe(3);
-  });
-
-  it("collapses 5 rapid commits into 1 request after the debounce window", async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ game: { id: "game-1" } }), { status: 201 }),
-    );
-    const ctrl = new WriteThroughController({ signedIn: true, debounceMs: 250 });
-
-    for (let i = 0; i < 5; i++) {
-      ctrl.onCommit(makeRecord({ currentPeriod: i + 1 }));
-      await vi.advanceTimersByTimeAsync(50); // < debounce
-    }
-    await vi.advanceTimersByTimeAsync(250);
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const call = fetchMock.mock.calls[0]!;
-    expect(call[0]).toBe("/api/games");
-    const body = JSON.parse((call[1] as RequestInit).body as string);
-    // The final commit's currentPeriod (5) should be what's sent.
-    expect(body.state.currentPeriod).toBe(5);
-  });
-
-  it("does not touch localStorage — feature 006's persist slice remains untouched", async () => {
-    // The controller sends HTTP calls; it never reads or writes localStorage.
-    // Fail loudly if it starts to.
-    const setSpy = vi.spyOn(Storage.prototype, "setItem");
-    const removeSpy = vi.spyOn(Storage.prototype, "removeItem");
-
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ game: { id: "game-1" } }), { status: 201 }),
-    );
-
-    const ctrl = new WriteThroughController({ signedIn: true, debounceMs: 250 });
-    ctrl.onCommit(makeRecord());
-    await vi.advanceTimersByTimeAsync(250);
-
-    expect(setSpy).not.toHaveBeenCalled();
-    expect(removeSpy).not.toHaveBeenCalled();
-  });
-});
+import { useLibraryWriteThrough } from "./writeThrough";
 
 describe("useLibraryWriteThrough (hook)", () => {
   const fetchMock = vi.fn();
@@ -315,5 +90,30 @@ describe("useLibraryWriteThrough (hook)", () => {
     expect(fetchMock.mock.calls[0]![0]).toBe("/api/games");
     expect((fetchMock.mock.calls[0]![1] as RequestInit).method).toBe("POST");
     expect(result.current.status).toBe("saved");
+  });
+
+  it("saves while the clock runs; ticks alone don't reset the debounce", async () => {
+    const { unmount } = renderHook(() =>
+      useLibraryWriteThrough({ signedIn: true, initialGameId: "live-1" }),
+    );
+
+    act(() => {
+      useGameStore.setState({ clockRunning: true, currentPeriod: originalPeriod + 3 });
+    });
+    // A running clock ticks every animation frame (~16 ms).
+    await act(async () => {
+      for (let t = 0; t < 300; t += 16) {
+        useGameStore.getState().tickClock(16);
+        await vi.advanceTimersByTimeAsync(16);
+      }
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]![0]).toBe("/api/games/live-1");
+
+    act(() => {
+      useGameStore.setState({ clockRunning: false });
+    });
+    unmount();
   });
 });

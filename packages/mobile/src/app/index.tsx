@@ -1,12 +1,19 @@
-import { useMemo, useState } from "react";
+import type { LibraryEntry } from "@thestats/app";
+import type { GameStatus } from "@thestats/core";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { computeStats, type GameStatus } from "@thestats/core";
 
 import { GameLibrary } from "@/components/GameLibrary";
+import { Button } from "@/components/ui/Button";
 import { signOut } from "@/lib/auth";
+import { confirm } from "@/lib/confirm";
+import { flushGameSync, hasUnsavedGameChanges, startNewGame } from "@/lib/gameSync";
+import { continueFromLibrary, deleteSavedGame } from "@/lib/libraryActions";
 import { useSession } from "@/lib/session";
 import { useGameStore } from "@/lib/store";
+import { useGameStats } from "@/lib/useGameStats";
 
 const STATUS_LABELS: Record<GameStatus, string> = {
   setup: "Not started",
@@ -18,13 +25,37 @@ const STATUS_LABELS: Record<GameStatus, string> = {
 };
 
 /**
- * Home: the signed-in user's game library, under a card for the game on
- * this device. The card is a placeholder proving the shared store,
- * persistence and stats run on iOS; the setup / scoreboard screens
- * replace it in the next migration step.
+ * Home: the game on this device, with the way into setup or the live
+ * console, above the signed-in user's game library. Tapping a saved game
+ * reviews it when it's final and carries on scoring it otherwise; the
+ * library reloads whenever Home comes back into view, e.g. after a game.
  */
 export default function HomeScreen() {
   const { session } = useSession();
+  const router = useRouter();
+  const [opening, setOpening] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const seen = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (seen.current) setRefreshKey((key) => key + 1);
+      seen.current = true;
+    }, []),
+  );
+
+  async function open(entry: LibraryEntry) {
+    if (entry.status === "finished") {
+      router.push(`/games/${entry.id}`);
+      return;
+    }
+    setOpening(entry.id);
+    try {
+      if (await continueFromLibrary(entry)) router.push("/game");
+    } finally {
+      setOpening(null);
+    }
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-surface" edges={["top", "left", "right"]}>
@@ -34,23 +65,63 @@ export default function HomeScreen() {
         </Text>
         <SignOutButton />
       </View>
-      <GameLibrary header={<DeviceGame />} />
+      <GameLibrary
+        header={<DeviceGame />}
+        onOpen={open}
+        onDelete={deleteSavedGame}
+        openingId={opening}
+        refreshKey={refreshKey}
+      />
     </SafeAreaView>
   );
 }
 
 function DeviceGame() {
+  const router = useRouter();
   const homeTeam = useGameStore((s) => s.homeTeam);
   const awayTeam = useGameStore((s) => s.awayTeam);
-  const settings = useGameStore((s) => s.settings);
-  const events = useGameStore((s) => s.events);
   const status = useGameStore((s) => s.status);
-  const currentPeriod = useGameStore((s) => s.currentPeriod);
+  const stats = useGameStats();
+  const [pending, setPending] = useState(false);
 
-  const stats = useMemo(
-    () => computeStats(events, homeTeam, awayTeam, settings, currentPeriod),
-    [events, homeTeam, awayTeam, settings, currentPeriod],
-  );
+  const inProgress = status !== "setup" && status !== "finished";
+
+  /**
+   * Replaces the device's game with a fresh one. The current game stays
+   * in the library, so this only asks first when it's still being played
+   * or its latest changes haven't been saved to the account yet.
+   */
+  async function onNewGame() {
+    if (
+      inProgress &&
+      !(await confirm(
+        "Start a new game?",
+        "The game on this device stays in your games list.",
+        "New game",
+      ))
+    ) {
+      return;
+    }
+    setPending(true);
+    try {
+      await flushGameSync();
+      if (
+        hasUnsavedGameChanges() &&
+        !(await confirm(
+          "Not saved yet",
+          "The latest changes to this game haven't reached your account. Start a new game anyway and lose them?",
+          "Start anyway",
+          "destructive",
+        ))
+      ) {
+        return;
+      }
+      startNewGame();
+      router.push("/setup");
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
     <View className="items-center gap-6 pb-8 pt-6">
@@ -67,9 +138,37 @@ function DeviceGame() {
         </View>
       </View>
 
-      <Text className="text-center text-ink-dim">
-        iPad & iPhone app — scoring screens coming next.
-      </Text>
+      <View className="w-full flex-row justify-center gap-3">
+        {status === "setup" ? (
+          <Button
+            label="Set up a game"
+            variant="primary"
+            size="lg"
+            onPress={() => router.push("/setup")}
+          />
+        ) : inProgress ? (
+          <>
+            <Button
+              label="Continue game"
+              variant="primary"
+              size="lg"
+              onPress={() => router.push("/game")}
+            />
+            <Button label="New game" size="lg" disabled={pending} onPress={onNewGame} />
+          </>
+        ) : (
+          <>
+            <Button
+              label="New game"
+              variant="primary"
+              size="lg"
+              disabled={pending}
+              onPress={onNewGame}
+            />
+            <Button label="View game" size="lg" onPress={() => router.push("/game")} />
+          </>
+        )}
+      </View>
     </View>
   );
 }

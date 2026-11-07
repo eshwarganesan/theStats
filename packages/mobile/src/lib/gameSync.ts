@@ -3,6 +3,7 @@ import {
   clearPersistedGame,
   subscribeToGameRecord,
   toPersistedGameRecord,
+  type PersistedGameRecord,
   type RetryPolicy,
   type SyncState,
 } from "@thestats/app";
@@ -156,4 +157,53 @@ export async function flushGameSync(timeoutMs = 5_000): Promise<void> {
   });
   await Promise.race([controller.flush(), timeout]);
   clearTimeout(timer);
+}
+
+/** Whether the game on this device has changes the server hasn't saved. */
+export function hasUnsavedGameChanges(): boolean {
+  return active?.getSyncState().unsaved ?? readStoredSync()?.unsaved ?? false;
+}
+
+/** The library id of the game on this device, once it has been saved. */
+export function deviceGameId(): string | null {
+  return active ? active.currentGameId() : (readStoredSync()?.gameId ?? null);
+}
+
+/**
+ * Points sync at another library game (null: a new one) and drops the
+ * device's copy of the old game and its clock. Unsaved changes to the old
+ * game are dropped too, so callers flush first.
+ */
+function switchDeviceGame(gameId: string | null): void {
+  if (active) {
+    active.setGameId(gameId);
+  } else {
+    const stored = readStoredSync();
+    if (stored) writeStoredSync({ ...stored, gameId, createKey: null, unsaved: false });
+  }
+  clearPersistedGame(deviceStorage);
+}
+
+/**
+ * Replaces the game on this device with a blank one in setup. Sync lets
+ * go of the current game first, so the new game's first save creates its
+ * own library entry instead of overwriting the old one, as web's
+ * "New game" does. Unsaved changes to the old game are dropped: call
+ * `flushGameSync` first and check `hasUnsavedGameChanges`.
+ */
+export function startNewGame(): void {
+  switchDeviceGame(null);
+  useGameStore.getState().resetAll();
+}
+
+/**
+ * Makes the library game `gameId` the game on this device, to carry on
+ * scoring it here. Sync switches to it before the store changes, so its
+ * saves update that library entry. The clock isn't saved to the library,
+ * so it starts at the period length, paused. As with `startNewGame`,
+ * flush first: unsaved changes to the old game are dropped.
+ */
+export function continueSavedGame(gameId: string, state: PersistedGameRecord): void {
+  switchDeviceGame(gameId);
+  useGameStore.getState().hydrateFromLibrary(state, { force: true });
 }

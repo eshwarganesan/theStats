@@ -3,57 +3,71 @@ import { flushGameSync } from "@/lib/gameSync";
 import { getSupabase } from "@/lib/supabase";
 
 /**
- * Email + password sign-in for the iOS app.
+ * Email + password accounts for the iOS app.
  *
- * Credentials go to the web API's POST /api/auth/token rather than
- * straight to Supabase, so the app shares web's per-account + per-IP
- * backoff and non-enumerating errors. The returned tokens are handed to
- * supabase-js, which stores them in the keychain and refreshes them.
+ * Requests go to the web API (POST /api/auth/token, /sign-up and
+ * /resend-confirmation) rather than straight to Supabase, so the app
+ * shares web's per-account + per-IP backoff and non-enumerating errors.
+ * Sign-in's tokens are handed to supabase-js, which stores them in the
+ * keychain and refreshes them.
  */
-export type SignInErrorCode =
+export type AuthErrorCode =
   | "invalid_input"
   | "invalid_credentials"
   | "email_unconfirmed"
+  | "email_exists"
   | "rate_limited"
   | "network_error"
   | "internal_error";
 
-export type SignInResult =
+export type AuthResult =
   | { ok: true }
   | {
       ok: false;
-      code: SignInErrorCode;
+      code: AuthErrorCode;
       message: string;
       retryAfterSeconds?: number;
     };
 
-const KNOWN_CODES: readonly SignInErrorCode[] = [
+export type AuthFailure = Extract<AuthResult, { ok: false }>;
+type Failure = AuthFailure;
+
+const KNOWN_CODES: readonly AuthErrorCode[] = [
   "invalid_input",
   "invalid_credentials",
   "email_unconfirmed",
+  "email_exists",
   "rate_limited",
 ];
 
-const GENERIC_ERROR: SignInResult = {
+const GENERIC_ERROR: Failure = {
   ok: false,
   code: "internal_error",
   message: "Something went wrong. Please try again.",
+};
+
+const OFFLINE: Failure = {
+  ok: false,
+  code: "network_error",
+  message: "Can't reach theStats. Check your connection and try again.",
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function parseError(body: unknown): SignInResult {
+/** The API's error envelope; for a rejected field, the reason it gives. */
+function parseError(body: unknown): Failure {
   const error = isRecord(body) ? body.error : undefined;
   if (!isRecord(error)) return GENERIC_ERROR;
   const code = KNOWN_CODES.find((c) => c === error.code);
   if (!code || typeof error.message !== "string") return GENERIC_ERROR;
+  const reason = isRecord(error.details) ? error.details.reason : undefined;
   const retry = error.retry_after_seconds;
   return {
     ok: false,
     code,
-    message: error.message,
+    message: code === "invalid_input" && typeof reason === "string" ? reason : error.message,
     ...(typeof retry === "number" ? { retryAfterSeconds: retry } : {}),
   };
 }
@@ -65,20 +79,17 @@ function parseTokens(body: unknown): { access_token: string; refresh_token: stri
   return { access_token, refresh_token };
 }
 
-export async function signIn(email: string, password: string): Promise<SignInResult> {
+/** POSTs `payload` to the web API: the response body, or why it failed. */
+async function post(path: string, payload: unknown): Promise<{ ok: true; body: unknown } | Failure> {
   let response: Response;
   try {
-    response = await fetch(`${getEnv().apiUrl}/api/auth/token`, {
+    response = await fetch(`${getEnv().apiUrl}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(payload),
     });
   } catch {
-    return {
-      ok: false,
-      code: "network_error",
-      message: "Can't reach theStats. Check your connection and try again.",
-    };
+    return OFFLINE;
   }
 
   let body: unknown;
@@ -87,14 +98,33 @@ export async function signIn(email: string, password: string): Promise<SignInRes
   } catch {
     return GENERIC_ERROR;
   }
+  return response.ok ? { ok: true, body } : parseError(body);
+}
 
-  if (!response.ok) return parseError(body);
+export async function signIn(email: string, password: string): Promise<AuthResult> {
+  const result = await post("/api/auth/token", { email, password });
+  if (!result.ok) return result;
 
-  const tokens = parseTokens(body);
+  const tokens = parseTokens(result.body);
   if (!tokens) return GENERIC_ERROR;
 
   const { error } = await getSupabase().auth.setSession(tokens);
   return error ? GENERIC_ERROR : { ok: true };
+}
+
+/**
+ * Creates an account. Supabase emails a link to confirm the address; the
+ * account can sign in once that's opened.
+ */
+export async function signUp(email: string, password: string): Promise<AuthResult> {
+  const result = await post("/api/auth/sign-up", { email, password });
+  return result.ok ? { ok: true } : result;
+}
+
+/** Sends the email-confirmation link again. */
+export async function resendConfirmation(email: string): Promise<AuthResult> {
+  const result = await post("/api/auth/resend-confirmation", { email });
+  return result.ok ? { ok: true } : result;
 }
 
 /**

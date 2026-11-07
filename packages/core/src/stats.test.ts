@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeStats, computeStatSheet, isInBonus } from "./stats";
+import { computePeriodScores, computeStats, computeStatSheet, isInBonus } from "./stats";
 import type {
   GameEvent,
   GameSettings,
@@ -596,5 +596,52 @@ describe("computeStatSheet — statsheet snapshot for review view (feature 009 U
     expect(sheet.home.points).toBe(0);
     expect(sheet.away.points).toBe(0);
     expect(sheet.home.totalFouls).toBe(0);
+  });
+});
+
+/* ── computePeriodScores ───────────────────────────────────────────── */
+
+describe("computePeriodScores", () => {
+  const at = { timestamp: 0, clockAt: 300 };
+  const shot = (
+    id: string,
+    period: number,
+    side: "home" | "away",
+    kind: "2pt" | "3pt" | "ft",
+    made = true,
+  ): GameEvent => ({ ...at, id, type: "score", period, side, playerId: "p1", kind, made });
+
+  it("adds made shots to the period and side they happened in", () => {
+    const events: GameEvent[] = [
+      shot("a", 1, "home", "3pt"),
+      shot("b", 1, "home", "2pt", false),
+      shot("c", 2, "away", "2pt"),
+      shot("d", 4, "home", "ft"),
+      { ...at, id: "e", type: "foul", period: 2, side: "away", playerId: "p1", kind: "personal" },
+    ];
+    expect(computePeriodScores(events, 4, 4)).toEqual({ home: [3, 0, 0, 1], away: [0, 2, 0, 0] });
+  });
+
+  it("counts score awards, so the periods add up to the team total", () => {
+    const events: GameEvent[] = [
+      shot("a", 1, "away", "2pt"),
+      { ...at, id: "b", type: "team-score-adjust", period: 3, side: "away", points: 5, reason: "" },
+    ];
+    const { away } = computePeriodScores(events, 4, 3);
+    expect(away).toEqual([2, 0, 5, 0]);
+    expect(away.reduce((a, b) => a + b, 0)).toBe(7);
+  });
+
+  it("adds a column for each overtime period reached", () => {
+    const events: GameEvent[] = [shot("a", 6, "home", "2pt")];
+    expect(computePeriodScores(events, 4, 6)).toEqual({
+      home: [0, 0, 0, 0, 0, 2],
+      away: [0, 0, 0, 0, 0, 0],
+    });
+  });
+
+  it("ignores events outside the periods shown", () => {
+    const events: GameEvent[] = [shot("a", 0, "home", "2pt"), shot("b", 5, "home", "2pt")];
+    expect(computePeriodScores(events, 4, 4).home).toEqual([0, 0, 0, 0]);
   });
 });

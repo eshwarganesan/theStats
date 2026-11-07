@@ -4,24 +4,10 @@ import { useState } from "react";
 import { useGameStore } from "@/lib/store";
 import { formatClock, formatPeriod } from "@thestats/core";
 import { cn } from "@/lib/utils";
-import { FOUL_LABELS, STAT_LABELS, TEAM_TURNOVER_LABELS } from "@thestats/core";
+import { describeEvent, isEditableEvent } from "@thestats/app";
 import type { EditableEvent, GameEvent, Team } from "@thestats/core";
 import { EditEventModal } from "./EditEventModal";
 import { DeleteEventConfirmModal } from "./DeleteEventConfirmModal";
-
-/** Event types that get the per-row Edit/Delete affordance.
- *  Substitution, clock, and period rows are intentionally excluded
- *  (Spec FR-002). */
-function isEditable(ev: GameEvent): ev is EditableEvent {
-  return (
-    ev.type === "score" ||
-    ev.type === "foul" ||
-    ev.type === "stat" ||
-    ev.type === "timeout" ||
-    ev.type === "team-turnover" ||
-    ev.type === "team-score-adjust"
-  );
-}
 
 export interface GameLogProps {
   /**
@@ -79,8 +65,8 @@ export function GameLog({ readOnly = false, source }: GameLogProps = {}) {
               homeTeam={homeTeam}
               awayTeam={awayTeam}
               periods={periods}
-              onEdit={!readOnly && isEditable(ev) ? () => setEditing(ev) : undefined}
-              onDelete={!readOnly && isEditable(ev) ? () => setDeleting(ev) : undefined}
+              onEdit={!readOnly && isEditableEvent(ev) ? () => setEditing(ev) : undefined}
+              onDelete={!readOnly && isEditableEvent(ev) ? () => setDeleting(ev) : undefined}
             />
           ))}
         </ul>
@@ -113,7 +99,7 @@ interface LogRowProps {
 }
 
 function LogRow({ event, homeTeam, awayTeam, periods, onEdit, onDelete }: LogRowProps) {
-  const descriptor = describe(event, homeTeam, awayTeam);
+  const descriptor = describeEvent(event, homeTeam, awayTeam);
   return (
     <li className="px-4 py-2 flex items-center gap-3 hover:bg-surface-hover">
       <div className="flex flex-col items-center w-16 shrink-0 font-mono text-[0.7rem] tabular">
@@ -174,134 +160,4 @@ function LogRow({ event, homeTeam, awayTeam, periods, onEdit, onDelete }: LogRow
       ) : null}
     </li>
   );
-}
-
-interface Descriptor {
-  text: string;
-  sideColor: "home" | "away" | null;
-  emphasis: boolean;
-  tag?: string;
-  tagColor: "accent" | "danger" | "muted";
-}
-
-function describe(
-  ev: GameEvent,
-  home: { roster: { id: string; name: string; number: string }[]; tag: string },
-  away: { roster: { id: string; name: string; number: string }[]; tag: string },
-): Descriptor {
-  const playerFor = (side: "home" | "away", id: string) =>
-    (side === "home" ? home : away).roster.find((p) => p.id === id);
-
-  switch (ev.type) {
-    case "score": {
-      const p = playerFor(ev.side, ev.playerId);
-      const name = p ? `#${p.number} ${p.name}` : "Unknown";
-      if (!ev.made) {
-        return {
-          text: `${name} missed ${labelScore(ev.kind)}`,
-          sideColor: ev.side,
-          emphasis: false,
-          tag: "MISS",
-          tagColor: "muted",
-        };
-      }
-      return {
-        text: `${name} scored ${labelScore(ev.kind)}`,
-        sideColor: ev.side,
-        emphasis: true,
-        tag: ev.kind === "3pt" ? "3PT" : ev.kind === "ft" ? "FT" : "2PT",
-        tagColor: "accent",
-      };
-    }
-    case "foul": {
-      const p = playerFor(ev.side, ev.playerId);
-      const name = p ? `#${p.number} ${p.name}` : "Unknown";
-      return {
-        text: `${name} — ${FOUL_LABELS[ev.kind]} foul`,
-        sideColor: ev.side,
-        emphasis: false,
-        tag: "FOUL",
-        tagColor: "danger",
-      };
-    }
-    case "stat": {
-      const p = playerFor(ev.side, ev.playerId);
-      const name = p ? `#${p.number} ${p.name}` : "Unknown";
-      return {
-        text: `${name} — ${STAT_LABELS[ev.kind]}`,
-        sideColor: ev.side,
-        emphasis: false,
-        tagColor: "muted",
-      };
-    }
-    case "substitution": {
-      const roster = ev.side === "home" ? home.roster : away.roster;
-      const outP = roster.find((p) => p.id === ev.playerOutId);
-      const inP = roster.find((p) => p.id === ev.playerInId);
-      return {
-        text: `Sub: #${inP?.number ?? "?"} ${inP?.name ?? ""} in for #${outP?.number ?? "?"} ${outP?.name ?? ""}`,
-        sideColor: ev.side,
-        emphasis: false,
-        tag: "SUB",
-        tagColor: "muted",
-      };
-    }
-    case "timeout":
-      return {
-        text: `${ev.side === "home" ? home.tag : away.tag} timeout`,
-        sideColor: ev.side,
-        emphasis: false,
-        tag: "TO",
-        tagColor: "muted",
-      };
-    case "team-turnover": {
-      const tag = ev.side === "home" ? home.tag : away.tag;
-      return {
-        text: `${tag} — ${TEAM_TURNOVER_LABELS[ev.kind]} (team TO)`,
-        sideColor: ev.side,
-        emphasis: false,
-        tag: "TO",
-        tagColor: "muted",
-      };
-    }
-    case "team-score-adjust": {
-      const tag = ev.side === "home" ? home.tag : away.tag;
-      const reason = ev.reason.trim();
-      return {
-        text: `${tag} +${ev.points}${reason ? ` — ${reason}` : ""}`,
-        sideColor: ev.side,
-        emphasis: true,
-        tag: "+PTS",
-        tagColor: "accent",
-      };
-    }
-    case "clock":
-      if (ev.action === "adjust") {
-        return {
-          text: `Clock adjusted ${formatClock(ev.from)} → ${formatClock(ev.to)}`,
-          sideColor: null,
-          emphasis: true,
-          tag: "ADJ",
-          tagColor: "accent",
-        };
-      }
-      return {
-        text: `Clock ${ev.action}`,
-        sideColor: null,
-        emphasis: false,
-        tagColor: "muted",
-      };
-    case "period":
-      return {
-        text: `Period ${ev.action}`,
-        sideColor: null,
-        emphasis: true,
-        tag: ev.action === "end" ? "END" : "TIP",
-        tagColor: "accent",
-      };
-  }
-}
-
-function labelScore(kind: "ft" | "2pt" | "3pt"): string {
-  return kind === "ft" ? "1" : kind === "3pt" ? "3" : "2";
 }

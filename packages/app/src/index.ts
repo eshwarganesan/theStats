@@ -14,3 +14,5 @@ export * from "./games/types";
 export * from "./games/serialize";
 export * from "./games/idempotency";
 export * from "./games/writeThrough";
+export * from "./games/describeEvent";
+export * from "./games/events";

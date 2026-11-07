@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
   View,
@@ -19,6 +20,7 @@ import { authErrorText } from "@/lib/authErrors";
  * Email + password sign-in. On success the session listener in the root
  * layout swaps this screen for the app; there is no manual navigation.
  * An account that hasn't confirmed its email can have the link resent.
+ * The form scrolls, so it stays reachable above the keyboard in landscape.
  */
 export default function SignInScreen() {
   const router = useRouter();
@@ -63,7 +65,10 @@ export default function SignInScreen() {
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View className="flex-1 items-center justify-center px-6">
+        <ScrollView
+          contentContainerClassName="grow items-center justify-center px-6 py-8"
+          keyboardShouldPersistTaps="handled"
+        >
           <View className="w-full max-w-md gap-6">
             <View className="gap-2">
               <Text className="text-4xl font-bold text-ink">theStats</Text>
@@ -146,7 +151,7 @@ export default function SignInScreen() {
               </Text>
             </Pressable>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

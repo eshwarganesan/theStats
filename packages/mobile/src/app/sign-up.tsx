@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   Text,
   View,
 } from "react-native";
@@ -18,7 +19,8 @@ import { authErrorText } from "@/lib/authErrors";
 /**
  * Create an account with email and password, through the same API (and
  * throttle) as web. Supabase then emails a confirmation link, which opens
- * in the browser; after that the account signs in here as usual.
+ * in the browser; after that the account signs in here as usual. The
+ * form scrolls, so it stays reachable above the keyboard in landscape.
  */
 export default function SignUpScreen() {
   const router = useRouter();
@@ -48,7 +50,10 @@ export default function SignUpScreen() {
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View className="flex-1 items-center justify-center px-6">
+        <ScrollView
+          contentContainerClassName="grow items-center justify-center px-6 py-8"
+          keyboardShouldPersistTaps="handled"
+        >
           <View className="w-full max-w-md gap-6">
             {sentTo ? (
               <CheckEmail email={sentTo} onSignIn={toSignIn} />
@@ -119,7 +124,7 @@ export default function SignUpScreen() {
               </>
             )}
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -36,7 +36,9 @@ const TABS: readonly { value: Tab; label: string }[] = [
  *   │  Home team   │       Action pad       │  Away team   │
  *   └──────────────────── Play by play ────────────────────┘
  *
- * On a phone the columns stack. Tapping a player opens their actions;
+ * On a phone the columns stack: the app is landscape-only, and a phone on
+ * its side is wider than md, so the columns wait for lg, which every iPad
+ * in landscape reaches. Tapping a player opens their actions;
  * the clock reading is captured at the tap, so a play is recorded at the
  * time it happened, not when its action was picked. Tapping a play in
  * the log opens it for editing. Stats is the box score, and Scoresheet
@@ -100,9 +102,9 @@ export default function GameScreen() {
         <Scoreboard />
         {tab === "live" ? (
           <>
-            <View className="gap-4 md:flex-row">
+            <View className="gap-4 lg:flex-row">
               {panel("home")}
-              <View className="md:w-72">
+              <View className="lg:w-72">
                 <ActionPad />
               </View>
               {panel("away")}

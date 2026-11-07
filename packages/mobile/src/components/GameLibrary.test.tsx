@@ -190,3 +190,74 @@ describe("<GameLibrary />", () => {
     expect(screen.queryByText("Home late")).toBeNull();
   });
 });
+
+describe("<GameLibrary /> actions", () => {
+  const finished = entry("f", { status: "finished", homeTeamName: "Final Home" });
+  const live = entry("l", { homeTeamName: "Live Home" });
+  const rowLabel = /^Final Home 10, Away f 8\. Final\./;
+
+  it("opens a tapped game, with a hint saying what tapping does", async () => {
+    listGamesMock.mockResolvedValueOnce(page([finished, live]));
+    const onOpen = jest.fn();
+    await render(<GameLibrary onOpen={onOpen} />);
+
+    const row = await screen.findByRole("button", { name: rowLabel });
+    expect(row).toHaveProp("accessibilityHint", "Shows the game's stats");
+    expect(screen.getByRole("button", { name: /^Live Home/ })).toHaveProp(
+      "accessibilityHint",
+      "Continues the game on this device",
+    );
+    await fireEvent.press(row);
+    expect(onOpen).toHaveBeenCalledWith(finished);
+  });
+
+  it("shows a spinner on the game being opened", async () => {
+    listGamesMock.mockResolvedValueOnce(page([live]));
+    await render(<GameLibrary onOpen={jest.fn()} openingId="l" />);
+    const row = await screen.findByRole("button", { name: /^Live Home/ });
+    expect(row).toBeDisabled();
+    expect(row).toBeBusy();
+  });
+
+  it("deletes a game on long press once the deletion succeeds", async () => {
+    listGamesMock.mockResolvedValueOnce(page([finished, live]));
+    const onDelete = jest.fn(async () => true);
+    await render(<GameLibrary onOpen={jest.fn()} onDelete={onDelete} />);
+
+    await fireEvent(await screen.findByRole("button", { name: rowLabel }), "longPress");
+    expect(onDelete).toHaveBeenCalledWith(finished);
+    expect(screen.queryByText("Final Home")).toBeNull();
+    expect(screen.getByText("1 game")).toBeOnTheScreen();
+  });
+
+  it("keeps a game whose deletion was cancelled, and offers Delete to VoiceOver", async () => {
+    listGamesMock.mockResolvedValueOnce(page([live]));
+    const onDelete = jest.fn(async () => false);
+    await render(<GameLibrary onOpen={jest.fn()} onDelete={onDelete} />);
+    const row = await screen.findByRole("button", { name: /^Live Home/ });
+
+    expect(row).toHaveProp("accessibilityActions", [{ name: "delete", label: "Delete game" }]);
+    await fireEvent(row, "accessibilityAction", { nativeEvent: { actionName: "delete" } });
+    expect(onDelete).toHaveBeenCalledWith(live);
+    expect(screen.getByText("Live Home")).toBeOnTheScreen();
+
+    // Other actions do nothing.
+    await fireEvent(row, "accessibilityAction", { nativeEvent: { actionName: "activate" } });
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("reloads when the refresh key changes", async () => {
+    listGamesMock.mockResolvedValueOnce(page([live]));
+    const view = await render(<GameLibrary refreshKey={0} />);
+    await screen.findByText("Live Home");
+
+    listGamesMock.mockResolvedValueOnce(page([finished]));
+    await view.rerender(<GameLibrary refreshKey={1} />);
+    expect(await screen.findByText("Final Home")).toBeOnTheScreen();
+    expect(listGamesMock).toHaveBeenCalledTimes(2);
+
+    // Re-rendering with the same key doesn't reload.
+    await view.rerender(<GameLibrary refreshKey={1} />);
+    expect(listGamesMock).toHaveBeenCalledTimes(2);
+  });
+});

@@ -1,6 +1,6 @@
 import { flushGameSync } from "@/lib/gameSync";
 
-import { signIn, signOut } from "./auth";
+import { resendConfirmation, signIn, signOut, signUp } from "./auth";
 
 const mockSetSession = jest.fn();
 const mockSignOut = jest.fn();
@@ -120,5 +120,59 @@ describe("signOut", () => {
     mockSignOut.mockResolvedValueOnce({ error: new Error("offline") });
     await signOut();
     expect(mockSignOut).toHaveBeenLastCalledWith({ scope: "local" });
+  });
+});
+
+describe("signUp", () => {
+  it("posts the new account to /api/auth/sign-up", async () => {
+    respond(200, { ok: true });
+    expect(await signUp("new@example.com", "pw")).toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledWith("http://api.test/api/auth/sign-up", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ email: "new@example.com", password: "pw" }),
+    });
+  });
+
+  it("reports an email that already has an account", async () => {
+    respond(409, { error: { code: "email_exists", message: "An account already exists." } });
+    expect(await signUp("a@b.co", "pw")).toEqual({
+      ok: false,
+      code: "email_exists",
+      message: "An account already exists.",
+    });
+  });
+
+  it("gives the reason a field was rejected", async () => {
+    respond(400, {
+      error: {
+        code: "invalid_input",
+        message: "Please fix the highlighted fields and try again.",
+        details: { field: "password", reason: "Password should be at least 6 characters." },
+      },
+    });
+    expect(await signUp("a@b.co", "pw")).toMatchObject({
+      code: "invalid_input",
+      message: "Password should be at least 6 characters.",
+    });
+
+    respond(400, { error: { code: "invalid_input", message: "Fix the fields.", details: "bad" } });
+    expect(await signUp("a@b.co", "pw")).toMatchObject({ message: "Fix the fields." });
+  });
+});
+
+describe("resendConfirmation", () => {
+  it("asks the API to send the confirmation email again", async () => {
+    respond(200, { ok: true });
+    expect(await resendConfirmation("new@example.com")).toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://api.test/api/auth/resend-confirmation",
+      expect.objectContaining({ body: JSON.stringify({ email: "new@example.com" }) }),
+    );
+  });
+
+  it("reports a network failure", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("Network request failed"));
+    expect(await resendConfirmation("a@b.co")).toMatchObject({ ok: false, code: "network_error" });
   });
 });

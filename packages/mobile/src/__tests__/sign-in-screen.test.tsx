@@ -1,11 +1,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 
-import { signIn } from "@/lib/auth";
+import { resendConfirmation, signIn } from "@/lib/auth";
 
 import SignInScreen from "@/app/sign-in";
 
-jest.mock("@/lib/auth", () => ({ signIn: jest.fn() }));
+const mockRouter = { push: jest.fn() };
+jest.mock("expo-router", () => ({ useRouter: () => mockRouter }));
+jest.mock("@/lib/auth", () => ({ signIn: jest.fn(), resendConfirmation: jest.fn() }));
 const signInMock = jest.mocked(signIn);
+const resendMock = jest.mocked(resendConfirmation);
 
 async function fillAndSubmit(email = "coach@example.com", password = "pw") {
   await render(<SignInScreen />);
@@ -14,12 +17,16 @@ async function fillAndSubmit(email = "coach@example.com", password = "pw") {
   await fireEvent.press(screen.getByRole("button", { name: "Sign in" }));
 }
 
-beforeEach(() => signInMock.mockReset());
+beforeEach(() => {
+  signInMock.mockReset();
+  resendMock.mockReset();
+  mockRouter.push.mockReset();
+});
 
 describe("<SignInScreen />", () => {
   it("keeps the button disabled until both fields are filled", async () => {
     await render(<SignInScreen />);
-    const button = screen.getByRole("button");
+    const button = screen.getByRole("button", { name: "Sign in" });
     expect(button).toBeDisabled();
     await fireEvent.changeText(screen.getByTestId("email"), "coach@example.com");
     expect(button).toBeDisabled();
@@ -72,4 +79,34 @@ describe("<SignInScreen />", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(text);
     expect(screen.getByRole("button", { name: "Sign in" })).toBeEnabled();
   });
+
+  it("links to creating an account", async () => {
+    await render(<SignInScreen />);
+    await fireEvent.press(screen.getByRole("link", { name: "Create an account" }));
+    expect(mockRouter.push).toHaveBeenCalledWith("/sign-up");
+  });
+
+  it("offers to resend the confirmation email to an unconfirmed account", async () => {
+    signInMock.mockResolvedValue({ ok: false, code: "email_unconfirmed", message: "x" });
+    resendMock
+      .mockResolvedValueOnce({ ok: false, code: "rate_limited", message: "x", retryAfterSeconds: 30 })
+      .mockResolvedValueOnce({ ok: true });
+    await fillAndSubmit(" coach@example.com ");
+    const resend = await screen.findByRole("button", { name: "Resend confirmation email" });
+
+    await fireEvent.press(resend);
+    expect(resendMock).toHaveBeenCalledWith("coach@example.com");
+    expect(screen.getByText("Too many attempts. Try again in 30 seconds.")).toBeOnTheScreen();
+
+    await fireEvent.press(resend);
+    expect(screen.getByText("Sent. Check your inbox for the new link.")).toBeOnTheScreen();
+  });
+
+  it("only offers a resend when the email needs confirming", async () => {
+    signInMock.mockResolvedValue({ ok: false, code: "invalid_credentials", message: "Nope." });
+    await fillAndSubmit();
+    await screen.findByRole("alert");
+    expect(screen.queryByRole("button", { name: "Resend confirmation email" })).toBeNull();
+  });
+
 });

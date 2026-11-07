@@ -6,6 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 
 import { installCryptoPolyfill } from "@/lib/cryptoPolyfill";
+import { useClockCheckpoint, useGameClock } from "@/lib/gameClock";
 import { useGameSync } from "@/lib/gameSync";
 import { SessionProvider, useSession } from "@/lib/session";
 
@@ -16,9 +17,20 @@ export default function RootLayout() {
   return (
     <SessionProvider>
       <StatusBar style="light" />
+      <GameClock />
       <RootStack />
     </SessionProvider>
   );
+}
+
+/**
+ * Runs the game clock for the whole app, so it keeps counting on every
+ * screen, and checkpoints it so a relaunch restores it.
+ */
+function GameClock() {
+  useGameClock();
+  useClockCheckpoint();
+  return null;
 }
 
 /**
@@ -47,9 +59,13 @@ function RootStack() {
       >
         <Stack.Protected guard={session !== null}>
           <Stack.Screen name="index" />
+          <Stack.Screen name="setup" />
+          <Stack.Screen name="game" />
+          <Stack.Screen name="games/[id]" />
         </Stack.Protected>
         <Stack.Protected guard={session === null}>
           <Stack.Screen name="sign-in" />
+          <Stack.Screen name="sign-up" />
         </Stack.Protected>
       </Stack>
     </>

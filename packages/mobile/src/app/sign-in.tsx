@@ -1,39 +1,38 @@
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { signIn, type SignInResult } from "@/lib/auth";
-
-type Failure = Extract<SignInResult, { ok: false }>;
-
-function errorText(failure: Failure): string {
-  if (failure.code === "rate_limited" && failure.retryAfterSeconds !== undefined) {
-    const s = failure.retryAfterSeconds;
-    return `Too many attempts. Try again in ${s} second${s === 1 ? "" : "s"}.`;
-  }
-  if (failure.code === "email_unconfirmed") {
-    return "Please confirm your email before signing in. Check your inbox for the link.";
-  }
-  return failure.message;
-}
+import { Button } from "@/components/ui/Button";
+import { resendConfirmation, signIn } from "@/lib/auth";
+import { authErrorText } from "@/lib/authErrors";
 
 /**
  * Email + password sign-in. On success the session listener in the root
  * layout swaps this screen for the app; there is no manual navigation.
+ * An account that hasn't confirmed its email can have the link resent.
+ * The form scrolls, so it stays reachable above the keyboard in landscape.
  */
 export default function SignInScreen() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unconfirmed, setUnconfirmed] = useState(false);
+  const [resend, setResend] = useState<{ pending: boolean; note: string | null }>({
+    pending: false,
+    note: null,
+  });
 
   const canSubmit = email.trim().length > 0 && password.length > 0 && !pending;
 
@@ -41,11 +40,23 @@ export default function SignInScreen() {
     if (!canSubmit) return;
     setPending(true);
     setError(null);
+    setUnconfirmed(false);
+    setResend({ pending: false, note: null });
     const result = await signIn(email, password);
     if (!result.ok) {
-      setError(errorText(result));
+      setError(authErrorText(result));
+      setUnconfirmed(result.code === "email_unconfirmed");
       setPending(false);
     }
+  }
+
+  async function onResend() {
+    setResend({ pending: true, note: null });
+    const result = await resendConfirmation(email.trim());
+    setResend({
+      pending: false,
+      note: result.ok ? "Sent. Check your inbox for the new link." : authErrorText(result),
+    });
   }
 
   return (
@@ -54,7 +65,10 @@ export default function SignInScreen() {
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View className="flex-1 items-center justify-center px-6">
+        <ScrollView
+          contentContainerClassName="grow items-center justify-center px-6 py-8"
+          keyboardShouldPersistTaps="handled"
+        >
           <View className="w-full max-w-md gap-6">
             <View className="gap-2">
               <Text className="text-4xl font-bold text-ink">theStats</Text>
@@ -98,9 +112,22 @@ export default function SignInScreen() {
                 {error}
               </Text>
             ) : null}
+            {unconfirmed ? (
+              <View className="items-start gap-2">
+                <Button
+                  label="Resend confirmation email"
+                  size="sm"
+                  variant="ghost"
+                  disabled={resend.pending}
+                  onPress={onResend}
+                />
+                {resend.note ? <Text className="text-sm text-ink-muted">{resend.note}</Text> : null}
+              </View>
+            ) : null}
 
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="Sign in"
               accessibilityState={{ disabled: !canSubmit, busy: pending }}
               disabled={!canSubmit}
               onPress={onSubmit}
@@ -112,8 +139,19 @@ export default function SignInScreen() {
                 <Text className="text-base font-semibold text-surface">Sign in</Text>
               )}
             </Pressable>
+
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel="Create an account"
+              onPress={() => router.push("/sign-up")}
+              className="items-center py-2"
+            >
+              <Text className="text-sm text-ink-muted">
+                New to theStats? <Text className="text-accent">Create an account</Text>
+              </Text>
+            </Pressable>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

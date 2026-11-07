@@ -2,11 +2,10 @@
 
 import { useMemo } from "react";
 import { useGameStore } from "@/lib/store";
-import { computeStats } from "@thestats/core";
-import type { GameEvent, Side, Team } from "@thestats/core";
+import { computePeriodScores, computeStats } from "@thestats/core";
+import type { Side, Team } from "@thestats/core";
 import { formatPeriod } from "@thestats/core";
 import { cn } from "@/lib/utils";
-import { POINTS_BY_KIND } from "@thestats/core";
 
 /**
  * Official-style digital scoresheet. Designed to mirror the layout of a
@@ -232,32 +231,4 @@ function Signature({ label }: { label: string }) {
       <p className="label-eyebrow mt-2">{label}</p>
     </div>
   );
-}
-
-/* ── Period aggregation ─────────────────────────────────────────────── */
-
-/**
- * For each period, compute the points each team scored in that period only.
- * This walks the event list once.
- */
-function computePeriodScores(
-  events: GameEvent[],
-  regularPeriods: number,
-  currentPeriod: number,
-): { home: number[]; away: number[] } {
-  // Determine how many period columns to show (regular + any OTs reached)
-  const totalPeriods = Math.max(regularPeriods, currentPeriod);
-  const home: number[] = new Array(totalPeriods).fill(0);
-  const away: number[] = new Array(totalPeriods).fill(0);
-
-  for (const ev of events) {
-    if (ev.type !== "score" || !ev.made) continue;
-    const idx = ev.period - 1;
-    if (idx < 0 || idx >= totalPeriods) continue;
-    const points = POINTS_BY_KIND[ev.kind];
-    if (ev.side === "home") home[idx]! += points;
-    else away[idx]! += points;
-  }
-
-  return { home, away };
 }

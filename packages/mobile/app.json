@@ -6,13 +6,14 @@
     "platforms": [
       "ios"
     ],
-    "orientation": "default",
+    "orientation": "landscape",
     "icon": "./assets/images/icon.png",
     "scheme": "thestats",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0B0D",
     "ios": {
       "supportsTablet": true,
+      "requireFullScreen": true,
       "bundleIdentifier": "app.thestats.ios"
     },
     "plugins": [

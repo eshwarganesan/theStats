@@ -199,3 +199,31 @@ export function computeStatSheet(
   for (const p of teams.away.players) players[p.playerId] = p;
   return { home: teams.home, away: teams.away, players };
 }
+
+/**
+ * Points each team scored in each period, for the scoresheet's period
+ * columns: one entry per regulation period, plus each overtime period
+ * reached. Counts made shots and score awards, so a team's periods add up
+ * to its total in `computeStats`.
+ */
+export function computePeriodScores(
+  events: GameEvent[],
+  regularPeriods: number,
+  currentPeriod: number,
+): { home: number[]; away: number[] } {
+  const periods = Math.max(regularPeriods, currentPeriod);
+  const scores = {
+    home: new Array<number>(periods).fill(0),
+    away: new Array<number>(periods).fill(0),
+  };
+  for (const ev of events) {
+    let points: number;
+    if (ev.type === "score") points = ev.made ? POINTS_BY_KIND[ev.kind] : 0;
+    else if (ev.type === "team-score-adjust") points = ev.points;
+    else continue;
+    scores[ev.side] = scores[ev.side].map((total, i) =>
+      i === ev.period - 1 ? total + points : total,
+    );
+  }
+  return scores;
+}

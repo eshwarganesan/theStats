@@ -1,13 +1,23 @@
 import { act, renderHook } from "@testing-library/react-native";
-import { GAME_STORAGE_KEY } from "@thestats/app";
+import { GAME_STORAGE_KEY, toPersistedGameRecord } from "@thestats/app";
 import Storage from "expo-sqlite/kv-store";
 import { AppState, type AppStateStatus } from "react-native";
 
 import { apiFetch } from "@/lib/api";
 import { deviceStorage } from "@/lib/storage";
 import { useGameStore } from "@/lib/store";
+import { startLiveGame } from "@/test/gameFixtures";
 
-import { SYNC_STORAGE_KEY, claimDeviceGame, flushGameSync, useGameSync } from "./gameSync";
+import {
+  SYNC_STORAGE_KEY,
+  claimDeviceGame,
+  continueSavedGame,
+  deviceGameId,
+  flushGameSync,
+  hasUnsavedGameChanges,
+  startNewGame,
+  useGameSync,
+} from "./gameSync";
 
 jest.mock("@/lib/api", () => ({ apiFetch: jest.fn() }));
 const apiFetchMock = jest.mocked(apiFetch);
@@ -265,5 +275,140 @@ describe("flushGameSync", () => {
     await act(() => jest.advanceTimersByTimeAsync(1));
     await flushed;
     expect(settled).toBe(true);
+  });
+});
+
+describe("hasUnsavedGameChanges", () => {
+  it("is true from a change until the server has it", async () => {
+    apiFetchMock.mockResolvedValue(created());
+    await renderHook(() => useGameSync("user-a"));
+    expect(hasUnsavedGameChanges()).toBe(false);
+
+    await score(2);
+    expect(hasUnsavedGameChanges()).toBe(true);
+
+    await act(() => jest.advanceTimersByTimeAsync(250));
+    expect(hasUnsavedGameChanges()).toBe(false);
+  });
+
+  it("reads the saved sync record when sync isn't running", () => {
+    expect(hasUnsavedGameChanges()).toBe(false);
+    seedSync({ userId: "user-a", gameId: "g1", unsaved: true });
+    expect(hasUnsavedGameChanges()).toBe(true);
+  });
+});
+
+describe("startNewGame", () => {
+  it("resets the game and saves the next one as a new library entry", async () => {
+    apiFetchMock.mockResolvedValueOnce(created("old")).mockResolvedValueOnce(created("new"));
+    await renderHook(() => useGameSync("user-a"));
+    await act(async () => useGameStore.getState().setTeam("home", { name: "Last week" }));
+    await act(() => jest.advanceTimersByTimeAsync(250));
+
+    await act(async () => startNewGame());
+    expect(useGameStore.getState().homeTeam.name).toBe("Home Team");
+    await act(() => jest.advanceTimersByTimeAsync(250));
+
+    expect(request(1)).toMatchObject({ path: "/api/games", method: "POST" });
+    expect(request(1).body.state.homeTeam.name).toBe("Home Team");
+    expect(storedSync()).toMatchObject({ gameId: "new", unsaved: false });
+  });
+
+  it("lets go of the saved game when sync isn't running", () => {
+    seedSync({ userId: "user-a", gameId: "g1", createKey: "k1", unsaved: true });
+    useGameStore.getState().setTeam("home", { name: "Old" });
+
+    startNewGame();
+
+    expect(storedSync()).toEqual({
+      schemaVersion: 1,
+      userId: "user-a",
+      gameId: null,
+      createKey: null,
+      unsaved: false,
+    });
+    expect(useGameStore.getState().homeTeam.name).toBe("Home Team");
+  });
+
+  it("works on a device with no sync record", () => {
+    startNewGame();
+    expect(storedSync()).toBeNull();
+    expect(useGameStore.getState().status).toBe("setup");
+  });
+});
+
+describe("deviceGameId", () => {
+  it("is the library id sync is writing to", async () => {
+    apiFetchMock.mockResolvedValueOnce(created("game-7"));
+    await renderHook(() => useGameSync("user-a"));
+    expect(deviceGameId()).toBeNull();
+
+    await score(2);
+    await act(() => jest.advanceTimersByTimeAsync(250));
+    expect(deviceGameId()).toBe("game-7");
+  });
+
+  it("reads the saved sync record when sync isn't running", () => {
+    expect(deviceGameId()).toBeNull();
+    seedSync({ userId: "user-a", gameId: "g9" });
+    expect(deviceGameId()).toBe("g9");
+  });
+});
+
+describe("continueSavedGame", () => {
+  /** A game in progress, as the library returns it. */
+  function savedGame() {
+    startLiveGame();
+    useGameStore.getState().setTeam("home", { name: "Saved Central" });
+    const record = toPersistedGameRecord(useGameStore.getState());
+    useGameStore.getState().resetAll();
+    return record;
+  }
+
+  it("loads the game and saves its changes to that library entry", async () => {
+    const record = savedGame();
+    apiFetchMock.mockResolvedValue(ok());
+    await renderHook(() => useGameSync("user-a"));
+
+    await act(async () => continueSavedGame("saved-1", record));
+    expect(useGameStore.getState()).toMatchObject({
+      status: "live",
+      clockSeconds: 600,
+      clockRunning: false,
+    });
+    expect(useGameStore.getState().homeTeam.name).toBe("Saved Central");
+    expect(deviceGameId()).toBe("saved-1");
+
+    await score(3);
+    await act(() => jest.advanceTimersByTimeAsync(250));
+    expect(request(0)).toMatchObject({ path: "/api/games/saved-1", method: "PATCH" });
+    expect(request(0).body.state.currentPeriod).toBe(3);
+  });
+
+  it("replaces a game in progress on the device, clock checkpoint included", async () => {
+    const record = savedGame();
+    startLiveGame();
+    useGameStore.getState().adjustClock(42);
+    deviceStorage.setItem(
+      "thestats.clock.v1",
+      JSON.stringify({ schemaVersion: 1, clockSeconds: 42, breakSeconds: 0, savedAt: 1 }),
+    );
+
+    continueSavedGame("saved-2", record);
+
+    expect(useGameStore.getState().homeTeam.name).toBe("Saved Central");
+    expect(useGameStore.getState().clockSeconds).toBe(600);
+  });
+
+  it("records the switch when sync isn't running", () => {
+    seedSync({ userId: "user-a", gameId: "old", createKey: "k", unsaved: true });
+    continueSavedGame("saved-3", savedGame());
+    expect(storedSync()).toEqual({
+      schemaVersion: 1,
+      userId: "user-a",
+      gameId: "saved-3",
+      createKey: null,
+      unsaved: false,
+    });
   });
 });

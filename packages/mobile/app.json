@@ -14,7 +14,10 @@
     "ios": {
       "supportsTablet": true,
       "requireFullScreen": true,
-      "bundleIdentifier": "app.thestats.ios"
+      "bundleIdentifier": "app.thestats.ios",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "plugins": [
       "expo-router",
@@ -32,6 +35,12 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "f29f6fd8-87fc-4624-813d-421928cd22a3"
+      }
+    },
+    "owner": "eshwarg"
   }
 }

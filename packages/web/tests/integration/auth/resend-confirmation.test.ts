@@ -11,6 +11,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import { uniqueIp } from "../_helpers";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -41,10 +42,6 @@ const { POST } = await import("@/app/api/auth/resend-confirmation/route");
 
 function uniqueEmail(prefix = "resend"): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
-}
-function uniqueIp(): string {
-  const oct = () => Math.floor(Math.random() * 254) + 1;
-  return `203.0.113.${oct()}`;
 }
 
 const createdEmails: string[] = [];

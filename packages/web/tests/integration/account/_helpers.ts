@@ -10,6 +10,9 @@
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import { uniqueIp } from "../_helpers";
+
+export { uniqueIp };
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -33,12 +36,6 @@ export function requireAdmin(): SupabaseClient<Database> {
 
 export function uniqueEmail(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
-}
-
-/** A per-request address, so the per-IP throttle key never collides across cases. */
-export function uniqueIp(): string {
-  const octet = () => Math.floor(Math.random() * 254) + 1;
-  return `203.0.113.${octet()}`;
 }
 
 export interface TestUser {

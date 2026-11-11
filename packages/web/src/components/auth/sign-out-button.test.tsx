@@ -11,7 +11,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { forgetRememberedAccount } from "@/lib/persistence";
+import type * as PersistenceModule from "@/lib/persistence";
 import { SignOutButton } from "./sign-out-button";
+
+vi.mock("@/lib/persistence", async (importOriginal) => ({
+  ...(await importOriginal<typeof PersistenceModule>()),
+  forgetRememberedAccount: vi.fn(),
+}));
 
 describe("<SignOutButton />", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -46,5 +53,23 @@ describe("<SignOutButton />", () => {
 
     await waitFor(() => expect(assignMock).toHaveBeenCalledWith("/"));
     expect(fetchMock).toHaveBeenCalledWith("/api/auth/sign-out", { method: "POST" });
+  });
+
+  it("forgets the remembered account before signing out (feature 018)", async () => {
+    const order: string[] = [];
+    vi.mocked(forgetRememberedAccount).mockImplementation(() => {
+      order.push("forget");
+    });
+    fetchMock.mockImplementation(async () => {
+      order.push("sign-out");
+      return new Response(null, { status: 204 });
+    });
+    const user = userEvent.setup();
+    render(<SignOutButton />);
+
+    await user.click(screen.getByRole("button", { name: /sign out/i }));
+
+    await waitFor(() => expect(assignMock).toHaveBeenCalledWith("/"));
+    expect(order).toEqual(["forget", "sign-out"]);
   });
 });

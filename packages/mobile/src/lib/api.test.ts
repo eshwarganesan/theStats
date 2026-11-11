@@ -1,4 +1,8 @@
+import { reportAccountDeleted } from "@/lib/accountEvents";
+
 import { apiFetch } from "./api";
+
+jest.mock("@/lib/accountEvents", () => ({ reportAccountDeleted: jest.fn() }));
 
 const mockGetSession = jest.fn();
 const mockRefreshSession = jest.fn();
@@ -83,5 +87,35 @@ describe("apiFetch", () => {
       error: { code: "unauthenticated", message: "Sign in to continue." },
     });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("apiFetch when the account is gone (feature 018)", () => {
+  it("reports account_deleted instead of refreshing, and returns the reply", async () => {
+    const body = { error: { code: "account_deleted", message: "This account no longer exists." } };
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(body), { status: 401 }));
+
+    const res = await apiFetch("/api/games");
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual(body);
+    expect(reportAccountDeleted).toHaveBeenCalledTimes(1);
+    expect(mockRefreshSession).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps refreshing and retrying on any other 401", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { code: "unauthenticated", message: "m" } }), { status: 401 }),
+      )
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+    mockRefreshSession.mockResolvedValue(session("token-2"));
+
+    const res = await apiFetch("/api/games");
+
+    expect(res.status).toBe(200);
+    expect(sentAuth(1)).toBe("Bearer token-2");
+    expect(reportAccountDeleted).not.toHaveBeenCalled();
   });
 });

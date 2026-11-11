@@ -19,6 +19,10 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
 }));
 
+vi.mock("@/components/account/AccountCheck", () => ({
+  AccountCheck: () => <div data-testid="account-check" />,
+}));
+
 import LoginPage from "./page";
 
 describe("<LoginPage />", () => {
@@ -72,5 +76,11 @@ describe("<LoginPage />", () => {
     });
     render(ui);
     expect(screen.getByRole("alert")).toHaveTextContent(/confirmation/i);
+  });
+
+  it("runs the remembered-account check for signed-out visitors (feature 018)", async () => {
+    getUserMock.mockResolvedValueOnce({ data: { user: null }, error: null });
+    render(await LoginPage({ searchParams: Promise.resolve({}) }));
+    expect(screen.getByTestId("account-check")).toBeInTheDocument();
   });
 });

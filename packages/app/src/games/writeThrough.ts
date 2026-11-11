@@ -18,6 +18,7 @@
 import { shallow } from "zustand/vanilla/shallow";
 import type { PersistedGameRecord } from "../persistence";
 import { toPersistedGameRecord, type GameState } from "../store";
+import { readApiErrorCode } from "../api/errors";
 import { newIdempotencyKey } from "./idempotency";
 
 /** Coarse lifecycle of the last write, for surfacing to the UI. */
@@ -61,6 +62,12 @@ export interface WriteThroughOptions {
   initialState?: Pick<SyncState, "gameId" | "createKey">;
   /** Notified whenever `SyncState` changes, so a platform can persist it. */
   onSyncStateChange?: (state: SyncState) => void;
+  /**
+   * Notified once when the API answers `401 account_deleted`: the account
+   * is gone, so the controller stops for good instead of retrying, and
+   * unsent changes are dropped (feature 018, FR-009).
+   */
+  onAccountGone?: () => void;
 }
 
 function isRetryable(status: number): boolean {
@@ -88,6 +95,7 @@ export class WriteThroughController {
   private readonly request: GamesApiFetch;
   private readonly retry: RetryPolicy | null;
   private readonly onSyncStateChange?: (state: SyncState) => void;
+  private readonly onAccountGone?: () => void;
   private sync: SyncState;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private pending: PersistedGameRecord | null = null;
@@ -105,6 +113,7 @@ export class WriteThroughController {
     this.request = opts.fetch ?? ((path, init) => fetch(path, init));
     this.retry = opts.retry ?? null;
     this.onSyncStateChange = opts.onSyncStateChange;
+    this.onAccountGone = opts.onAccountGone;
     this.sync = {
       gameId: opts.initialState?.gameId ?? null,
       createKey: opts.initialState?.createKey ?? null,
@@ -216,6 +225,10 @@ export class WriteThroughController {
     } catch {
       return this.failed(epoch, record, true);
     }
+    if (response.status === 401 && (await readApiErrorCode(response)) === "account_deleted") {
+      this.accountGone();
+      return false;
+    }
     if (!response.ok) return this.failed(epoch, record, isRetryable(response.status));
 
     const createdId = gameId === null ? await readGameId(response) : null;
@@ -232,6 +245,13 @@ export class WriteThroughController {
       this.setStatus("saved");
     }
     return true;
+  }
+
+  /** The account no longer exists: nothing will ever be accepted again. */
+  private accountGone(): void {
+    if (this.disposed) return;
+    this.dispose();
+    this.onAccountGone?.();
   }
 
   private failed(epoch: number, record: PersistedGameRecord, retryable: boolean): boolean {

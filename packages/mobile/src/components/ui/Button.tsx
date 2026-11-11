@@ -39,6 +39,8 @@ export interface ButtonProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   disabled?: boolean;
+  /** Announced as busy by VoiceOver, e.g. while its request is in flight. */
+  busy?: boolean;
   /** Read by VoiceOver instead of `label`, when the label alone is unclear. */
   accessibilityLabel?: string;
   className?: string;
@@ -51,6 +53,7 @@ export function Button({
   variant = "secondary",
   size = "md",
   disabled = false,
+  busy = false,
   accessibilityLabel,
   className,
 }: ButtonProps) {
@@ -58,7 +61,7 @@ export function Button({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityState={{ disabled }}
+      accessibilityState={{ disabled, busy }}
       disabled={disabled}
       onPress={onPress}
       className={cx(

@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -12,7 +13,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ACCOUNT_NOTICE_TEXT } from "@thestats/app";
+
 import { Button } from "@/components/ui/Button";
+import { clearAccountNotice, useAccountNotice } from "@/lib/accountGone";
 import { resendConfirmation, signIn } from "@/lib/auth";
 import { authErrorText } from "@/lib/authErrors";
 
@@ -21,11 +25,13 @@ import { authErrorText } from "@/lib/authErrors";
  * layout swaps this screen for the app; there is no manual navigation.
  * An account that hasn't confirmed its email can have the link resent.
  * The form scrolls, so it stays reachable above the keyboard in landscape.
+ * After an account is deleted, a notice at the top says so (feature 018).
  */
 export default function SignInScreen() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const notice = useAccountNotice();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [unconfirmed, setUnconfirmed] = useState(false);
@@ -35,6 +41,10 @@ export default function SignInScreen() {
   });
 
   const canSubmit = email.trim().length > 0 && password.length > 0 && !pending;
+
+  useEffect(() => {
+    if (notice) AccessibilityInfo.announceForAccessibility(ACCOUNT_NOTICE_TEXT[notice]);
+  }, [notice]);
 
   async function onSubmit() {
     if (!canSubmit) return;
@@ -70,6 +80,21 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View className="w-full max-w-md gap-6">
+            {notice ? (
+              <View className="flex-row items-start gap-3 rounded-lg border border-surface-border bg-surface-elevated p-4">
+                <Text accessibilityRole="alert" className="flex-1 text-sm text-ink">
+                  {ACCOUNT_NOTICE_TEXT[notice]}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Dismiss"
+                  onPress={clearAccountNotice}
+                  hitSlop={8}
+                >
+                  <Text className="text-sm text-ink-muted">✕</Text>
+                </Pressable>
+              </View>
+            ) : null}
             <View className="gap-2">
               <Text className="text-4xl font-bold text-ink">theStats</Text>
               <Text className="text-base text-ink-muted">Sign in to keep score.</Text>

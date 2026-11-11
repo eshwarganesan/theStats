@@ -1,6 +1,6 @@
 # theStats Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-09-10
+Auto-generated from all feature plans. Last updated: 2026-11-10
 
 ## Active Technologies
 - TypeScript 5.6 (strict mode, no escape hatches per Constitution Principle II) + Next.js 15 (App Router), React 19, Zustand 5 (game state), Tailwind CSS 3.4, `clsx` + `tailwind-merge` (existing `cn` helper) (002-timeout-break-timer)
@@ -22,6 +22,8 @@ Auto-generated from all feature plans. Last updated: 2026-09-10
 - TypeScript 5.6.3 (strict mode; no escape hatches per Constitution Principle II) + Next.js 15.1 (App Router — route groups, `middleware.ts`, `redirect()` in Server Components, `next/navigation`), React 19, `@supabase/ssr` 0.10 (edge-compatible server client for middleware), `@supabase/supabase-js` 2.106, Zustand 5 (existing store with `persist` + `subscribeWithSelector`), Tailwind CSS 3.4, `clsx` + `tailwind-merge` (existing `cn` helper). **No new runtime dependencies.** (011-auth-gated-landing)
 - Supabase Postgres (unchanged — feature reuses existing `auth.users`, `public.games`, `public.profiles`, `public.game_writes`, and their RLS policies as-is). Browser `localStorage` keys `thestats.game.v1` and `thestats.clock.v1` are cleared on sign-in per FR-016; no other localStorage changes. (011-auth-gated-landing)
 - TypeScript 5.6.3 (strict mode; no escape hatches per Constitution Principle II) + Next.js 15.1 (App Router — route groups, `middleware.ts`, `redirect()` in Server Components, `next/navigation`), React 19, `@supabase/ssr` 0.10 (edge-compatible server client for middleware), `@supabase/supabase-js` 2.106, Zustand 5 (existing store with `persist` + `subscribeWithSelector`), Tailwind CSS 3.4, `clsx` + `tailwind-merge` (existing `cn` helper). **No new runtime dependencies.** (011-auth-gated-landing)
+- TypeScript 5.6 (strict; no escape hatches per Principle II) in `packages/web`, `packages/app` and `packages/mobile` + Next.js 15.5 (App Router, Route Handlers, middleware), React 19, `@supabase/ssr` 0.10, `@supabase/supabase-js` 2.117 (Auth admin API), Zod 3.25, Zustand 5, Tailwind CSS 3.4; iOS: Expo SDK 58 (React Native 0.88, expo-router 58), NativeWind 4. **No new dependencies.** (018-account-deletion)
+- Supabase Postgres + Auth with no schema change (deleting the `auth.users` row cascades to `public.profiles`, `public.games` and `public.game_writes`; `public.auth_attempts` is untouched); device storage is web `localStorage` (plus new `thestats.account.v1`) and the iOS expo-sqlite key-value store. (018-account-deletion)
 
 - TypeScript 5.6 (strict mode, no escape hatches per Constitution Principle II) + Next.js 15 (App Router), React 19, Zustand 5, Tailwind CSS 3.4, `clsx` + `tailwind-merge` (existing `cn` helper) (001-adjust-clock-time)
 
@@ -42,9 +44,9 @@ npm test && npm run lint
 TypeScript 5.6 (strict mode, no escape hatches per Constitution Principle II): Follow standard conventions
 
 ## Recent Changes
+- 018-account-deletion: Added TypeScript 5.6 (strict; no escape hatches per Principle II) in `packages/web`, `packages/app` and `packages/mobile` + Next.js 15.5 (App Router, Route Handlers, middleware), React 19, `@supabase/ssr` 0.10, `@supabase/supabase-js` 2.117 (Auth admin API), Zod 3.25, Zustand 5, Tailwind CSS 3.4; iOS: Expo SDK 58 (React Native 0.88, expo-router 58), NativeWind 4. **No new dependencies.**
 - 011-auth-gated-landing: Added TypeScript 5.6.3 (strict mode; no escape hatches per Constitution Principle II) + Next.js 15.1 (App Router — route groups, `middleware.ts`, `redirect()` in Server Components, `next/navigation`), React 19, `@supabase/ssr` 0.10 (edge-compatible server client for middleware), `@supabase/supabase-js` 2.106, Zustand 5 (existing store with `persist` + `subscribeWithSelector`), Tailwind CSS 3.4, `clsx` + `tailwind-merge` (existing `cn` helper). **No new runtime dependencies.**
 - 011-auth-gated-landing: Added TypeScript 5.6.3 (strict mode; no escape hatches per Constitution Principle II) + Next.js 15.1 (App Router — route groups, `middleware.ts`, `redirect()` in Server Components, `next/navigation`), React 19, `@supabase/ssr` 0.10 (edge-compatible server client for middleware), `@supabase/supabase-js` 2.106, Zustand 5 (existing store with `persist` + `subscribeWithSelector`), Tailwind CSS 3.4, `clsx` + `tailwind-merge` (existing `cn` helper). **No new runtime dependencies.**
-- 010-games-library: Added TypeScript 5.6.3 (strict mode; no escape hatches per Constitution Principle II) + Next.js 15.1 (App Router — Server Components, Route Handlers, `next/navigation`, middleware, `redirects()` in `next.config.mjs`), React 19, Zustand 5 (existing store with `persist` + `subscribeWithSelector`), `@supabase/ssr` 0.10, `@supabase/supabase-js` 2.106, Zod 3.25 (existing — already used by `LibraryQuerySchema`, no new schemas), Tailwind CSS 3.4, `clsx` + `tailwind-merge` (existing `cn` helper). **No new runtime dependencies.**
 
 
 <!-- MANUAL ADDITIONS START -->

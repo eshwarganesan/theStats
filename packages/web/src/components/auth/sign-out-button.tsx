@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { forgetRememberedAccount } from "@/lib/persistence";
 import { cn } from "@/lib/utils";
 
 interface SignOutButtonProps {
@@ -12,6 +13,8 @@ interface SignOutButtonProps {
  * then returns the user to the public landing page (feature 011 FR-013).
  * Uses a full-document navigation to `/` so middleware re-evaluates the
  * (now signed-out) session on the next request and serves the landing.
+ * The remembered account is forgotten first: signing out on purpose
+ * needn't ask the server whether the account was deleted (feature 018).
  */
 export function SignOutButton({ className }: SignOutButtonProps) {
   const [pending, setPending] = useState(false);
@@ -19,6 +22,7 @@ export function SignOutButton({ className }: SignOutButtonProps) {
   async function onClick() {
     if (pending) return;
     setPending(true);
+    forgetRememberedAccount();
     try {
       await fetch("/api/auth/sign-out", { method: "POST" });
     } finally {

@@ -10,7 +10,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { useGameStore } from "@/lib/store";
+import { handleAccountGone } from "@/lib/account/account-gone";
 import { useLibraryWriteThrough } from "./writeThrough";
+
+vi.mock("@/lib/account/account-gone", () => ({ handleAccountGone: vi.fn() }));
 
 describe("useLibraryWriteThrough (hook)", () => {
   const fetchMock = vi.fn();
@@ -114,6 +117,48 @@ describe("useLibraryWriteThrough (hook)", () => {
     act(() => {
       useGameStore.setState({ clockRunning: false });
     });
+    unmount();
+  });
+});
+
+describe("useLibraryWriteThrough when the account is gone (feature 018)", () => {
+  const originalFetch = globalThis.fetch;
+  let originalPeriod: number;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.mocked(handleAccountGone).mockReset();
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ error: { code: "account_deleted", message: "This account no longer exists." } }),
+          { status: 401 },
+        ),
+    ) as unknown as typeof fetch;
+    originalPeriod = useGameStore.getState().currentPeriod;
+  });
+
+  afterEach(() => {
+    act(() => {
+      useGameStore.setState({ currentPeriod: originalPeriod });
+    });
+    vi.useRealTimers();
+    globalThis.fetch = originalFetch;
+  });
+
+  it("hands a refused save to handleAccountGone", async () => {
+    const { unmount } = renderHook(() =>
+      useLibraryWriteThrough({ signedIn: true, initialGameId: "seed-1" }),
+    );
+
+    act(() => {
+      useGameStore.setState({ currentPeriod: originalPeriod + 1 });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    expect(handleAccountGone).toHaveBeenCalledWith("deleted-elsewhere");
     unmount();
   });
 });

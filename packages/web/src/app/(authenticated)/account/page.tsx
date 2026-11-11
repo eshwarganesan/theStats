@@ -8,11 +8,12 @@
  *
  * The saved-games library that used to live here now lives at `/games`
  * (feature 010). Nothing on this page depends on the games list any
- * more; the page renders only the profile section and the sign-out
- * control.
+ * more; the page renders the profile section, the sign-out control and,
+ * last and set apart, the "Delete account" danger zone (feature 018).
  */
 import { requireAuth } from "@/lib/auth/require-auth";
 import { ensureProfile } from "./actions";
+import { DeleteAccountSection } from "@/components/account/DeleteAccountSection";
 import { ProfileSection } from "@/components/account/ProfileSection";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { HamburgerButton } from "@/components/shell/HamburgerButton";
@@ -43,6 +44,8 @@ export default async function AccountPage() {
           />
 
           <SignOutButton />
+
+          <DeleteAccountSection />
         </div>
       </div>
     </main>

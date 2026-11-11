@@ -62,6 +62,7 @@ function RootStack() {
           <Stack.Screen name="setup" />
           <Stack.Screen name="game" />
           <Stack.Screen name="games/[id]" />
+          <Stack.Screen name="account" />
         </Stack.Protected>
         <Stack.Protected guard={session === null}>
           <Stack.Screen name="sign-in" />

@@ -14,9 +14,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  ACCOUNT_STORAGE_KEY,
   CLOCK_CHECKPOINT_KEY,
   GAME_STORAGE_KEY,
   clearPersistedGame,
+  forgetRememberedAccount,
+  readRememberedAccount,
+  rememberAccount,
   getBrowserStorage,
   isStorageAvailable,
   readClockCheckpoint,
@@ -139,5 +143,60 @@ describe("clearPersistedGame", () => {
     clearPersistedGame();
     expect(localStorage.getItem(GAME_STORAGE_KEY)).toBeNull();
     expect(localStorage.getItem(CLOCK_CHECKPOINT_KEY)).toBeNull();
+  });
+});
+
+describe("remembered account (feature 018)", () => {
+  it("lives under thestats.account.v1", () => {
+    expect(ACCOUNT_STORAGE_KEY).toBe("thestats.account.v1");
+  });
+
+  it("forgetRememberedAccount removes it and nothing else", () => {
+    localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify({ userId: "u-1" }));
+    localStorage.setItem(GAME_STORAGE_KEY, "{}");
+    forgetRememberedAccount();
+    expect(localStorage.getItem(ACCOUNT_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(GAME_STORAGE_KEY)).toBe("{}");
+  });
+
+  it("forgetRememberedAccount doesn't throw without storage", () => {
+    vi.stubGlobal("window", undefined);
+    expect(() => forgetRememberedAccount()).not.toThrow();
+    vi.unstubAllGlobals();
+  });
+
+  it("forgetRememberedAccount doesn't throw when storage refuses", () => {
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new Error("SecurityError");
+    });
+    expect(() => forgetRememberedAccount()).not.toThrow();
+  });
+});
+
+describe("rememberAccount / readRememberedAccount (feature 018)", () => {
+  it("round-trips the user id", () => {
+    rememberAccount("u-1");
+    expect(localStorage.getItem(ACCOUNT_STORAGE_KEY)).toBe(JSON.stringify({ userId: "u-1" }));
+    expect(readRememberedAccount()).toBe("u-1");
+  });
+
+  it("returns null when nothing is remembered", () => {
+    expect(readRememberedAccount()).toBeNull();
+  });
+
+  it.each(["not json", JSON.stringify({}), JSON.stringify({ userId: 1 }), JSON.stringify("u-1")])(
+    "drops a malformed value: %s",
+    (raw) => {
+      localStorage.setItem(ACCOUNT_STORAGE_KEY, raw);
+      expect(readRememberedAccount()).toBeNull();
+      expect(localStorage.getItem(ACCOUNT_STORAGE_KEY)).toBeNull();
+    },
+  );
+
+  it("doesn't throw without storage", () => {
+    vi.stubGlobal("window", undefined);
+    expect(() => rememberAccount("u-1")).not.toThrow();
+    expect(readRememberedAccount()).toBeNull();
+    vi.unstubAllGlobals();
   });
 });

@@ -1,6 +1,10 @@
 /**
  * Next.js middleware.
  *
+ * It lives in `src/` because the app does: with `src/app`, Next.js only
+ * loads `src/middleware.ts`. It sat at the package root until feature 018,
+ * where Next.js never loaded it, so everything below was dormant until then.
+ *
  * Two responsibilities layered on the same request:
  *
  *   1. Rotate the Supabase session cookie (feature 005 FR-008, 30-day
@@ -16,6 +20,11 @@
  *      matrix in `specs/011-auth-gated-landing/contracts/middleware.md`
  *      is the source of truth; see `decideRoute` below for the pure
  *      version of the branching logic (unit-tested in `middleware.test.ts`).
+ *   3. A session whose account was deleted (feature 018): its cookies are
+ *      expired and any page request lands on `/?account=deleted-elsewhere`,
+ *      rows 18–20 in `specs/018-account-deletion/contracts/account-gone-signals.md`
+ *      (§2). API requests pass through; their handlers answer
+ *      `401 account_deleted` themselves.
  *
  * The matcher excludes static assets so this cost is paid only on real
  * navigations / API calls.
@@ -73,6 +82,22 @@ export function decideRoute(
   return { kind: "next" };
 }
 
+const DELETED_ELSEWHERE = "/?account=deleted-elsewhere";
+
+/**
+ * Where a page request goes when its session belongs to a deleted account,
+ * or `null` to leave it alone: API requests (their handlers own the error
+ * shape), and the notice page itself, so a cookie that somehow survives
+ * can't cause a redirect loop.
+ */
+export function deletedAccountRedirect(pathname: string, search: string): string | null {
+  if (pathname === "/api" || pathname.startsWith("/api/")) return null;
+  if (pathname === "/" && new URLSearchParams(search).get("account") === "deleted-elsewhere") {
+    return null;
+  }
+  return DELETED_ELSEWHERE;
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -98,10 +123,36 @@ export async function middleware(request: NextRequest) {
     },
   );
 
+  const redirectTo = (location: string) => {
+    const target = new URL(location, request.nextUrl.origin);
+    const redirect = NextResponse.redirect(target, 307);
+    // Preserve any cookies the refresh (or sign-out) path stamped onto
+    // `response` so the browser sees them on the redirect too.
+    for (const cookie of response.cookies.getAll()) {
+      redirect.cookies.set(cookie);
+    }
+    return redirect;
+  };
+
   // Verify the session (also triggers refresh-token rotation on this
   // request). We treat any non-null `error` as unauthenticated — same
   // convention feature 005 established in `requireAuth`.
   const { data, error } = await supabase.auth.getUser();
+
+  // Supabase Auth answers `user_not_found` for a still-valid token whose
+  // account was deleted (feature 018, research R5 / R7).
+  if (error?.code === "user_not_found") {
+    const location = deletedAccountRedirect(request.nextUrl.pathname, request.nextUrl.search);
+    if (location) {
+      try {
+        await supabase.auth.signOut({ scope: "local" });
+      } catch {
+        // best effort: the redirect still shows the notice
+      }
+      return redirectTo(location);
+    }
+  }
+
   const user = error ? null : data.user;
 
   const decision = decideRoute(
@@ -111,14 +162,7 @@ export async function middleware(request: NextRequest) {
   );
 
   if (decision.kind === "redirect") {
-    const target = new URL(decision.location, request.nextUrl.origin);
-    const redirect = NextResponse.redirect(target, 307);
-    // Preserve any cookies the refresh path stamped onto `response` so
-    // the browser sees the rotated session on the redirect too.
-    for (const cookie of response.cookies.getAll()) {
-      redirect.cookies.set(cookie);
-    }
-    return redirect;
+    return redirectTo(decision.location);
   }
 
   return response;

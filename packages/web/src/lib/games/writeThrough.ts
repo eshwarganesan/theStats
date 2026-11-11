@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGameStore } from "@/lib/store";
+import { handleAccountGone } from "@/lib/account/account-gone";
 import {
   WriteThroughController,
   subscribeToGameRecord,
@@ -51,6 +52,8 @@ export function useLibraryWriteThrough(opts: {
     const controller = new WriteThroughController({
       signedIn: opts.signedIn,
       onStatus: setStatus,
+      // A save refused because the account is gone (feature 018, FR-009).
+      onAccountGone: () => handleAccountGone("deleted-elsewhere"),
     });
     if (opts.initialGameId) controller.setGameId(opts.initialGameId);
     controllerRef.current = controller;

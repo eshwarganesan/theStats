@@ -35,9 +35,13 @@ export function Sheet({
             <Text className="text-sm font-semibold uppercase tracking-wider text-ink-muted">Close</Text>
           </Pressable>
         </View>
+        {/* Insets follow the keyboard, so on an iPhone in landscape a
+            field and whatever sits below it can still be scrolled into view. */}
         <ScrollView
+          testID="sheet-scroll"
           contentContainerClassName="gap-5 p-5"
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
         >
           {children}
         </ScrollView>

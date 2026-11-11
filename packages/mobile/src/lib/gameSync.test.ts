@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react-native";
-import { GAME_STORAGE_KEY, toPersistedGameRecord } from "@thestats/app";
+import { CLOCK_CHECKPOINT_KEY, GAME_STORAGE_KEY, toPersistedGameRecord } from "@thestats/app";
 import Storage from "expo-sqlite/kv-store";
 import { AppState, type AppStateStatus } from "react-native";
 
@@ -13,7 +13,9 @@ import {
   claimDeviceGame,
   continueSavedGame,
   deviceGameId,
+  deviceGameOwner,
   flushGameSync,
+  forgetDeviceGame,
   hasUnsavedGameChanges,
   startNewGame,
   useGameSync,
@@ -410,5 +412,48 @@ describe("continueSavedGame", () => {
       createKey: null,
       unsaved: false,
     });
+  });
+});
+
+describe("forgetDeviceGame (feature 018)", () => {
+  it("drops unsent changes and clears the game, its clock and the sync record", async () => {
+    apiFetchMock.mockResolvedValue(created());
+    seedSync({ userId: "u1" });
+    renderHook(() => useGameSync("u1"));
+    await score(2);
+    deviceStorage.setItem(CLOCK_CHECKPOINT_KEY, JSON.stringify({ clockSeconds: 1, breakSeconds: 0, savedAt: 0 }));
+
+    forgetDeviceGame();
+    await act(async () => {
+      jest.runAllTimers();
+    });
+
+    expect(apiFetchMock).not.toHaveBeenCalled();
+    expect(useGameStore.getState().currentPeriod).not.toBe(2);
+    expect(deviceStorage.getItem(GAME_STORAGE_KEY)).toBeNull();
+    expect(deviceStorage.getItem(CLOCK_CHECKPOINT_KEY)).toBeNull();
+    expect(storedSync()).toBeNull();
+  });
+
+  it("is safe when sync isn't running", () => {
+    seedSync({ userId: "u1" });
+    expect(() => forgetDeviceGame()).not.toThrow();
+    expect(storedSync()).toBeNull();
+  });
+});
+
+describe("deviceGameOwner (feature 018)", () => {
+  it("names the account the device's game belongs to", () => {
+    seedSync({ userId: "u1" });
+    expect(deviceGameOwner()).toBe("u1");
+  });
+
+  it("is null without a sync record", () => {
+    expect(deviceGameOwner()).toBeNull();
+  });
+
+  it("is null when the record can't be read", () => {
+    deviceStorage.setItem(SYNC_STORAGE_KEY, "{not json");
+    expect(deviceGameOwner()).toBeNull();
   });
 });

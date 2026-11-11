@@ -3,7 +3,7 @@
  *
  * Uses the anon key + the request's session cookie (RLS-respecting, per
  * Constitution Principle VI). Cookie reads/writes are bridged to Next's
- * async `cookies()` API. The middleware (packages/web/middleware.ts) is
+ * async `cookies()` API. The middleware (packages/web/src/middleware.ts) is
  * responsible for refreshing the session cookie on every request.
  */
 import "server-only";

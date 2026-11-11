@@ -164,6 +164,14 @@ export function hasUnsavedGameChanges(): boolean {
   return active?.getSyncState().unsaved ?? readStoredSync()?.unsaved ?? false;
 }
 
+/**
+ * The account the game on this device belongs to, if a sync record names
+ * one. A signed-out app asks whether it still exists (feature 018).
+ */
+export function deviceGameOwner(): string | null {
+  return readStoredSync()?.userId ?? null;
+}
+
 /** The library id of the game on this device, once it has been saved. */
 export function deviceGameId(): string | null {
   return active ? active.currentGameId() : (readStoredSync()?.gameId ?? null);
@@ -206,4 +214,22 @@ export function startNewGame(): void {
 export function continueSavedGame(gameId: string, state: PersistedGameRecord): void {
   switchDeviceGame(gameId);
   useGameStore.getState().hydrateFromLibrary(state, { force: true });
+}
+
+/**
+ * Forgets the game on this device once its account is gone (feature 018,
+ * FR-008 / FR-009). Unlike signing out, nothing is flushed: unsaved
+ * changes are dropped, because there's no account left to save them to.
+ * The sync record goes too, so the next sign-in starts on a clean device.
+ */
+export function forgetDeviceGame(): void {
+  active?.dispose();
+  active = null;
+  useGameStore.getState().resetAll();
+  clearPersistedGame(deviceStorage);
+  try {
+    deviceStorage.removeItem(SYNC_STORAGE_KEY);
+  } catch {
+    // ignore: claimDeviceGame treats an unreadable record as another owner's
+  }
 }

@@ -242,3 +242,15 @@ describe("<HomeScreen />", () => {
   });
 
 });
+
+describe("<HomeScreen /> account (feature 018)", () => {
+  it("opens the Account screen in one press from beside Sign out", async () => {
+    await render(<HomeScreen />);
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByRole("button", { name: "Account" }));
+
+    expect(mockRouter.push).toHaveBeenCalledTimes(1);
+    expect(mockRouter.push).toHaveBeenCalledWith("/account");
+  });
+});

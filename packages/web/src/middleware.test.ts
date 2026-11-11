@@ -10,7 +10,7 @@
  */
 import { describe, it, expect } from "vitest";
 import type { User } from "@supabase/supabase-js";
-import { decideRoute } from "./middleware";
+import { decideRoute, deletedAccountRedirect } from "./middleware";
 
 const authed: User = {
   id: "user-1",
@@ -150,5 +150,28 @@ describe("decideRoute — protection is prefix-anchored, not substring", () => {
 
   it("does not match /gameboard (would-be false-positive on /game)", () => {
     expect(decideRoute("/gameboard", "", null)).toEqual({ kind: "next" });
+  });
+});
+
+// ─── Feature 018-account-deletion: rows 18–20 of the response matrix ──────
+// (specs/018-account-deletion/contracts/account-gone-signals.md §2)
+
+describe("deletedAccountRedirect — a session whose account was deleted", () => {
+  it.each(["/", "/login", "/games", "/games/abc", "/game", "/setup", "/account"])(
+    "sends a page request for %s to the deleted-elsewhere notice",
+    (pathname) => {
+      expect(deletedAccountRedirect(pathname, "")).toBe("/?account=deleted-elsewhere");
+    },
+  );
+
+  it.each(["/api/games", "/api/account/delete", "/api/auth/sign-in"])(
+    "leaves %s to the route handler",
+    (pathname) => {
+      expect(deletedAccountRedirect(pathname, "")).toBeNull();
+    },
+  );
+
+  it("never redirects the notice page to itself", () => {
+    expect(deletedAccountRedirect("/", "?account=deleted-elsewhere")).toBeNull();
   });
 });

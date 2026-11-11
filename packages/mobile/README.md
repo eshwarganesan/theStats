@@ -75,8 +75,9 @@ To let people install it:
 
 TestFlight works without these, but App Review requires them:
 
-- **Account deletion.** The app lets people create an account, so it must also let them delete it from inside the app (App Store Review Guideline 5.1.1(v)). It can't yet.
-- **Privacy.** App Store Connect asks for a privacy policy URL and the App Privacy answers. The app stores an email address and the games people score.
+- **Privacy.** App Store Connect asks for a privacy policy URL and the App Privacy answers. The app stores an email address and the games people score. Deleting an account removes the account, profile and games, but the sign-in limit records keep the email address (feature 018), and the policy should say so.
 - **App icon.** `assets/images/icon.png` is still Expo's placeholder.
 - **Screenshots** for iPad and iPhone, both in landscape.
 - **A demo account** for the reviewer, since everything is behind sign-in.
+
+Account deletion (App Store Review Guideline 5.1.1(v)) is done: Home → Account → Delete account deletes the account inside the app (feature 018). Deploy the web app before an iOS build that includes it, since the app calls `/api/account/delete` and `/api/account/status`.

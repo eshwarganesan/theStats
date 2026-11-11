@@ -1,4 +1,7 @@
+import { readApiErrorCode } from "@thestats/app";
+
 import { getEnv } from "@/env";
+import { reportAccountDeleted } from "@/lib/accountEvents";
 import { getSupabase } from "@/lib/supabase";
 
 /**
@@ -11,6 +14,10 @@ import { getSupabase } from "@/lib/supabase";
  * revoked), the session is refreshed once and the request retried. If
  * that fails too, the 401 is returned; a session that can't be refreshed
  * signs the app out through `onAuthStateChange`.
+ *
+ * `401 account_deleted` is different: the account is gone, so there's
+ * nothing to refresh. It's reported to `accountEvents` and returned as is
+ * (feature 018, FR-009).
  */
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const auth = getSupabase().auth;
@@ -20,6 +27,10 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
 
   const response = await send(path, init, token);
   if (response.status !== 401) return response;
+  if ((await readApiErrorCode(response)) === "account_deleted") {
+    reportAccountDeleted();
+    return response;
+  }
 
   const refreshed = await auth.refreshSession();
   const next = refreshed.data.session?.access_token;

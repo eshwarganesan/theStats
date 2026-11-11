@@ -214,3 +214,158 @@ describe("jsonError", () => {
     });
   });
 });
+
+// ─── Feature 018-account-deletion, task T007 ──────────────────────────────
+
+function deletedUserSupabase(signOut = vi.fn().mockResolvedValue({ error: null })) {
+  return {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: null },
+        error: {
+          code: "user_not_found",
+          status: 403,
+          message: "User from sub claim in JWT does not exist",
+        },
+      }),
+      signOut,
+    },
+  } as unknown as Awaited<ReturnType<typeof createServerClient>>;
+}
+
+describe("withAuthenticatedHandler when the account no longer exists", () => {
+  const neverCalled = withAuthenticatedHandler("games:list", async () => {
+    throw new Error("wrapped handler must NOT be invoked for a deleted account");
+  });
+
+  it("answers 401 account_deleted for a cookie session and clears the auth cookies", async () => {
+    const client = deletedUserSupabase();
+    mockedCreateClient.mockResolvedValue(client);
+
+    const res = await neverCalled(new Request("http://localhost/api/games"));
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({
+      error: { code: "account_deleted", message: "This account no longer exists." },
+    });
+    expect(client.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
+  });
+
+  it("still answers account_deleted when clearing the cookies fails", async () => {
+    mockedCreateClient.mockResolvedValue(
+      deletedUserSupabase(vi.fn().mockRejectedValue(new Error("cookie store read-only"))),
+    );
+
+    const res = await neverCalled(new Request("http://localhost/api/games"));
+
+    expect(res.status).toBe(401);
+    expect((await res.json()).error.code).toBe("account_deleted");
+  });
+
+  it("answers 401 account_deleted for a bearer token without touching any session", async () => {
+    const client = deletedUserSupabase();
+    mockedCreateStateless.mockReturnValue(
+      client as unknown as ReturnType<typeof createStatelessClient>,
+    );
+
+    const res = await neverCalled(
+      new Request("http://localhost/api/games", { headers: { Authorization: "Bearer t" } }),
+    );
+
+    expect(res.status).toBe(401);
+    expect((await res.json()).error.code).toBe("account_deleted");
+    expect(client.auth.signOut).not.toHaveBeenCalled();
+  });
+
+  it("keeps answering unauthenticated for other auth errors", async () => {
+    mockedCreateClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: null },
+          error: { code: "bad_jwt", status: 403, message: "token is expired" },
+        }),
+        signOut: vi.fn(),
+      },
+    } as unknown as Awaited<ReturnType<typeof createServerClient>>);
+
+    const res = await neverCalled(new Request("http://localhost/api/games"));
+
+    expect(res.status).toBe(401);
+    expect((await res.json()).error.code).toBe("unauthenticated");
+  });
+
+  it("logs the account_deleted outcome without a user id", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    mockedCreateClient.mockResolvedValue(deletedUserSupabase());
+
+    await neverCalled(new Request("http://localhost/api/games"));
+
+    const lines = log.mock.calls.map((call) => JSON.parse(String(call[0])));
+    expect(lines.at(-1)).toMatchObject({ outcome: "account_deleted", user_id: null, status: 401 });
+    log.mockRestore();
+  });
+});
+
+describe("withAuthenticatedHandler context and options", () => {
+  it("passes the verified email and the credential kind to the handler", async () => {
+    mockedCreateClient.mockResolvedValue(fakeSupabase({ id: "user-1", email: "u@example.com" }));
+    mockedCreateStateless.mockReturnValue(
+      fakeSupabase({ id: "ios-user", email: "i@example.com" }) as unknown as ReturnType<
+        typeof createStatelessClient
+      >,
+    );
+    const seen: Array<{ email: string | null; credential: string }> = [];
+    const handler = withAuthenticatedHandler("account:test", async (_request, ctx) => {
+      seen.push({ email: ctx.email, credential: ctx.credential });
+      return new Response(null, { status: 204 });
+    });
+
+    await handler(new Request("http://localhost/api/account/delete", { method: "POST" }));
+    await handler(
+      new Request("http://localhost/api/account/delete", {
+        method: "POST",
+        headers: { Authorization: "Bearer t" },
+      }),
+    );
+
+    expect(seen).toEqual([
+      { email: "u@example.com", credential: "cookie" },
+      { email: "i@example.com", credential: "bearer" },
+    ]);
+  });
+
+  it("logs the component it is given, defaulting to games-api", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    mockedCreateClient.mockResolvedValue(fakeSupabase({ id: "user-1", email: "u@example.com" }));
+    const ok = async () => new Response(null, { status: 204 });
+
+    await withAuthenticatedHandler("account-delete", ok, { component: "account-api" })(
+      new Request("http://localhost/api/account/delete", { method: "POST" }),
+    );
+    await withAuthenticatedHandler("games:list", ok)(new Request("http://localhost/api/games"));
+
+    const components = log.mock.calls.map((call) => JSON.parse(String(call[0])).component);
+    expect(components).toEqual(["account-api", "account-api", "games-api", "games-api"]);
+    log.mockRestore();
+  });
+});
+
+describe("jsonError for the account codes", () => {
+  it.each([
+    ["account_deleted", 401],
+    ["current_password_incorrect", 403],
+    ["rate_limited", 429],
+  ] as const)("maps %s to %i by default", (code, status) => {
+    expect(jsonError(code, "message").status).toBe(status);
+  });
+
+  it("adds the retry delay to the body and the Retry-After header", async () => {
+    const res = jsonError("rate_limited", "Too many attempts.", undefined, { retryAfterSeconds: 7 });
+
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("7");
+    expect(await res.json()).toEqual({
+      error: { code: "rate_limited", message: "Too many attempts.", retry_after_seconds: 7 },
+    });
+  });
+});

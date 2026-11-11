@@ -440,3 +440,47 @@ describe("subscribeToGameRecord", () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("WriteThroughController when the account is gone (feature 018)", () => {
+  const accountDeleted = () =>
+    new Response(
+      JSON.stringify({ error: { code: "account_deleted", message: "This account no longer exists." } }),
+      { status: 401 },
+    );
+  const unauthenticated = () =>
+    new Response(JSON.stringify({ error: { code: "unauthenticated", message: "Sign in to continue." } }), {
+      status: 401,
+    });
+
+  it("stops for good and reports it once", async () => {
+    fetchMock.mockResolvedValue(accountDeleted());
+    const onAccountGone = vi.fn();
+    const ctrl = controller({ retry: { initialMs: 1000, maxMs: 1000 }, onAccountGone });
+
+    ctrl.onCommit(makeRecord());
+    await vi.advanceTimersByTimeAsync(250);
+    expect(onAccountGone).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    ctrl.onCommit(makeRecord({ currentPeriod: 2 }));
+    await ctrl.saveNow(makeRecord({ currentPeriod: 3 }));
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(onAccountGone).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps retrying a plain 401, which a token refresh may fix", async () => {
+    fetchMock.mockResolvedValueOnce(unauthenticated()).mockResolvedValueOnce(created());
+    const onAccountGone = vi.fn();
+    const ctrl = controller({ retry: { initialMs: 1000, maxMs: 1000 }, onAccountGone });
+
+    ctrl.onCommit(makeRecord());
+    await vi.advanceTimersByTimeAsync(250);
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(ctrl.currentGameId()).toBe("game-1");
+    expect(onAccountGone).not.toHaveBeenCalled();
+  });
+});

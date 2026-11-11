@@ -1,5 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { AccessibilityInfo } from "react-native";
 
+import type { AccountNoticeKind } from "@thestats/app";
+
+import { clearAccountNotice } from "@/lib/accountGone";
 import { resendConfirmation, signIn } from "@/lib/auth";
 
 import SignInScreen from "@/app/sign-in";
@@ -7,6 +11,11 @@ import SignInScreen from "@/app/sign-in";
 const mockRouter = { push: jest.fn() };
 jest.mock("expo-router", () => ({ useRouter: () => mockRouter }));
 jest.mock("@/lib/auth", () => ({ signIn: jest.fn(), resendConfirmation: jest.fn() }));
+let mockNotice: AccountNoticeKind | null = null;
+jest.mock("@/lib/accountGone", () => ({
+  useAccountNotice: () => mockNotice,
+  clearAccountNotice: jest.fn(),
+}));
 const signInMock = jest.mocked(signIn);
 const resendMock = jest.mocked(resendConfirmation);
 
@@ -109,4 +118,40 @@ describe("<SignInScreen />", () => {
     expect(screen.queryByRole("button", { name: "Resend confirmation email" })).toBeNull();
   });
 
+});
+
+describe("<SignInScreen /> account notice (feature 018)", () => {
+  afterEach(() => {
+    mockNotice = null;
+    jest.restoreAllMocks();
+  });
+
+  it("shows and announces that the account was deleted", async () => {
+    mockNotice = "deleted";
+    const announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => {});
+
+    await render(<SignInScreen />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Your account has been deleted.");
+    expect(announce).toHaveBeenCalledWith("Your account has been deleted.");
+  });
+
+  it("explains a sign-out caused by deletion elsewhere, and can be dismissed", async () => {
+    mockNotice = "deleted-elsewhere";
+    jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => {});
+    await render(<SignInScreen />);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "You were signed out because this account was deleted.",
+    );
+
+    await fireEvent.press(screen.getByRole("button", { name: "Dismiss" }));
+
+    expect(clearAccountNotice).toHaveBeenCalled();
+  });
+
+  it("shows nothing extra without a notice", async () => {
+    await render(<SignInScreen />);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Dismiss" })).toBeNull();
+  });
 });

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
+import { AccountCheck } from "@/components/account/AccountCheck";
 import { LoginPanel } from "@/components/auth/login-panel";
 import { safeFrom } from "@/lib/auth/safe-from";
 
@@ -43,6 +44,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         ) : null}
         <LoginPanel from={from} />
       </div>
+      {/* Feature 018: a browser whose session expired may hold a deleted account. */}
+      <AccountCheck />
     </main>
   );
 }

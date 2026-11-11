@@ -63,6 +63,13 @@ export default function HomeScreen() {
         <Text className="text-sm text-ink-muted" numberOfLines={1}>
           {session?.user.email}
         </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Account"
+          onPress={() => router.push("/account")}
+        >
+          <Text className="text-sm uppercase tracking-wider text-ink-dim">Account</Text>
+        </Pressable>
         <SignOutButton />
       </View>
       <GameLibrary

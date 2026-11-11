@@ -4,12 +4,14 @@ import { SidebarProfileIcon } from "@/components/shell/SidebarProfileIcon";
 import { RecoveryFailedBanner } from "@/components/shell/RecoveryFailedBanner";
 import { StorageUnavailableModal } from "@/components/shell/StorageUnavailableModal";
 import { WriteThroughProvider } from "@/components/shell/WriteThroughMount";
+import { AccountWatcher } from "@/components/account/AccountWatcher";
 
 export default function AuthenticatedLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <WriteThroughProvider>
+      <AccountWatcher />
       <RecoveryFailedBanner />
       <StorageUnavailableModal />
       <AuthenticatedShell

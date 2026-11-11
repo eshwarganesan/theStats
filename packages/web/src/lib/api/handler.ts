@@ -17,6 +17,10 @@
  * app. Both are verified with Supabase Auth (`getUser`), which also
  * rejects a token whose session has been signed out, so the two paths
  * get the same checks.
+ *
+ * A credential whose account has been deleted gets its own answer,
+ * `401 account_deleted`, so the device can sign out and clear its copy
+ * of the account's games (feature 018, FR-009).
  */
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -30,6 +34,10 @@ export interface AuthenticatedContext {
   /** Supabase user id (auth.users.id) verified against the request's
    *  session cookie or bearer token. */
   userId: string;
+  /** The verified user's email, or null if the account has none. */
+  email: string | null;
+  /** Which credential the request carried. */
+  credential: "cookie" | "bearer";
   /** Supabase client bound to the caller's session — all queries flow
    *  through RLS. Do NOT swap in the service-role client here. */
   supabase: ServerSupabase;
@@ -44,37 +52,52 @@ type AuthenticatedHandler = (
 
 export type ErrorCode =
   | "unauthenticated"
+  | "account_deleted"
   | "invalid_body"
   | "invalid_query_params"
   | "invalid_id"
   | "idempotency_key_required"
+  | "current_password_incorrect"
   | "not_found"
   | "finished_game_locked"
+  | "rate_limited"
   | "internal_error";
 
 const DEFAULT_STATUS: Record<ErrorCode, number> = {
   unauthenticated: 401,
+  account_deleted: 401,
   invalid_body: 400,
   invalid_query_params: 400,
   invalid_id: 400,
   idempotency_key_required: 400,
+  current_password_incorrect: 403,
   not_found: 404,
   finished_game_locked: 409,
+  rate_limited: 429,
   internal_error: 500,
 };
+
+export interface JsonErrorExtra {
+  /** Adds `retry_after_seconds` to the body and a `Retry-After` header. */
+  retryAfterSeconds?: number;
+}
 
 export function jsonError(
   code: ErrorCode,
   message: string,
   status?: number,
+  extra?: JsonErrorExtra,
 ): Response {
-  return new Response(
-    JSON.stringify({ error: { code, message } }),
-    {
-      status: status ?? DEFAULT_STATUS[code],
-      headers: { "Content-Type": "application/json" },
-    },
-  );
+  const error: Record<string, unknown> = { code, message };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (extra?.retryAfterSeconds !== undefined) {
+    error.retry_after_seconds = extra.retryAfterSeconds;
+    headers["Retry-After"] = String(extra.retryAfterSeconds);
+  }
+  return new Response(JSON.stringify({ error }), {
+    status: status ?? DEFAULT_STATUS[code],
+    headers,
+  });
 }
 
 function newRequestId(): string {
@@ -103,32 +126,61 @@ export function readCredential(request: Request): Credential {
   return token ? { kind: "bearer", token } : { kind: "malformed" };
 }
 
+type AuthResult =
+  | { kind: "ok"; userId: string; email: string | null; supabase: ServerSupabase }
+  | { kind: "deleted" }
+  | { kind: "unauthenticated" };
+
+/**
+ * Supabase Auth answers `user_not_found` for a still-valid token whose
+ * user no longer exists, and checks the user before the session, so this
+ * is how a deleted account shows up (feature 018, research R5).
+ */
+function isDeletedAccount(error: { code?: string } | null): boolean {
+  return error?.code === "user_not_found";
+}
+
 async function authenticate(
   credential: Exclude<Credential, { kind: "malformed" }>,
-): Promise<{ userId: string; supabase: ServerSupabase } | null> {
+): Promise<AuthResult> {
   if (credential.kind === "bearer") {
     const supabase = createStatelessClient(credential.token);
     const { data, error } = await supabase.auth.getUser(credential.token);
-    return error || !data.user ? null : { userId: data.user.id, supabase };
+    if (data.user && !error) {
+      return { kind: "ok", userId: data.user.id, email: data.user.email ?? null, supabase };
+    }
+    return isDeletedAccount(error) ? { kind: "deleted" } : { kind: "unauthenticated" };
   }
   const supabase = await createServerClient();
   const { data, error } = await supabase.auth.getUser();
-  return error || !data.user ? null : { userId: data.user.id, supabase };
+  if (data.user && !error) {
+    return { kind: "ok", userId: data.user.id, email: data.user.email ?? null, supabase };
+  }
+  if (!isDeletedAccount(error)) return { kind: "unauthenticated" };
+  // Expire the dead session cookie, so the browser stops sending it.
+  try {
+    await supabase.auth.signOut({ scope: "local" });
+  } catch {
+    // best effort: the answer is the same either way
+  }
+  return { kind: "deleted" };
 }
 
-interface LogFields {
+export interface ApiLogFields {
+  component: string;
   handler: string;
   request_id: string;
   user_id: string | null;
-  auth: Credential["kind"];
+  auth?: Credential["kind"];
   outcome: string;
   status?: number;
 }
 
-function logEvent(fields: LogFields): void {
+/** One structured log line (Constitution Principle VI, observability). */
+export function logApiEvent(fields: ApiLogFields): void {
   console.log(
     JSON.stringify({
-      component: "games-api",
+      component: fields.component,
       handler: fields.handler,
       request_id: fields.request_id,
       user_id: fields.user_id,
@@ -138,6 +190,11 @@ function logEvent(fields: LogFields): void {
       timestamp: new Date().toISOString(),
     }),
   );
+}
+
+export interface HandlerOptions {
+  /** The `component` of the structured logs. Defaults to "games-api". */
+  component?: string;
 }
 
 /**
@@ -152,12 +209,15 @@ function logEvent(fields: LogFields): void {
 export function withAuthenticatedHandler(
   handlerName: string,
   handler: AuthenticatedHandler,
+  opts: HandlerOptions = {},
 ): (request: Request) => Promise<Response> {
+  const component = opts.component ?? "games-api";
   return async (request: Request): Promise<Response> => {
     const requestId = newRequestId();
     const credential = readCredential(request);
     const log = (userId: string | null, outcome: string, status?: number) =>
-      logEvent({
+      logApiEvent({
+        component,
         handler: handlerName,
         request_id: requestId,
         user_id: userId,
@@ -167,14 +227,30 @@ export function withAuthenticatedHandler(
       });
     log(null, "entry");
 
-    const auth = credential.kind === "malformed" ? null : await authenticate(credential);
-    if (!auth) {
+    if (credential.kind === "malformed") {
       log(null, "unauthenticated", 401);
       return jsonError("unauthenticated", "Sign in to continue.");
     }
 
+    const auth = await authenticate(credential);
+    if (auth.kind === "deleted") {
+      log(null, "account_deleted", 401);
+      return jsonError("account_deleted", "This account no longer exists.");
+    }
+    if (auth.kind === "unauthenticated") {
+      log(null, "unauthenticated", 401);
+      return jsonError("unauthenticated", "Sign in to continue.");
+    }
+
+    const ctx: AuthenticatedContext = {
+      userId: auth.userId,
+      email: auth.email,
+      credential: credential.kind,
+      supabase: auth.supabase,
+      requestId,
+    };
     try {
-      const res = await handler(request, { ...auth, requestId });
+      const res = await handler(request, ctx);
       log(auth.userId, "ok", res.status);
       return res;
     } catch (err) {

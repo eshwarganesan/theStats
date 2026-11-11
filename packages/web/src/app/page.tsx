@@ -1,9 +1,27 @@
 import Link from "next/link";
+import { parseAccountNoticeKind } from "@thestats/app";
+import { AccountCheck } from "@/components/account/AccountCheck";
+import { AccountNotice } from "@/components/account/AccountNotice";
 import { Button } from "@/components/ui/Button";
 
-export default function HomePage() {
+interface HomePageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+/**
+ * Public landing page. `?account=deleted` or `?account=deleted-elsewhere`
+ * adds the notice that the account is gone, and `AccountCheck` asks about
+ * an account this browser still remembers (feature 018-account-deletion).
+ */
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const { account } = await searchParams;
+  const notice = parseAccountNoticeKind(account);
+
   return (
     <main className="min-h-[100dvh] flex flex-col">
+      {notice ? <AccountNotice kind={notice} /> : null}
+      <AccountCheck />
+
       {/* Top bar */}
       <header className="h-14 flex items-center justify-between px-5 md:px-8 border-b border-surface-border">
         <div className="flex items-center gap-2">

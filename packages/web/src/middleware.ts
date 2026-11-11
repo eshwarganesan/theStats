@@ -1,6 +1,10 @@
 /**
  * Next.js middleware.
  *
+ * It lives in `src/` because the app does: with `src/app`, Next.js only
+ * loads `src/middleware.ts`. It sat at the package root until feature 018,
+ * where Next.js never loaded it, so everything below was dormant until then.
+ *
  * Two responsibilities layered on the same request:
  *
  *   1. Rotate the Supabase session cookie (feature 005 FR-008, 30-day

@@ -116,7 +116,7 @@ test.describe("US2 — signed-in users skip the landing", () => {
   // override interacts badly with signInViaAPI on CI: the subsequent
   // `page.goto("/")` doesn't see the newly-set cookies and middleware
   // therefore treats the user as unauthenticated. The same routing behavior
-  // is exhaustively covered by `packages/web/middleware.test.ts` (17-row
+  // is exhaustively covered by `packages/web/src/middleware.test.ts` (17-row
   // contract matrix). Leaving as fixme rather than removing so the intent is
   // preserved for a future E2E refactor.
   test.fixme(
@@ -191,7 +191,7 @@ test.describe("US3 — deep-link protection for signed-out users", () => {
     // user as authenticated for /setup and /game specifically on CI —
     // /games and /account in the same for-loop pass reliably. The
     // routing behavior is exhaustively covered by
-    // `packages/web/middleware.test.ts` (17-row contract matrix). Leaving
+    // `packages/web/src/middleware.test.ts` (17-row contract matrix). Leaving
     // as fixme rather than removing so the intent is preserved for a
     // future E2E refactor.
     const shouldFixme = path === "/setup" || path === "/game";
@@ -240,7 +240,7 @@ test.describe("US3 — deep-link protection for signed-out users", () => {
   // through; `/games/page.tsx`'s `requireAuth({ from: "/games" })` fires
   // (with its own hardcoded from) and produces `/login?from=%2Fgames` —
   // without the ?filter=in-progress query. The query-preservation contract
-  // itself is covered by `packages/web/middleware.test.ts` row 12
+  // itself is covered by `packages/web/src/middleware.test.ts` row 12
   // (`/games/abc123?tab=history` → `from=%2Fgames%2Fabc123%3Ftab%3Dhistory`).
   test.fixme("the query string is preserved through the from-round-trip", async ({ page, context }) => {
     const email = uniqueEmail("e2e-011-us3-query");

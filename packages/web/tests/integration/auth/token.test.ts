@@ -9,6 +9,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import { uniqueIp } from "../_helpers";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -40,9 +41,6 @@ const { POST } = await import("@/app/api/auth/token/route");
 
 function uniqueEmail(): string {
   return `token-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
-}
-function uniqueIp(): string {
-  return `203.0.113.${Math.floor(Math.random() * 254) + 1}`;
 }
 
 const createdEmails: string[] = [];

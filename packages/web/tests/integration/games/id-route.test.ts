@@ -10,6 +10,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import { uniqueIp } from "../_helpers";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -41,10 +42,6 @@ const { POST: signIn } = await import("@/app/api/auth/sign-in/route");
 
 function uniqueEmail(prefix = "games-id"): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
-}
-function uniqueIp(): string {
-  const oct = () => Math.floor(Math.random() * 254) + 1;
-  return `203.0.113.${oct()}`;
 }
 function signInReq(email: string, password: string): Request {
   return new Request(`http://localhost:3000/api/auth/sign-in`, {

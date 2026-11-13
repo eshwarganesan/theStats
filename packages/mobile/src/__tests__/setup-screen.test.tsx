@@ -210,8 +210,9 @@ describe("<SetupScreen /> navigation", () => {
     expect(screen.getByText("Redirect to /game")).toBeOnTheScreen();
   });
 
-  it("goes back to the games list", async () => {
+  it("goes back to the games list, with no navigation sidebar", async () => {
     await render(<SetupScreen />);
+    expect(screen.queryByRole("button", { name: "Open navigation menu" })).toBeNull();
     await press("Back to Games");
     expect(mockRouter.back).toHaveBeenCalled();
 

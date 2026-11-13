@@ -111,10 +111,13 @@ describe("<ReviewScreen />", () => {
     expect(mockRouter.replace).toHaveBeenCalledWith("/");
   });
 
-  it("goes back to the games list", async () => {
+  it("has the navigation sidebar's menu button, and a link back to the games list", async () => {
     getGameMock.mockResolvedValueOnce(loaded);
     await render(<ReviewScreen />);
-    await fireEvent.press(screen.getByRole("button", { name: "Back to Games" }));
+    expect(screen.getByRole("button", { name: "Open navigation menu" })).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Back to Games" })).toBeNull();
+
+    await fireEvent.press(await screen.findByRole("link", { name: "Back to your library" }));
     expect(mockRouter.back).toHaveBeenCalled();
   });
 

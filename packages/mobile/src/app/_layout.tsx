@@ -5,6 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 
+import { SidebarProvider } from "@/components/shell/SidebarProvider";
 import { installCryptoPolyfill } from "@/lib/cryptoPolyfill";
 import { useClockCheckpoint, useGameClock } from "@/lib/gameClock";
 import { useGameSync } from "@/lib/gameSync";
@@ -37,7 +38,8 @@ function GameClock() {
  * Auth wall: signed-out users only reach `sign-in`, signed-in users
  * never see it. Expo Router redirects automatically when the session
  * flips. The splash screen stays up until the keychain has been read,
- * so a signed-in user never flashes the sign-in form on launch.
+ * so a signed-in user never flashes the sign-in form on launch. The
+ * navigation sidebar sits over the stack, for the screens that open it.
  */
 function RootStack() {
   const { session, isLoading } = useSession();
@@ -51,24 +53,26 @@ function RootStack() {
   return (
     <>
       {session ? <GameSync userId={session.user.id} /> : null}
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: "#0B0B0D" },
-        }}
-      >
-        <Stack.Protected guard={session !== null}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="setup" />
-          <Stack.Screen name="game" />
-          <Stack.Screen name="games/[id]" />
-          <Stack.Screen name="account" />
-        </Stack.Protected>
-        <Stack.Protected guard={session === null}>
-          <Stack.Screen name="sign-in" />
-          <Stack.Screen name="sign-up" />
-        </Stack.Protected>
-      </Stack>
+      <SidebarProvider>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: "#0B0B0D" },
+          }}
+        >
+          <Stack.Protected guard={session !== null}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="setup" />
+            <Stack.Screen name="game" />
+            <Stack.Screen name="games/[id]" />
+            <Stack.Screen name="account" />
+          </Stack.Protected>
+          <Stack.Protected guard={session === null}>
+            <Stack.Screen name="sign-in" />
+            <Stack.Screen name="sign-up" />
+          </Stack.Protected>
+        </Stack>
+      </SidebarProvider>
     </>
   );
 }

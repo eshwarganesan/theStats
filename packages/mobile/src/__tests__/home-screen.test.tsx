@@ -3,7 +3,6 @@ import { Alert } from "react-native";
 
 import type { LibraryEntry } from "@thestats/app";
 
-import { signOut } from "@/lib/auth";
 import { listGames } from "@/lib/games";
 import { flushGameSync, hasUnsavedGameChanges, startNewGame } from "@/lib/gameSync";
 import { continueFromLibrary, deleteSavedGame } from "@/lib/libraryActions";
@@ -22,7 +21,6 @@ jest.mock("expo-router", () => ({
     jest.requireActual<typeof import("react")>("react").useEffect(effect, [effect]);
   },
 }));
-jest.mock("@/lib/auth", () => ({ signOut: jest.fn() }));
 jest.mock("@/lib/gameSync", () => ({
   flushGameSync: jest.fn(async () => {}),
   hasUnsavedGameChanges: jest.fn(() => false),
@@ -33,10 +31,6 @@ jest.mock("@/lib/libraryActions", () => ({
   continueFromLibrary: jest.fn(),
   deleteSavedGame: jest.fn(),
 }));
-jest.mock("@/lib/session", () => ({
-  useSession: () => ({ session: { user: { email: "coach@example.com" } }, isLoading: false }),
-}));
-const signOutMock = jest.mocked(signOut);
 const unsaved = jest.mocked(hasUnsavedGameChanges);
 const listGamesMock = jest.mocked(listGames);
 
@@ -70,7 +64,6 @@ beforeEach(() => {
   useGameStore.getState().resetAll();
   jest.clearAllMocks();
   mockFocusEffects.length = 0;
-  signOutMock.mockReset();
   unsaved.mockReturnValue(false);
   listGamesMock.mockResolvedValue(library(saved));
 });
@@ -108,15 +101,12 @@ describe("<HomeScreen />", () => {
     expect(screen.getByRole("header", { name: "Games" })).toBeOnTheScreen();
   });
 
-  it("shows the signed-in email and signs out", async () => {
-    signOutMock.mockResolvedValue();
+  it("has only the menu and profile buttons in its header", async () => {
     await render(<HomeScreen />);
-    expect(screen.getByText("coach@example.com")).toBeOnTheScreen();
-
-    const button = screen.getByRole("button", { name: "Sign out" });
-    await fireEvent.press(button);
-    expect(signOutMock).toHaveBeenCalledTimes(1);
-    expect(button).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Open navigation menu" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Account" })).toBeOnTheScreen();
+    // Sign out moved to the Account screen, as on web.
+    expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
   });
 
   it("opens setup for a game that hasn't started", async () => {
@@ -244,9 +234,8 @@ describe("<HomeScreen />", () => {
 });
 
 describe("<HomeScreen /> account (feature 018)", () => {
-  it("opens the Account screen in one press from beside Sign out", async () => {
+  it("opens the Account screen in one press from the profile button", async () => {
     await render(<HomeScreen />);
-    expect(screen.getByRole("button", { name: "Sign out" })).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByRole("button", { name: "Account" }));
 

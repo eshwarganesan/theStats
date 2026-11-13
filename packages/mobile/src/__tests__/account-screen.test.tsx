@@ -3,9 +3,9 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import { DELETE_ACCOUNT_COPY } from "@thestats/app";
 
 import AccountScreen from "@/app/account";
+import { signOut } from "@/lib/auth";
 
-const mockRouter = { back: jest.fn(), push: jest.fn() };
-jest.mock("expo-router", () => ({ useRouter: () => mockRouter }));
+jest.mock("@/lib/auth", () => ({ signOut: jest.fn() }));
 jest.mock("@/lib/session", () => ({
   useSession: () => ({ session: { user: { email: "coach@example.com" } }, isLoading: false }),
 }));
@@ -17,6 +17,8 @@ jest.mock("@/components/account/DeleteAccountSheet", () => {
       visible ? createElement(Text, null, "delete sheet open") : null,
   };
 });
+
+const signOutMock = jest.mocked(signOut);
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -40,9 +42,20 @@ describe("<AccountScreen />", () => {
     expect(screen.getByText("delete sheet open")).toBeOnTheScreen();
   });
 
-  it("goes back to Home from the header", async () => {
+  it("signs out, as on web's account page", async () => {
+    signOutMock.mockResolvedValue();
     await render(<AccountScreen />);
-    await fireEvent.press(screen.getByRole("button", { name: "Back to Games" }));
-    expect(mockRouter.back).toHaveBeenCalled();
+
+    const button = screen.getByRole("button", { name: "Sign out" });
+    await fireEvent.press(button);
+
+    expect(signOutMock).toHaveBeenCalledTimes(1);
+    expect(button).toBeEnabled();
+  });
+
+  it("has the navigation sidebar's menu button in place of a back button", async () => {
+    await render(<AccountScreen />);
+    expect(screen.getByRole("button", { name: "Open navigation menu" })).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Back to Games" })).toBeNull();
   });
 });

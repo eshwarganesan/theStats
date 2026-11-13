@@ -277,9 +277,10 @@ describe("<GameScreen />", () => {
     expect(keepAwake).not.toHaveBeenCalled();
   });
 
-  it("goes back to the games list", async () => {
+  it("goes back to the games list, with no navigation sidebar", async () => {
     startLiveGame();
     await render(<GameScreen />);
+    expect(screen.queryByRole("button", { name: "Open navigation menu" })).toBeNull();
     await press("Back to Games");
     expect(mockRouter.back).toHaveBeenCalled();
 

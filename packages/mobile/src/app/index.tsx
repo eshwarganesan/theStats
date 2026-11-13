@@ -2,16 +2,16 @@ import type { LibraryEntry } from "@thestats/app";
 import type { GameStatus } from "@thestats/core";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GameLibrary } from "@/components/GameLibrary";
+import { ScreenHeader } from "@/components/ScreenHeader";
+import { ProfileButton } from "@/components/shell/ProfileButton";
 import { Button } from "@/components/ui/Button";
-import { signOut } from "@/lib/auth";
 import { confirm } from "@/lib/confirm";
 import { flushGameSync, hasUnsavedGameChanges, startNewGame } from "@/lib/gameSync";
 import { continueFromLibrary, deleteSavedGame } from "@/lib/libraryActions";
-import { useSession } from "@/lib/session";
 import { useGameStore } from "@/lib/store";
 import { useGameStats } from "@/lib/useGameStats";
 
@@ -29,9 +29,10 @@ const STATUS_LABELS: Record<GameStatus, string> = {
  * console, above the signed-in user's game library. Tapping a saved game
  * reviews it when it's final and carries on scoring it otherwise; the
  * library reloads whenever Home comes back into view, e.g. after a game.
+ * Its header has the navigation sidebar's menu button and the profile
+ * button, which opens Account in one tap (feature 018).
  */
 export default function HomeScreen() {
-  const { session } = useSession();
   const router = useRouter();
   const [opening, setOpening] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -59,19 +60,8 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface" edges={["top", "left", "right"]}>
-      <View className="flex-row items-center justify-end gap-4 px-6 pt-2">
-        <Text className="text-sm text-ink-muted" numberOfLines={1}>
-          {session?.user.email}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Account"
-          onPress={() => router.push("/account")}
-        >
-          <Text className="text-sm uppercase tracking-wider text-ink-dim">Account</Text>
-        </Pressable>
-        <SignOutButton />
-      </View>
+      {/* Overhangs the padding like the menu button, keeping the bar 56 pt tall. */}
+      <ScreenHeader right={<ProfileButton className="-my-1" />} />
       <GameLibrary
         header={<DeviceGame />}
         onOpen={open}
@@ -196,30 +186,5 @@ function TeamScore({
         {name}
       </Text>
     </View>
-  );
-}
-
-function SignOutButton() {
-  const [pending, setPending] = useState(false);
-
-  async function onPress() {
-    setPending(true);
-    try {
-      await signOut();
-    } finally {
-      setPending(false);
-    }
-  }
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Sign out"
-      disabled={pending}
-      onPress={onPress}
-      className="disabled:opacity-50"
-    >
-      <Text className="text-sm uppercase tracking-wider text-ink-dim">Sign out</Text>
-    </Pressable>
   );
 }

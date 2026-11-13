@@ -1,7 +1,7 @@
 import { createGameStore, type GameState, type LibraryEntry } from "@thestats/app";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { StoreApi } from "zustand";
 
@@ -34,7 +34,8 @@ const TABULAR = { fontVariant: ["tabular-nums" as const] };
 /**
  * A saved game from the library, read-only: its final score, box scores,
  * scoresheet and plays, like web's review page. The game is loaded into
- * its own store, so the game on this device is untouched.
+ * its own store, so the game on this device is untouched. As on web, the
+ * header opens the navigation sidebar and a link above the game goes back.
  */
 export default function ReviewScreen() {
   const router = useRouter();
@@ -79,7 +80,6 @@ export default function ReviewScreen() {
             ? `${load.entry.homeTeamName} vs ${load.entry.awayTeamName}`
             : "Game"
         }
-        onBack={back}
         right={
           <Button
             label="Delete"
@@ -110,6 +110,15 @@ export default function ReviewScreen() {
         <GameStoreProvider store={load.store}>
           <Tabs tabs={TABS} value={tab} onChange={setTab} />
           <ScrollView contentContainerClassName="w-full max-w-6xl gap-4 self-center p-4 pb-12 md:p-6">
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel="Back to your library"
+              onPress={back}
+              hitSlop={8}
+              className="self-start"
+            >
+              <Text className="text-xs text-ink-dim">‹ Back to your library</Text>
+            </Pressable>
             <FinalScore />
             {tab === "stats" ? (
               <>

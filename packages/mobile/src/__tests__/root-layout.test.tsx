@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react-native";
+import { render, screen, within } from "@testing-library/react-native";
 
 import RootLayout from "@/app/_layout";
 
@@ -17,6 +17,15 @@ jest.mock("@/lib/session", () => ({
   SessionProvider: ({ children }: { children: unknown }) => children,
   useSession: () => ({ session: mockSession, isLoading: false }),
 }));
+// The sidebar, as a box the screens render inside.
+jest.mock("@/components/shell/SidebarProvider", () => {
+  const { createElement } = jest.requireActual<typeof import("react")>("react");
+  const { View } = jest.requireActual<typeof import("react-native")>("react-native");
+  return {
+    SidebarProvider: ({ children }: { children?: import("react").ReactNode }) =>
+      createElement(View, { testID: "sidebar" }, children),
+  };
+});
 // A stand-in Stack that lists the screens it registers, and renders a
 // protected group only when its guard passes, like the real one.
 jest.mock("expo-router", () => {
@@ -52,5 +61,11 @@ describe("<RootLayout /> routes", () => {
     await render(<RootLayout />);
     expect(screen.queryByText("screen:account")).toBeNull();
     expect(screen.getByText("screen:sign-in")).toBeOnTheScreen();
+  });
+
+  it("puts the screens inside the navigation sidebar", async () => {
+    mockSession = { user: { id: "u1" } };
+    await render(<RootLayout />);
+    expect(within(screen.getByTestId("sidebar")).getByText("screen:index")).toBeOnTheScreen();
   });
 });
